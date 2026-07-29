@@ -1,0 +1,1486 @@
+// YAAS — Prisma schema
+// Prisma 7 + PostgreSQL (Supabase). The datasource URL lives in prisma.config.ts,
+// not here: Prisma 7 reads connection config from the config file / driver adapter.
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ---------------------------------------------------------------------------
+// Enums
+// ---------------------------------------------------------------------------
+
+enum MemberStatus {
+  PENDING
+  ACTIVE
+  DEACTIVATED
+}
+
+enum TeamRole {
+  LEAD
+  MEMBER
+}
+
+enum CalendarType {
+  PERSONAL
+  TEAM
+  ORGANIZATION
+  EXTERNAL
+}
+
+enum CalendarAccessLevel {
+  VIEW
+  COMMENT
+  EDIT
+  FULL_ACCESS
+}
+
+enum EventVisibility {
+  DEFAULT
+  PUBLIC
+  PRIVATE
+  CONFIDENTIAL
+}
+
+enum AttendeeStatus {
+  NEEDS_ACTION
+  ACCEPTED
+  DECLINED
+  TENTATIVE
+}
+
+enum TaskStatus {
+  BACKLOG
+  TODO
+  IN_PROGRESS
+  BLOCKED
+  IN_REVIEW
+  DONE
+  CANCELLED
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum RiskLevel {
+  NONE
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum TaskSource {
+  MANUAL
+  WHATSAPP
+  AI_PARSED
+  RECURRING
+  CALENDAR
+  EMAIL
+  IMPORT
+  API
+}
+
+enum TaskAssignmentRole {
+  OWNER
+  COLLABORATOR
+  REVIEWER
+}
+
+enum DependencyType {
+  BLOCKS
+  RELATES_TO
+}
+
+enum ReminderScheduleType {
+  MORNING_DIGEST
+  EVENING_REVIEW
+  WEEKLY_REVIEW
+  DEADLINE_SWEEP
+  CUSTOM
+}
+
+enum DeliveryChannel {
+  IN_APP
+  EMAIL
+  WHATSAPP
+  PUSH
+}
+
+enum DeliveryStatus {
+  PENDING
+  QUEUED
+  SENT
+  DELIVERED
+  READ
+  FAILED
+  CANCELLED
+}
+
+enum NotificationType {
+  TASK_ASSIGNED
+  TASK_DUE_SOON
+  TASK_OVERDUE
+  TASK_COMPLETED
+  TASK_COMMENT
+  TASK_MENTION
+  TASK_BLOCKED
+  EVENT_INVITE
+  EVENT_REMINDER
+  EVENT_UPDATED
+  MEMBER_JOIN_REQUEST
+  MEMBER_APPROVED
+  AI_SUGGESTION
+  DIGEST
+  SYSTEM
+}
+
+enum MessageDirection {
+  INBOUND
+  OUTBOUND
+}
+
+enum WebhookStatus {
+  RECEIVED
+  PROCESSING
+  PROCESSED
+  FAILED
+  IGNORED
+}
+
+enum AIParseStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  APPLIED
+  REJECTED
+}
+
+enum LLMRole {
+  SYSTEM
+  USER
+  ASSISTANT
+  TOOL
+}
+
+enum AISuggestionType {
+  TASK_PRIORITY
+  TASK_BREAKDOWN
+  SCHEDULE_SLOT
+  ROADBLOCK_RESOLUTION
+  WORKLOAD_REBALANCE
+  DEADLINE_ADJUSTMENT
+}
+
+enum AISuggestionStatus {
+  PENDING
+  ACCEPTED
+  DISMISSED
+  EXPIRED
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  RESTORE
+  LOGIN
+  LOGOUT
+  INVITE
+  APPROVE
+  REJECT
+  PERMISSION_CHANGE
+  EXPORT
+}
+
+// ---------------------------------------------------------------------------
+// Auth.js
+// ---------------------------------------------------------------------------
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime? @map("email_verified")
+  image         String?
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  accounts Account[]
+  sessions Session[]
+  profile  Profile?
+  settings UserSettings?
+
+  ownedOrganizations  Organization[]       @relation("OrganizationOwner")
+  organizationMembers OrganizationMember[] @relation("OrganizationMemberUser")
+  approvedMemberships OrganizationMember[] @relation("OrganizationMemberApprover")
+  teamMemberships     TeamMember[]
+
+  calendars              Calendar[]
+  createdEvents          CalendarEvent[] @relation("CalendarEventCreator")
+  eventAttendances       EventAttendee[]
+  calendarSharesReceived CalendarShare[] @relation("CalendarShareUser")
+  calendarSharesGranted  CalendarShare[] @relation("CalendarShareGrantedBy")
+
+  createdTasks        Task[]                @relation("TaskCreator")
+  taskAssignments     TaskAssignment[]      @relation("TaskAssignmentUser")
+  taskAssignmentsMade TaskAssignment[]      @relation("TaskAssignmentAssigner")
+  taskComments        TaskComment[]
+  attachments         Attachment[]
+  statusChanges       TaskStatusHistory[]
+  priorityChanges     TaskPriorityHistory[]
+  createdLabels       Label[]
+
+  recurringTasks    RecurringTask[]    @relation("RecurringTaskOwner")
+  recurringAssigned RecurringTask[]    @relation("RecurringTaskAssignee")
+  reminders         Reminder[]
+  reminderSchedules ReminderSchedule[]
+
+  notifications    Notification[]
+  whatsappMessages WhatsAppMessage[]
+
+  aiParsedTasks    AIParsedTask[]
+  llmConversations LLMConversation[]
+  aiSuggestions    AISuggestion[]
+
+  productivitySnapshots ProductivitySnapshot[]
+  activityLogs          ActivityLog[]
+  auditLogs             AuditLog[]
+
+  @@index([email])
+  @@index([createdAt])
+  @@map("users")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String  @map("user_id")
+  type              String
+  provider          String
+  providerAccountId String  @map("provider_account_id")
+  refresh_token     String? @map("refresh_token")
+  access_token      String? @map("access_token")
+  expires_at        Int?    @map("expires_at")
+  token_type        String? @map("token_type")
+  scope             String?
+  id_token          String? @map("id_token")
+  session_state     String? @map("session_state")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique @map("session_token")
+  userId       String   @map("user_id")
+  expires      DateTime
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expires])
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@index([expires])
+  @@map("verification_tokens")
+}
+
+// ---------------------------------------------------------------------------
+// Profile & settings
+// ---------------------------------------------------------------------------
+
+model Profile {
+  id          String  @id @default(cuid())
+  userId      String  @unique @map("user_id")
+  displayName String? @map("display_name")
+  avatarUrl   String? @map("avatar_url")
+  bio         String?
+  jobTitle    String? @map("job_title")
+
+  whatsappNumber     String?   @unique @map("whatsapp_number")
+  whatsappVerified   Boolean   @default(false) @map("whatsapp_verified")
+  whatsappVerifiedAt DateTime? @map("whatsapp_verified_at")
+  whatsappOptIn      Boolean   @default(false) @map("whatsapp_opt_in")
+
+  timezone          String @default("UTC")
+  locale            String @default("en")
+  workingHoursStart Int    @default(9) @map("working_hours_start")
+  workingHoursEnd   Int    @default(17) @map("working_hours_end")
+  workingDays       Int[]  @default([1, 2, 3, 4, 5]) @map("working_days")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([whatsappNumber])
+  @@map("profiles")
+}
+
+model UserSettings {
+  id     String @id @default(cuid())
+  userId String @unique @map("user_id")
+
+  theme                 String  @default("system")
+  emailNotifications    Boolean @default(true) @map("email_notifications")
+  whatsappNotifications Boolean @default(false) @map("whatsapp_notifications")
+  pushNotifications     Boolean @default(true) @map("push_notifications")
+  inAppNotifications    Boolean @default(true) @map("in_app_notifications")
+
+  aiSuggestionsEnabled Boolean @default(true) @map("ai_suggestions_enabled")
+  autoPrioritize       Boolean @default(true) @map("auto_prioritize")
+  digestEnabled        Boolean @default(true) @map("digest_enabled")
+
+  defaultCalendarId     String? @map("default_calendar_id")
+  defaultOrganizationId String? @map("default_organization_id")
+  defaultTaskView       String  @default("list") @map("default_task_view")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_settings")
+}
+
+// ---------------------------------------------------------------------------
+// Organizations, roles & permissions
+// ---------------------------------------------------------------------------
+
+model Organization {
+  id          String  @id @default(cuid())
+  name        String
+  slug        String  @unique
+  description String?
+  logoUrl     String? @map("logo_url")
+  ownerId     String  @map("owner_id")
+  plan        String  @default("free")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  owner User @relation("OrganizationOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+
+  members  OrganizationMember[]
+  roles    Role[]
+  teams    Team[]
+  settings OrganizationSettings?
+
+  calendars      Calendar[]
+  calendarEvents CalendarEvent[]
+  eventAttendees EventAttendee[]
+  calendarShares CalendarShare[]
+
+  tasks               Task[]
+  taskAssignments     TaskAssignment[]
+  taskDependencies    TaskDependency[]
+  labels              Label[]
+  taskLabels          TaskLabel[]
+  taskComments        TaskComment[]
+  attachments         Attachment[]
+  taskStatusHistory   TaskStatusHistory[]
+  taskPriorityHistory TaskPriorityHistory[]
+
+  recurringTasks    RecurringTask[]
+  reminders         Reminder[]
+  reminderSchedules ReminderSchedule[]
+
+  notifications          Notification[]
+  notificationDeliveries NotificationDelivery[]
+  whatsappMessages       WhatsAppMessage[]
+  webhookEvents          WebhookEvent[]
+
+  aiParsedTasks    AIParsedTask[]
+  llmConversations LLMConversation[]
+  llmMessages      LLMMessage[]
+  aiSuggestions    AISuggestion[]
+
+  productivitySnapshots ProductivitySnapshot[]
+  activityLogs          ActivityLog[]
+  auditLogs             AuditLog[]
+
+  @@index([ownerId])
+  @@index([slug])
+  @@index([deletedAt])
+  @@map("organizations")
+}
+
+model OrganizationMember {
+  id             String       @id @default(cuid())
+  organizationId String       @map("organization_id")
+  userId         String       @map("user_id")
+  roleId         String       @map("role_id")
+  status         MemberStatus @default(PENDING)
+
+  title         String?
+  invitedAt     DateTime? @map("invited_at")
+  joinedAt      DateTime? @map("joined_at")
+  approvedById  String?   @map("approved_by_id")
+  approvedAt    DateTime? @map("approved_at")
+  deactivatedAt DateTime? @map("deactivated_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation("OrganizationMemberUser", fields: [userId], references: [id], onDelete: Cascade)
+  role         Role         @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  approvedBy   User?        @relation("OrganizationMemberApprover", fields: [approvedById], references: [id], onDelete: SetNull)
+
+  @@unique([organizationId, userId])
+  @@index([organizationId])
+  @@index([userId])
+  @@index([roleId])
+  @@index([approvedById])
+  @@index([organizationId, status])
+  @@map("organization_members")
+}
+
+model Role {
+  id             String  @id @default(cuid())
+  key            String
+  name           String
+  description    String?
+  isSystem       Boolean @default(false) @map("is_system")
+  organizationId String? @map("organization_id")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  organization   Organization?          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  permissions    RolePermission[]
+  members        OrganizationMember[]
+  defaultForOrgs OrganizationSettings[] @relation("OrganizationSettingsDefaultRole")
+
+  @@unique([organizationId, key])
+  @@index([organizationId])
+  @@index([key])
+  @@index([isSystem])
+  @@map("roles")
+}
+
+model Permission {
+  id          String  @id @default(cuid())
+  key         String  @unique
+  resource    String
+  action      String
+  description String?
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  roles RolePermission[]
+
+  @@unique([resource, action])
+  @@index([resource])
+  @@map("permissions")
+}
+
+model RolePermission {
+  id           String @id @default(cuid())
+  roleId       String @map("role_id")
+  permissionId String @map("permission_id")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permissionId])
+  @@index([roleId])
+  @@index([permissionId])
+  @@map("role_permissions")
+}
+
+// ---------------------------------------------------------------------------
+// Teams & organization settings
+// ---------------------------------------------------------------------------
+
+model Team {
+  id             String  @id @default(cuid())
+  organizationId String  @map("organization_id")
+  name           String
+  slug           String
+  description    String?
+  color          String?
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  members      TeamMember[]
+  calendars    Calendar[]
+  tasks        Task[]
+
+  @@unique([organizationId, slug])
+  @@index([organizationId])
+  @@index([deletedAt])
+  @@map("teams")
+}
+
+model TeamMember {
+  id             String   @id @default(cuid())
+  teamId         String   @map("team_id")
+  userId         String   @map("user_id")
+  organizationId String   @map("organization_id")
+  role           TeamRole @default(MEMBER)
+
+  joinedAt  DateTime @default(now()) @map("joined_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, userId])
+  @@index([teamId])
+  @@index([userId])
+  @@index([organizationId])
+  @@index([teamId, role])
+  @@map("team_members")
+}
+
+model OrganizationSettings {
+  id             String @id @default(cuid())
+  organizationId String @unique @map("organization_id")
+
+  defaultTimezone   String @default("UTC") @map("default_timezone")
+  defaultLocale     String @default("en") @map("default_locale")
+  weekStartsOn      Int    @default(1) @map("week_starts_on")
+  workingDays       Int[]  @default([1, 2, 3, 4, 5]) @map("working_days")
+  workingHoursStart Int    @default(9) @map("working_hours_start")
+  workingHoursEnd   Int    @default(17) @map("working_hours_end")
+
+  allowSelfSignup Boolean  @default(false) @map("allow_self_signup")
+  requireApproval Boolean  @default(true) @map("require_approval")
+  allowedDomains  String[] @default([]) @map("allowed_domains")
+  defaultRoleId   String?  @map("default_role_id")
+
+  aiEnabled       Boolean @default(true) @map("ai_enabled")
+  whatsappEnabled Boolean @default(false) @map("whatsapp_enabled")
+  brandColor      String? @map("brand_color")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  defaultRole  Role?        @relation("OrganizationSettingsDefaultRole", fields: [defaultRoleId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
+  @@index([defaultRoleId])
+  @@map("organization_settings")
+}
+
+// ---------------------------------------------------------------------------
+// Calendars & events
+// ---------------------------------------------------------------------------
+
+model Calendar {
+  id             String       @id @default(cuid())
+  organizationId String       @map("organization_id")
+  ownerId        String       @map("owner_id")
+  teamId         String?      @map("team_id")
+  name           String
+  description    String?
+  color          String?
+  type           CalendarType @default(PERSONAL)
+  timezone       String       @default("UTC")
+  isDefault      Boolean      @default(false) @map("is_default")
+  isVisible      Boolean      @default(true) @map("is_visible")
+
+  provider   String? // google, microsoft, ics, ...
+  externalId String?   @map("external_id")
+  syncedAt   DateTime? @map("synced_at")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  organization Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  owner        User            @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  team         Team?           @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  events       CalendarEvent[]
+  shares       CalendarShare[]
+
+  @@index([organizationId])
+  @@index([ownerId])
+  @@index([teamId])
+  @@index([organizationId, type])
+  @@index([provider, externalId])
+  @@index([deletedAt])
+  @@map("calendars")
+}
+
+model CalendarEvent {
+  id             String  @id @default(cuid())
+  organizationId String  @map("organization_id")
+  calendarId     String  @map("calendar_id")
+  createdById    String  @map("created_by_id")
+  title          String
+  description    String?
+  location       String?
+  meetingUrl     String? @map("meeting_url")
+
+  startAt  DateTime @map("start_at")
+  endAt    DateTime @map("end_at")
+  timezone String   @default("UTC")
+  allDay   Boolean  @default(false) @map("all_day")
+
+  rrule                 String?
+  recurrenceParentId    String?    @map("recurrence_parent_id")
+  recurrenceExdates     DateTime[] @default([]) @map("recurrence_exdates")
+  originalStartAt       DateTime?  @map("original_start_at")
+  isRecurrenceException Boolean    @default(false) @map("is_recurrence_exception")
+
+  visibility EventVisibility @default(DEFAULT)
+  status     String          @default("CONFIRMED")
+  busy       Boolean         @default(true)
+
+  taskId String? @map("task_id")
+
+  provider   String?
+  externalId String? @map("external_id")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  organization     Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  calendar         Calendar        @relation(fields: [calendarId], references: [id], onDelete: Cascade)
+  createdBy        User            @relation("CalendarEventCreator", fields: [createdById], references: [id], onDelete: Cascade)
+  recurrenceParent CalendarEvent?  @relation("EventRecurrence", fields: [recurrenceParentId], references: [id], onDelete: Cascade)
+  recurrences      CalendarEvent[] @relation("EventRecurrence")
+  task             Task?           @relation(fields: [taskId], references: [id], onDelete: SetNull)
+
+  attendees     EventAttendee[]
+  reminders     Reminder[]
+  notifications Notification[]
+
+  @@index([organizationId])
+  @@index([calendarId])
+  @@index([createdById])
+  @@index([recurrenceParentId])
+  @@index([taskId])
+  @@index([startAt])
+  @@index([calendarId, startAt, endAt])
+  @@index([organizationId, startAt])
+  @@index([provider, externalId])
+  @@index([deletedAt])
+  @@map("calendar_events")
+}
+
+model EventAttendee {
+  id             String         @id @default(cuid())
+  organizationId String         @map("organization_id")
+  eventId        String         @map("event_id")
+  userId         String?        @map("user_id")
+  email          String?
+  name           String?
+  status         AttendeeStatus @default(NEEDS_ACTION)
+  isOptional     Boolean        @default(false) @map("is_optional")
+  isOrganizer    Boolean        @default(false) @map("is_organizer")
+  respondedAt    DateTime?      @map("responded_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  organization Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  event        CalendarEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user         User?         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, userId])
+  @@unique([eventId, email])
+  @@index([organizationId])
+  @@index([eventId])
+  @@index([userId])
+  @@index([userId, status])
+  @@map("event_attendees")
+}
+
+model CalendarShare {
+  id             String              @id @default(cuid())
+  organizationId String              @map("organization_id")
+  calendarId     String              @map("calendar_id")
+  userId         String              @map("user_id")
+  accessLevel    CalendarAccessLevel @default(VIEW) @map("access_level")
+  grantedById    String?             @map("granted_by_id")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  calendar     Calendar     @relation(fields: [calendarId], references: [id], onDelete: Cascade)
+  user         User         @relation("CalendarShareUser", fields: [userId], references: [id], onDelete: Cascade)
+  grantedBy    User?        @relation("CalendarShareGrantedBy", fields: [grantedById], references: [id], onDelete: SetNull)
+
+  @@unique([calendarId, userId])
+  @@index([organizationId])
+  @@index([calendarId])
+  @@index([userId])
+  @@index([grantedById])
+  @@map("calendar_shares")
+}
+
+// ---------------------------------------------------------------------------
+// Tasks
+// ---------------------------------------------------------------------------
+
+model Task {
+  id             String  @id @default(cuid())
+  organizationId String  @map("organization_id")
+  createdById    String  @map("created_by_id")
+  teamId         String? @map("team_id")
+  parentTaskId   String? @map("parent_task_id")
+
+  title       String
+  description String?
+
+  status   TaskStatus   @default(TODO)
+  priority TaskPriority @default(MEDIUM)
+
+  priorityScore  Float     @default(0) @map("priority_score")
+  priorityPinned Boolean   @default(false) @map("priority_pinned")
+  riskLevel      RiskLevel @default(NONE) @map("risk_level")
+  roadblock      String?
+  roadblockAt    DateTime? @map("roadblock_at")
+
+  position Float @default(0)
+
+  startAt          DateTime? @map("start_at")
+  dueAt            DateTime? @map("due_at")
+  completedAt      DateTime? @map("completed_at")
+  estimatedMinutes Int?      @map("estimated_minutes")
+  actualMinutes    Int?      @map("actual_minutes")
+
+  source          TaskSource @default(MANUAL)
+  aiParsedTaskId  String?    @map("ai_parsed_task_id")
+  recurringTaskId String?    @map("recurring_task_id")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  organization  Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdBy     User           @relation("TaskCreator", fields: [createdById], references: [id], onDelete: Cascade)
+  team          Team?          @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  parentTask    Task?          @relation("TaskSubtasks", fields: [parentTaskId], references: [id], onDelete: Cascade)
+  subtasks      Task[]         @relation("TaskSubtasks")
+  aiParsedTask  AIParsedTask?  @relation(fields: [aiParsedTaskId], references: [id], onDelete: SetNull)
+  recurringTask RecurringTask? @relation(fields: [recurringTaskId], references: [id], onDelete: SetNull)
+
+  assignments     TaskAssignment[]
+  dependencies    TaskDependency[]      @relation("TaskDependencyFrom")
+  dependents      TaskDependency[]      @relation("TaskDependencyTo")
+  labels          TaskLabel[]
+  comments        TaskComment[]
+  attachments     Attachment[]
+  statusHistory   TaskStatusHistory[]
+  priorityHistory TaskPriorityHistory[]
+  events          CalendarEvent[]
+  reminders       Reminder[]
+  notifications   Notification[]
+  aiSuggestions   AISuggestion[]
+
+  @@index([organizationId])
+  @@index([createdById])
+  @@index([teamId])
+  @@index([parentTaskId])
+  @@index([aiParsedTaskId])
+  @@index([recurringTaskId])
+  @@index([organizationId, status])
+  @@index([organizationId, dueAt])
+  @@index([organizationId, status, priorityScore(sort: Desc)])
+  @@index([organizationId, position])
+  @@index([dueAt])
+  @@index([deletedAt])
+  @@map("tasks")
+}
+
+model TaskAssignment {
+  id             String             @id @default(cuid())
+  organizationId String             @map("organization_id")
+  taskId         String             @map("task_id")
+  userId         String             @map("user_id")
+  role           TaskAssignmentRole @default(OWNER)
+  assignedById   String?            @map("assigned_by_id")
+  assignedAt     DateTime           @default(now()) @map("assigned_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  task         Task         @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user         User         @relation("TaskAssignmentUser", fields: [userId], references: [id], onDelete: Cascade)
+  assignedBy   User?        @relation("TaskAssignmentAssigner", fields: [assignedById], references: [id], onDelete: SetNull)
+
+  @@unique([taskId, userId, role])
+  @@index([organizationId])
+  @@index([taskId])
+  @@index([userId])
+  @@index([assignedById])
+  @@index([userId, role])
+  @@map("task_assignments")
+}
+
+model TaskDependency {
+  id              String         @id @default(cuid())
+  organizationId  String         @map("organization_id")
+  taskId          String         @map("task_id")
+  dependsOnTaskId String         @map("depends_on_task_id")
+  type            DependencyType @default(BLOCKS)
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  task         Task         @relation("TaskDependencyFrom", fields: [taskId], references: [id], onDelete: Cascade)
+  dependsOn    Task         @relation("TaskDependencyTo", fields: [dependsOnTaskId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, dependsOnTaskId, type])
+  @@index([organizationId])
+  @@index([taskId])
+  @@index([dependsOnTaskId])
+  @@map("task_dependencies")
+}
+
+model Label {
+  id             String  @id @default(cuid())
+  organizationId String  @map("organization_id")
+  name           String
+  color          String  @default("#94a3b8")
+  description    String?
+  createdById    String? @map("created_by_id")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdBy    User?        @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  tasks        TaskLabel[]
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
+  @@index([createdById])
+  @@map("labels")
+}
+
+model TaskLabel {
+  id             String @id @default(cuid())
+  organizationId String @map("organization_id")
+  taskId         String @map("task_id")
+  labelId        String @map("label_id")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  task         Task         @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  label        Label        @relation(fields: [labelId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, labelId])
+  @@index([organizationId])
+  @@index([taskId])
+  @@index([labelId])
+  @@map("task_labels")
+}
+
+model TaskComment {
+  id             String  @id @default(cuid())
+  organizationId String  @map("organization_id")
+  taskId         String  @map("task_id")
+  authorId       String  @map("author_id")
+  parentId       String? @map("parent_id")
+  body           String
+  isEdited       Boolean @default(false) @map("is_edited")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  organization Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  task         Task          @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  author       User          @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  parent       TaskComment?  @relation("CommentThread", fields: [parentId], references: [id], onDelete: Cascade)
+  replies      TaskComment[] @relation("CommentThread")
+  attachments  Attachment[]
+
+  @@index([organizationId])
+  @@index([taskId])
+  @@index([authorId])
+  @@index([parentId])
+  @@index([taskId, createdAt])
+  @@index([deletedAt])
+  @@map("task_comments")
+}
+
+model Attachment {
+  id             String  @id @default(cuid())
+  organizationId String  @map("organization_id")
+  taskId         String? @map("task_id")
+  commentId      String? @map("comment_id")
+  uploadedById   String? @map("uploaded_by_id")
+
+  fileName   String  @map("file_name")
+  mimeType   String  @map("mime_type")
+  sizeBytes  Int     @map("size_bytes")
+  storageKey String  @map("storage_key")
+  url        String?
+  checksum   String?
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  task         Task?        @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  comment      TaskComment? @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  uploadedBy   User?        @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
+  @@index([taskId])
+  @@index([commentId])
+  @@index([uploadedById])
+  @@index([deletedAt])
+  @@map("attachments")
+}
+
+model TaskStatusHistory {
+  id              String      @id @default(cuid())
+  organizationId  String      @map("organization_id")
+  taskId          String      @map("task_id")
+  fromStatus      TaskStatus? @map("from_status")
+  toStatus        TaskStatus  @map("to_status")
+  changedById     String?     @map("changed_by_id")
+  reason          String?
+  durationSeconds Int?        @map("duration_seconds")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  task         Task         @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  changedBy    User?        @relation(fields: [changedById], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
+  @@index([taskId])
+  @@index([changedById])
+  @@index([taskId, createdAt])
+  @@map("task_status_history")
+}
+
+model TaskPriorityHistory {
+  id             String        @id @default(cuid())
+  organizationId String        @map("organization_id")
+  taskId         String        @map("task_id")
+  fromScore      Float?        @map("from_score")
+  toScore        Float         @map("to_score")
+  fromPriority   TaskPriority? @map("from_priority")
+  toPriority     TaskPriority? @map("to_priority")
+  changedById    String?       @map("changed_by_id")
+  changedByAI    Boolean       @default(false) @map("changed_by_ai")
+  reason         String?
+  model          String?
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  task         Task         @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  changedBy    User?        @relation(fields: [changedById], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
+  @@index([taskId])
+  @@index([changedById])
+  @@index([taskId, createdAt])
+  @@index([changedByAI])
+  @@map("task_priority_history")
+}
+
+// ---------------------------------------------------------------------------
+// Recurrence & reminders
+// ---------------------------------------------------------------------------
+
+model RecurringTask {
+  id             String  @id @default(cuid())
+  organizationId String  @map("organization_id")
+  ownerId        String  @map("owner_id")
+  assigneeId     String? @map("assignee_id")
+
+  title       String
+  description String?
+  rrule       String
+  timezone    String  @default("UTC")
+
+  template Json?
+
+  startsAt  DateTime  @map("starts_at")
+  endsAt    DateTime? @map("ends_at")
+  nextRunAt DateTime? @map("next_run_at")
+  lastRunAt DateTime? @map("last_run_at")
+  runCount  Int       @default(0) @map("run_count")
+  isActive  Boolean   @default(true) @map("is_active")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  owner        User         @relation("RecurringTaskOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  assignee     User?        @relation("RecurringTaskAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  tasks        Task[]
+
+  @@index([organizationId])
+  @@index([ownerId])
+  @@index([assigneeId])
+  @@index([nextRunAt])
+  @@index([isActive, nextRunAt])
+  @@index([deletedAt])
+  @@map("recurring_tasks")
+}
+
+model Reminder {
+  id             String  @id @default(cuid())
+  organizationId String  @map("organization_id")
+  userId         String  @map("user_id")
+  taskId         String? @map("task_id")
+  eventId        String? @map("event_id")
+  scheduleId     String? @map("schedule_id")
+
+  remindAt DateTime        @map("remind_at")
+  channel  DeliveryChannel @default(IN_APP)
+  message  String?
+  status   DeliveryStatus  @default(PENDING)
+  sentAt   DateTime?       @map("sent_at")
+  failedAt DateTime?       @map("failed_at")
+  error    String?
+  attempts Int             @default(0)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  organization Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  task         Task?             @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  event        CalendarEvent?    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  schedule     ReminderSchedule? @relation(fields: [scheduleId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
+  @@index([userId])
+  @@index([taskId])
+  @@index([eventId])
+  @@index([scheduleId])
+  @@index([status, remindAt])
+  @@index([userId, remindAt])
+  @@map("reminders")
+}
+
+model ReminderSchedule {
+  id             String               @id @default(cuid())
+  organizationId String               @map("organization_id")
+  userId         String               @map("user_id")
+  type           ReminderScheduleType
+  channel        DeliveryChannel      @default(IN_APP)
+
+  timeOfDay  String  @map("time_of_day") // "HH:mm" in the user's timezone
+  timezone   String  @default("UTC")
+  daysOfWeek Int[]   @default([1, 2, 3, 4, 5]) @map("days_of_week")
+  isActive   Boolean @default(true) @map("is_active")
+
+  nextSendAt DateTime? @map("next_send_at")
+  lastSentAt DateTime? @map("last_sent_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reminders    Reminder[]
+
+  @@unique([userId, type, timeOfDay, channel])
+  @@index([organizationId])
+  @@index([userId])
+  @@index([nextSendAt])
+  @@index([isActive, nextSendAt])
+  @@map("reminder_schedules")
+}
+
+// ---------------------------------------------------------------------------
+// Notifications & messaging
+// ---------------------------------------------------------------------------
+
+model Notification {
+  id             String           @id @default(cuid())
+  organizationId String           @map("organization_id")
+  userId         String           @map("user_id")
+  type           NotificationType
+  title          String
+  body           String?
+  data           Json?
+
+  taskId  String? @map("task_id")
+  eventId String? @map("event_id")
+
+  readAt     DateTime? @map("read_at")
+  archivedAt DateTime? @map("archived_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  organization Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  task         Task?          @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  event        CalendarEvent? @relation(fields: [eventId], references: [id], onDelete: SetNull)
+
+  deliveries NotificationDelivery[]
+
+  @@index([organizationId])
+  @@index([userId])
+  @@index([taskId])
+  @@index([eventId])
+  @@index([userId, readAt])
+  @@index([userId, createdAt])
+  @@map("notifications")
+}
+
+model NotificationDelivery {
+  id             String          @id @default(cuid())
+  organizationId String          @map("organization_id")
+  notificationId String          @map("notification_id")
+  channel        DeliveryChannel
+  status         DeliveryStatus  @default(PENDING)
+
+  providerMessageId String?   @map("provider_message_id")
+  attempts          Int       @default(0)
+  sentAt            DateTime? @map("sent_at")
+  deliveredAt       DateTime? @map("delivered_at")
+  readAt            DateTime? @map("read_at")
+  failedAt          DateTime? @map("failed_at")
+  error             String?
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  notification Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+
+  @@unique([notificationId, channel])
+  @@index([organizationId])
+  @@index([notificationId])
+  @@index([status, createdAt])
+  @@index([providerMessageId])
+  @@map("notification_deliveries")
+}
+
+model WhatsAppMessage {
+  id             String  @id @default(cuid())
+  organizationId String? @map("organization_id")
+  userId         String? @map("user_id")
+
+  waMessageId String           @unique @map("wa_message_id")
+  direction   MessageDirection
+  status      DeliveryStatus   @default(PENDING)
+
+  fromNumber String  @map("from_number")
+  toNumber   String  @map("to_number")
+  body       String?
+  mediaUrl   String? @map("media_url")
+  mediaType  String? @map("media_type")
+
+  templateName   String? @map("template_name")
+  conversationId String? @map("conversation_id")
+  errorCode      String? @map("error_code")
+  errorMessage   String? @map("error_message")
+
+  sentAt      DateTime? @map("sent_at")
+  deliveredAt DateTime? @map("delivered_at")
+  readAt      DateTime? @map("read_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  parsedTasks AIParsedTask[]
+
+  @@index([organizationId])
+  @@index([userId])
+  @@index([waMessageId])
+  @@index([fromNumber])
+  @@index([toNumber])
+  @@index([direction, status])
+  @@index([createdAt])
+  @@map("whatsapp_messages")
+}
+
+model WebhookEvent {
+  id             String  @id @default(cuid())
+  organizationId String? @map("organization_id")
+  provider       String
+  externalId     String  @map("external_id")
+  eventType      String? @map("event_type")
+
+  payload   Json
+  headers   Json?
+  signature String?
+
+  status      WebhookStatus @default(RECEIVED)
+  attempts    Int           @default(0)
+  processedAt DateTime?     @map("processed_at")
+  error       String?
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+
+  @@unique([provider, externalId])
+  @@index([organizationId])
+  @@index([provider, status])
+  @@index([createdAt])
+  @@map("webhook_events")
+}
+
+// ---------------------------------------------------------------------------
+// AI
+// ---------------------------------------------------------------------------
+
+model AIParsedTask {
+  id             String @id @default(cuid())
+  organizationId String @map("organization_id")
+  userId         String @map("user_id")
+
+  rawInput      String        @map("raw_input")
+  parsedOutput  Json?         @map("parsed_output")
+  model         String
+  promptVersion String        @map("prompt_version")
+  confidence    Float?
+  status        AIParseStatus @default(PENDING)
+
+  promptTokens     Int? @map("prompt_tokens")
+  completionTokens Int? @map("completion_tokens")
+  totalTokens      Int? @map("total_tokens")
+  latencyMs        Int? @map("latency_ms")
+
+  sourceMessageId String?   @map("source_message_id")
+  error           String?
+  appliedAt       DateTime? @map("applied_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  organization  Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user          User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sourceMessage WhatsAppMessage? @relation(fields: [sourceMessageId], references: [id], onDelete: SetNull)
+  tasks         Task[]
+
+  @@index([organizationId])
+  @@index([userId])
+  @@index([sourceMessageId])
+  @@index([status])
+  @@index([organizationId, createdAt])
+  @@index([model, promptVersion])
+  @@map("ai_parsed_tasks")
+}
+
+model LLMConversation {
+  id             String @id @default(cuid())
+  organizationId String @map("organization_id")
+  userId         String @map("user_id")
+
+  title   String?
+  purpose String?
+  model   String
+
+  totalTokens Int     @default(0) @map("total_tokens")
+  totalCost   Float?  @map("total_cost")
+  isArchived  Boolean @default(false) @map("is_archived")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages     LLMMessage[]
+
+  @@index([organizationId])
+  @@index([userId])
+  @@index([userId, updatedAt])
+  @@map("llm_conversations")
+}
+
+model LLMMessage {
+  id             String @id @default(cuid())
+  organizationId String @map("organization_id")
+  conversationId String @map("conversation_id")
+
+  role      LLMRole
+  content   String
+  toolCalls Json?   @map("tool_calls")
+  toolName  String? @map("tool_name")
+
+  promptTokens     Int?    @map("prompt_tokens")
+  completionTokens Int?    @map("completion_tokens")
+  latencyMs        Int?    @map("latency_ms")
+  finishReason     String? @map("finish_reason")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  organization Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  conversation LLMConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([conversationId])
+  @@index([conversationId, createdAt])
+  @@map("llm_messages")
+}
+
+model AISuggestion {
+  id             String  @id @default(cuid())
+  organizationId String  @map("organization_id")
+  userId         String  @map("user_id")
+  taskId         String? @map("task_id")
+
+  type       AISuggestionType
+  payload    Json
+  reason     String?
+  confidence Float?
+  model      String?
+
+  status      AISuggestionStatus @default(PENDING)
+  expiresAt   DateTime?          @map("expires_at")
+  acceptedAt  DateTime?          @map("accepted_at")
+  dismissedAt DateTime?          @map("dismissed_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  task         Task?        @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([userId])
+  @@index([taskId])
+  @@index([userId, status])
+  @@index([expiresAt])
+  @@index([type, status])
+  @@map("ai_suggestions")
+}
+
+// ---------------------------------------------------------------------------
+// Analytics & audit
+// ---------------------------------------------------------------------------
+
+model ProductivitySnapshot {
+  id             String   @id @default(cuid())
+  organizationId String   @map("organization_id")
+  userId         String   @map("user_id")
+  date           DateTime @db.Date
+
+  tasksCreated   Int   @default(0) @map("tasks_created")
+  tasksCompleted Int   @default(0) @map("tasks_completed")
+  tasksOverdue   Int   @default(0) @map("tasks_overdue")
+  tasksBlocked   Int   @default(0) @map("tasks_blocked")
+  completionRate Float @default(0) @map("completion_rate")
+
+  focusMinutes     Int    @default(0) @map("focus_minutes")
+  meetingMinutes   Int    @default(0) @map("meeting_minutes")
+  avgPriorityScore Float? @map("avg_priority_score")
+  onTimeRate       Float? @map("on_time_rate")
+
+  breakdown Json?
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, date])
+  @@index([organizationId])
+  @@index([userId])
+  @@index([organizationId, date])
+  @@index([date])
+  @@map("productivity_snapshots")
+}
+
+model ActivityLog {
+  id             String  @id @default(cuid())
+  organizationId String  @map("organization_id")
+  userId         String? @map("user_id")
+
+  action     String
+  entityType String  @map("entity_type")
+  entityId   String? @map("entity_id")
+  metadata   Json?
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
+  @@index([userId])
+  @@index([entityType, entityId])
+  @@index([organizationId, createdAt])
+  @@map("activity_logs")
+}
+
+model AuditLog {
+  id String @id @default(cuid())
+
+  // Nullable + SetNull everywhere: audit rows must outlive the actors and
+  // tenants they describe.
+  organizationId String? @map("organization_id")
+  actorId        String? @map("actor_id")
+
+  actorEmail String?     @map("actor_email")
+  action     AuditAction
+  entityType String      @map("entity_type")
+  entityId   String?     @map("entity_id")
+
+  before Json?
+  after  Json?
+
+  ipAddress String? @map("ip_address")
+  userAgent String? @map("user_agent")
+  requestId String? @map("request_id")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  actor        User?         @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
+  @@index([actorId])
+  @@index([entityType, entityId])
+  @@index([organizationId, createdAt])
+  @@index([action])
+  @@map("audit_logs")
+}

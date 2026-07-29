@@ -1,6 +1,8 @@
-import { Button } from "@/components/ui/button";
+import { prisma } from "@/lib/prisma";
 
-export default function Home() {
+export default async function Home() {
+  const userCount = await prisma.user.count();
+
   return (
     <main className="aurora flex min-h-screen items-center justify-center px-6">
       <div className="glass flex flex-col items-center gap-5 rounded-2xl px-10 py-12 text-center">
@@ -11,10 +13,8 @@ export default function Home() {
           YAAS
         </h1>
         <p className="max-w-sm text-sm text-muted-foreground">
-          Design system online — tokens, glass, aurora, and typography all
-          wired up.
+          Connected to Supabase — {userCount} users in the database.
         </p>
-        <Button size="lg">Primary button</Button>
       </div>
     </main>
   );
