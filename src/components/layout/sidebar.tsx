@@ -5,6 +5,7 @@ import {
   Calendar,
   Users,
   Settings,
+  Sparkles,
 } from "lucide-react";
 import { NavLink } from "./nav-link";
 
@@ -39,6 +40,9 @@ export function Sidebar({
         </NavLink>
         <NavLink href="/calendar" label="Calendar">
           <Calendar size={16} />
+        </NavLink>
+        <NavLink href="/assistant" label="Assistant">
+          <Sparkles size={16} />
         </NavLink>
 
         {canApprove && (

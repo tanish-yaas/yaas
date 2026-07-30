@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentContext } from "@/server/auth/session";
 import { buildTaskScope } from "@/server/services/tasks";
 import { TaskComposer } from "@/components/tasks/task-composer";
+import { SmartComposer } from "@/components/tasks/smart-composer";
 import { TaskRow, type TaskRowData } from "@/components/tasks/task-row";
 
 function Section({
@@ -44,7 +45,11 @@ export default async function TasksPage() {
   const [tasks, memberRows] = await Promise.all([
     prisma.task.findMany({
       where: scope,
-      orderBy: [{ status: "asc" }, { priorityScore: "desc" }, { createdAt: "desc" }],
+      orderBy: [
+        { status: "asc" },
+        { priorityScore: "desc" },
+        { createdAt: "desc" },
+      ],
       take: 200,
       include: {
         assignments: {
@@ -76,6 +81,8 @@ export default async function TasksPage() {
   const endOfToday = new Date();
   endOfToday.setHours(23, 59, 59, 999);
 
+  const dueMap = new Map(tasks.map((t) => [t.id, t.dueAt]));
+
   const rows: TaskRowData[] = tasks.map((t) => ({
     id: t.id,
     title: t.title,
@@ -83,23 +90,22 @@ export default async function TasksPage() {
     priority: t.priority,
     dueAt: t.dueAt ? fmt.format(t.dueAt) : null,
     overdue: !!t.dueAt && t.dueAt < now,
-    assignees: t.assignments
-      .map((a) => a.user.name ?? "")
-      .filter(Boolean),
+    assignees: t.assignments.map((a) => a.user.name ?? "").filter(Boolean),
   }));
 
-  const open = rows.filter((r) => r.status !== "DONE" && r.status !== "CANCELLED");
+  const open = rows.filter(
+    (r) => r.status !== "DONE" && r.status !== "CANCELLED"
+  );
   const done = rows.filter((r) => r.status === "DONE");
 
   const overdue = open.filter((r) => r.overdue);
-  const today = open.filter(
-    (r) =>
-      !r.overdue &&
-      tasks.find((t) => t.id === r.id)?.dueAt !== null &&
-      (tasks.find((t) => t.id === r.id)?.dueAt as Date) <= endOfToday
-  );
+  const today = open.filter((r) => {
+    if (r.overdue) return false;
+    const due = dueMap.get(r.id);
+    return !!due && due <= endOfToday;
+  });
   const later = open.filter(
-    (r) => !overdue.includes(r) && !today.includes(r) && r.dueAt !== null
+    (r) => !r.overdue && r.dueAt !== null && !today.includes(r)
   );
   const undated = open.filter((r) => r.dueAt === null);
 
@@ -114,14 +120,28 @@ export default async function TasksPage() {
         </p>
       </header>
 
-      <TaskComposer members={members} currentUserId={userId} />
+      {ctx.permissions.has("ai.use") ? (
+        <div className="flex flex-col gap-3">
+          <SmartComposer members={members} currentUserId={userId} />
+          <details>
+            <summary className="cursor-pointer text-xs text-muted-foreground transition-colors hover:text-foreground">
+              Add manually instead
+            </summary>
+            <div className="mt-2">
+              <TaskComposer members={members} currentUserId={userId} />
+            </div>
+          </details>
+        </div>
+      ) : (
+        <TaskComposer members={members} currentUserId={userId} />
+      )}
 
       {rows.length === 0 && (
         <div className="glass mt-6 flex flex-col items-center gap-2 rounded-xl py-14 text-center">
           <p className="text-sm text-muted-foreground">Nothing here yet</p>
           <p className="max-w-xs text-xs text-muted-foreground/70">
-            Add your first task above. Natural language capture arrives in the
-            AI milestone.
+            Describe a task above in plain language and YAAS will structure it
+            for you.
           </p>
         </div>
       )}
