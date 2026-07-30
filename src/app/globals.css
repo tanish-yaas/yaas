@@ -163,3 +163,11 @@
   }
 }
 
+html,
+body {
+  height: 100%;
+}
+
+body {
+  overscroll-behavior: none;
+}
