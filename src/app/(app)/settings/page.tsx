@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { getCurrentContext } from "@/server/auth/session";
 import { WhatsAppLink } from "@/components/settings/whatsapp-link";
+import { ProfileSettings } from "@/components/settings/profile-settings";
 import {
   ReminderSettings,
   type ScheduleRow,
@@ -37,11 +38,18 @@ export default async function SettingsPage() {
           Settings
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          {ctx.profile.displayName} · {ctx.profile.timezone}
+          {ctx.profile.displayName}
         </p>
       </header>
 
       <div className="flex flex-col gap-4">
+        <ProfileSettings
+          timezone={ctx.profile.timezone}
+          workingHoursStart={ctx.profile.workingHoursStart}
+          workingHoursEnd={ctx.profile.workingHoursEnd}
+          workingDays={ctx.profile.workingDays}
+        />
+
         {ctx.permissions.has("whatsapp.link") && (
           <WhatsAppLink
             linkedNumber={whatsappReady ? ctx.profile.whatsappNumber : null}
