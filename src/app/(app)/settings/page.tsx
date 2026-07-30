@@ -1,5 +1,10 @@
+import { prisma } from "@/lib/prisma";
 import { getCurrentContext } from "@/server/auth/session";
 import { WhatsAppLink } from "@/components/settings/whatsapp-link";
+import {
+  ReminderSettings,
+  type ScheduleRow,
+} from "@/components/settings/reminder-settings";
 
 export default async function SettingsPage() {
   const ctx = await getCurrentContext();
@@ -7,6 +12,23 @@ export default async function SettingsPage() {
 
   const businessNumber =
     process.env.WHATSAPP_DISPLAY_NUMBER ?? "your test number in Meta";
+
+  const schedules = await prisma.reminderSchedule.findMany({
+    where: { userId: ctx.session.user.id },
+    orderBy: { type: "asc" },
+  });
+
+  const rows: ScheduleRow[] = schedules.map((s) => ({
+    id: s.id,
+    type: s.type,
+    timeOfDay: s.timeOfDay,
+    channel: s.channel,
+    isActive: s.isActive,
+    nextSendAt: s.nextSendAt?.toISOString() ?? null,
+  }));
+
+  const whatsappReady =
+    ctx.profile.whatsappVerified && !!ctx.profile.whatsappNumber;
 
   return (
     <div className="mx-auto w-full max-w-2xl">
@@ -22,12 +44,12 @@ export default async function SettingsPage() {
       <div className="flex flex-col gap-4">
         {ctx.permissions.has("whatsapp.link") && (
           <WhatsAppLink
-            linkedNumber={
-              ctx.profile.whatsappVerified ? ctx.profile.whatsappNumber : null
-            }
+            linkedNumber={whatsappReady ? ctx.profile.whatsappNumber : null}
             businessNumber={businessNumber}
           />
         )}
+
+        <ReminderSettings schedules={rows} whatsappReady={whatsappReady} />
       </div>
     </div>
   );
