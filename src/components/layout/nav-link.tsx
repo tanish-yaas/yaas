@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { motion } from "framer-motion";
 
 export function NavLink({
   href,
@@ -18,20 +19,32 @@ export function NavLink({
   return (
     <Link
       href={href}
-      className={`group flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors ${
-        active
-          ? "bg-brand-violet/15 text-foreground"
-          : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground"
-      }`}
+      prefetch
+      className="group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors"
     >
+      {active && (
+        <motion.span
+          layoutId="nav-active"
+          transition={{ type: "spring", stiffness: 400, damping: 32 }}
+          className="absolute inset-0 rounded-lg bg-brand-violet/15"
+        />
+      )}
       <span
-        className={`transition-colors ${
-          active ? "text-brand-violet" : "text-muted-foreground group-hover:text-foreground"
+        className={`relative z-10 transition-colors ${
+          active
+            ? "text-brand-violet"
+            : "text-muted-foreground group-hover:text-foreground"
         }`}
       >
         {children}
       </span>
-      {label}
+      <span
+        className={`relative z-10 transition-colors ${
+          active ? "text-foreground" : "text-muted-foreground group-hover:text-foreground"
+        }`}
+      >
+        {label}
+      </span>
     </Link>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { Check, Trash2, Circle } from "lucide-react";
 import { setTaskStatus, deleteTask } from "@/server/actions/tasks";
 
@@ -23,6 +23,7 @@ export type TaskRowData = {
 
 export function TaskRow({ task }: { task: TaskRowData }) {
   const [pending, startTransition] = useTransition();
+  const [confirming, setConfirming] = useState(false);
   const done = task.status === "DONE";
 
   function toggle() {
@@ -32,7 +33,11 @@ export function TaskRow({ task }: { task: TaskRowData }) {
   }
 
   function remove() {
-    if (!confirm(`Delete "${task.title}"?`)) return;
+    if (!confirming) {
+      setConfirming(true);
+      setTimeout(() => setConfirming(false), 3000);
+      return;
+    }
     startTransition(async () => {
       await deleteTask(task.id);
     });
@@ -94,9 +99,13 @@ export function TaskRow({ task }: { task: TaskRowData }) {
         type="button"
         onClick={remove}
         disabled={pending}
-        className="shrink-0 rounded p-1 text-muted-foreground opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100"
+        className={`shrink-0 rounded px-1.5 py-1 text-[10px] transition-all ${
+          confirming
+            ? "bg-destructive/15 text-destructive opacity-100"
+            : "text-muted-foreground opacity-0 group-hover:opacity-100"
+        }`}
       >
-        <Trash2 size={14} />
+        {confirming ? "Sure?" : <Trash2 size={14} />}
       </button>
     </div>
   );
