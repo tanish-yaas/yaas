@@ -19,7 +19,7 @@ export function Sidebar({
   pendingCount: number;
 }) {
   return (
-    <aside className="hidden w-60 shrink-0 flex-col border-r border-border/60 bg-sidebar/60 px-3 py-5 backdrop-blur-xl md:flex">
+    <aside className="hidden w-60 shrink-0 flex-col overflow-y-auto border-r border-border/60 bg-sidebar/60 px-3 py-5 backdrop-blur-xl md:flex">
       <Link href="/" className="mb-7 flex items-center gap-2 px-3">
         <span className="text-gradient font-display text-xl font-semibold tracking-tight">
           YAAS
