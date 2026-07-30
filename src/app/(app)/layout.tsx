@@ -27,7 +27,7 @@ export default async function AppLayout({
     : 0;
 
   return (
-    <div className="aurora flex h-screen overflow-hidden">
+    <div className="flex h-screen overflow-hidden bg-background">
       <Sidebar
         orgName={ctx.membership.organization.name}
         canApprove={canApprove}
