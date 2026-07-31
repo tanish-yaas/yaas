@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { getCurrentContext } from "@/server/auth/session";
 import { completeOnboarding } from "@/server/actions/onboarding";
-import { TIMEZONES, TIMEZONE_REGIONS, offsetLabel } from "@/lib/timezones";
+import { APP_CONFIG } from "@/config/app";
 
 const DAYS = [
   { value: 1, label: "Mon" },
@@ -29,192 +29,179 @@ export default async function OnboardingPage({
   if (ctx.membership.status === "DEACTIVATED") redirect("/login");
   if (ctx.profile) redirect("/");
 
+  const localTime = new Intl.DateTimeFormat("en-GB", {
+    timeZone: APP_CONFIG.timezone,
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date());
+
   return (
-    <main className="aurora flex min-h-screen items-center justify-center px-6 py-16">
-      <div className="glass w-full max-w-lg rounded-2xl px-8 py-10">
-        <div className="mb-8 text-center">
-          <h1 className="text-gradient font-display text-3xl font-semibold tracking-tight">
-            Set up your workspace
-          </h1>
-          <p className="mt-2 text-sm text-muted-foreground">
-            This shapes your calendar, reminders, and how YAAS schedules work
-            around you.
-          </p>
-        </div>
+    <>
+      <div className="aurora-bg" aria-hidden />
 
-        {error && (
-          <div className="mb-6 rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-            {error}
-          </div>
-        )}
-
-        <form action={completeOnboarding} className="flex flex-col gap-5">
-          <div className="flex flex-col gap-1.5">
-            <label
-              htmlFor="displayName"
-              className="text-xs font-medium text-muted-foreground"
-            >
-              Display name
-            </label>
-            <input
-              id="displayName"
-              name="displayName"
-              defaultValue={ctx.session.user.name ?? ""}
-              required
-              className={inputClass}
-            />
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <label
-              htmlFor="jobTitle"
-              className="text-xs font-medium text-muted-foreground"
-            >
-              Job title <span className="opacity-60">(optional)</span>
-            </label>
-            <input
-              id="jobTitle"
-              name="jobTitle"
-              placeholder="Product Designer"
-              className={inputClass}
-            />
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <label
-              htmlFor="whatsappNumber"
-              className="text-xs font-medium text-muted-foreground"
-            >
-              WhatsApp number <span className="opacity-60">(optional)</span>
-            </label>
-            <input
-              id="whatsappNumber"
-              name="whatsappNumber"
-              placeholder="+919876543210"
-              className={inputClass}
-            />
-            <p className="text-xs text-muted-foreground/70">
-              International format with country code. You can link this later in
-              Settings instead.
+      <main className="relative z-10 flex min-h-screen items-center justify-center px-6 py-16">
+        <div className="glass w-full max-w-lg rounded-2xl px-8 py-10">
+          <div className="mb-8 text-center">
+            <h1 className="text-gradient font-display text-3xl font-semibold tracking-tight">
+              Set up your workspace
+            </h1>
+            <p className="mt-2 text-sm text-muted-foreground">
+              This shapes your calendar, reminders, and how YAAS schedules work
+              around you.
             </p>
           </div>
 
-          <label className="flex items-start gap-3 rounded-lg border border-border bg-secondary/40 px-3 py-3">
-            <input
-              type="checkbox"
-              name="whatsappOptIn"
-              className="mt-0.5 h-4 w-4 accent-[#7C5CFF]"
-            />
-            <span className="text-xs leading-relaxed text-muted-foreground">
-              Send me briefings and reminders on WhatsApp. You can turn this off
-              any time in settings.
-            </span>
-          </label>
+          {error && (
+            <div className="mb-6 rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+              {error}
+            </div>
+          )}
 
-          <div className="flex flex-col gap-1.5">
-            <label
-              htmlFor="timezone"
-              className="text-xs font-medium text-muted-foreground"
-            >
-              Timezone
+          <form action={completeOnboarding} className="flex flex-col gap-5">
+            <div className="flex flex-col gap-1.5">
+              <label
+                htmlFor="displayName"
+                className="text-xs font-medium text-muted-foreground"
+              >
+                Display name
+              </label>
+              <input
+                id="displayName"
+                name="displayName"
+                defaultValue={ctx.session.user.name ?? ""}
+                required
+                className={inputClass}
+              />
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label
+                htmlFor="jobTitle"
+                className="text-xs font-medium text-muted-foreground"
+              >
+                Job title <span className="opacity-60">(optional)</span>
+              </label>
+              <input
+                id="jobTitle"
+                name="jobTitle"
+                placeholder="Product Designer"
+                className={inputClass}
+              />
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label
+                htmlFor="whatsappNumber"
+                className="text-xs font-medium text-muted-foreground"
+              >
+                WhatsApp number <span className="opacity-60">(optional)</span>
+              </label>
+              <input
+                id="whatsappNumber"
+                name="whatsappNumber"
+                placeholder="+919876543210"
+                className={inputClass}
+              />
+              <p className="text-xs text-muted-foreground/70">
+                International format with country code. You can link this later
+                in Settings instead.
+              </p>
+            </div>
+
+            <label className="flex items-start gap-3 rounded-lg border border-border bg-secondary/40 px-3 py-3">
+              <input
+                type="checkbox"
+                name="whatsappOptIn"
+                className="mt-0.5 h-4 w-4 accent-[#7C5CFF]"
+              />
+              <span className="text-xs leading-relaxed text-muted-foreground">
+                Send me briefings and reminders on WhatsApp. You can turn this
+                off any time in settings.
+              </span>
             </label>
-            <select
-              id="timezone"
-              name="timezone"
-              defaultValue="Asia/Kolkata"
-              className={inputClass}
-            >
-              {TIMEZONE_REGIONS.map((region) => {
-                const options = TIMEZONES.filter((t) => t.region === region);
-                if (options.length === 0) return null;
-                return (
-                  <optgroup key={region} label={region}>
-                    {options.map((t) => (
-                      <option key={t.value} value={t.value}>
-                        {t.label} · {offsetLabel(t.value)}
-                      </option>
-                    ))}
-                  </optgroup>
-                );
-              })}
-            </select>
-          </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="flex flex-col gap-1.5">
-              <label
-                htmlFor="workingHoursStart"
-                className="text-xs font-medium text-muted-foreground"
-              >
-                Day starts
-              </label>
-              <select
-                id="workingHoursStart"
-                name="workingHoursStart"
-                defaultValue={9}
-                className={inputClass}
-              >
-                {Array.from({ length: 24 }, (_, i) => (
-                  <option key={i} value={i}>
-                    {String(i).padStart(2, "0")}:00
-                  </option>
-                ))}
-              </select>
+            <input type="hidden" name="timezone" value={APP_CONFIG.timezone} />
+
+            <div className="rounded-lg border border-border/60 px-3 py-2.5 text-xs text-muted-foreground">
+              Workspace runs on India Standard Time · currently {localTime}
             </div>
 
-            <div className="flex flex-col gap-1.5">
-              <label
-                htmlFor="workingHoursEnd"
-                className="text-xs font-medium text-muted-foreground"
-              >
-                Day ends
-              </label>
-              <select
-                id="workingHoursEnd"
-                name="workingHoursEnd"
-                defaultValue={18}
-                className={inputClass}
-              >
-                {Array.from({ length: 24 }, (_, i) => i + 1).map((i) => (
-                  <option key={i} value={i}>
-                    {String(i).padStart(2, "0")}:00
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <span className="text-xs font-medium text-muted-foreground">
-              Working days
-            </span>
-            <div className="flex flex-wrap gap-2">
-              {DAYS.map((day) => (
+            <div className="grid grid-cols-2 gap-4">
+              <div className="flex flex-col gap-1.5">
                 <label
-                  key={day.value}
-                  className="flex cursor-pointer items-center gap-2 rounded-lg border border-border bg-secondary/40 px-3 py-2 text-xs"
+                  htmlFor="workingHoursStart"
+                  className="text-xs font-medium text-muted-foreground"
                 >
-                  <input
-                    type="checkbox"
-                    name="workingDays"
-                    value={day.value}
-                    defaultChecked={day.value >= 1 && day.value <= 5}
-                    className="h-3.5 w-3.5 accent-[#7C5CFF]"
-                  />
-                  {day.label}
+                  Day starts
                 </label>
-              ))}
-            </div>
-          </div>
+                <select
+                  id="workingHoursStart"
+                  name="workingHoursStart"
+                  defaultValue={9}
+                  className={inputClass}
+                >
+                  {Array.from({ length: 24 }, (_, i) => (
+                    <option key={i} value={i}>
+                      {String(i).padStart(2, "0")}:00
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-          <button
-            type="submit"
-            className="mt-2 inline-flex h-11 items-center justify-center rounded-lg bg-primary text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
-          >
-            Finish setup
-          </button>
-        </form>
-      </div>
-    </main>
+              <div className="flex flex-col gap-1.5">
+                <label
+                  htmlFor="workingHoursEnd"
+                  className="text-xs font-medium text-muted-foreground"
+                >
+                  Day ends
+                </label>
+                <select
+                  id="workingHoursEnd"
+                  name="workingHoursEnd"
+                  defaultValue={18}
+                  className={inputClass}
+                >
+                  {Array.from({ length: 24 }, (_, i) => i + 1).map((i) => (
+                    <option key={i} value={i}>
+                      {String(i).padStart(2, "0")}:00
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <span className="text-xs font-medium text-muted-foreground">
+                Working days
+              </span>
+              <div className="flex flex-wrap gap-2">
+                {DAYS.map((day) => (
+                  <label
+                    key={day.value}
+                    className="flex cursor-pointer items-center gap-2 rounded-lg border border-border bg-secondary/40 px-3 py-2 text-xs transition-colors hover:border-brand-violet/40"
+                  >
+                    <input
+                      type="checkbox"
+                      name="workingDays"
+                      value={day.value}
+                      defaultChecked={day.value >= 1 && day.value <= 5}
+                      className="h-3.5 w-3.5 accent-[#7C5CFF]"
+                    />
+                    {day.label}
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              className="mt-2 inline-flex h-11 items-center justify-center rounded-lg bg-primary text-sm font-medium text-primary-foreground transition-all hover:opacity-90 active:scale-[0.98]"
+            >
+              Finish setup
+            </button>
+          </form>
+        </div>
+      </main>
+    </>
   );
 }
