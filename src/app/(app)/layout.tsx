@@ -35,7 +35,7 @@ export default async function AppLayout({
   ]);
 
   return (
-    <div className="aurora flex h-screen overflow-hidden">
+    <div className="aurora fixed inset-0 flex overflow-hidden">
       <Sidebar
         orgName={ctx.membership.organization.name}
         canApprove={canApprove}
@@ -49,8 +49,10 @@ export default async function AppLayout({
           unreadCount={unreadCount}
           notifications={notifications}
         />
-        <main className="min-h-0 min-w-0 flex-1 overflow-y-auto px-4 py-6 md:px-8 md:py-8">
-          {children}
+        <main className="min-h-0 min-w-0 flex-1 overflow-y-auto">
+          <div className="flex min-h-full flex-col px-4 py-6 md:px-8 md:py-8">
+            {children}
+          </div>
         </main>
       </div>
     </div>
