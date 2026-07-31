@@ -5,6 +5,8 @@ import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/server/rbac/guard";
 import { createEventSchema } from "@/lib/validators/event";
 import { getWritableCalendar, canMutateEvent } from "@/server/services/calendar";
+import { fromLocalInput } from "@/lib/dates";
+import { APP_CONFIG } from "@/config/app";
 
 export async function createEvent(formData: FormData) {
   const ctx = await requirePermission("calendar.edit_own");
@@ -26,6 +28,17 @@ export async function createEvent(formData: FormData) {
   }
 
   const d = parsed.data;
+
+  const startAt = fromLocalInput(d.startAt);
+  const endAt = fromLocalInput(d.endAt);
+
+  if (!startAt || !endAt) {
+    return { error: "Pick a valid start and end time" };
+  }
+  if (endAt <= startAt) {
+    return { error: "End time must be after the start time" };
+  }
+
   const calendar = await getWritableCalendar(orgId, userId);
 
   let taskId: string | null = null;
@@ -45,10 +58,10 @@ export async function createEvent(formData: FormData) {
       title: d.title,
       description: d.description || null,
       location: d.location || null,
-      startAt: new Date(d.startAt),
-      endAt: new Date(d.endAt),
+      startAt,
+      endAt,
       allDay: d.allDay,
-      timezone: ctx.profile?.timezone ?? "UTC",
+      timezone: APP_CONFIG.timezone,
       taskId,
     },
   });
@@ -85,7 +98,7 @@ export async function deleteEvent(eventId: string) {
   return { ok: true };
 }
 
-export async function moveEvent(eventId: string, newStartISO: string) {
+export async function moveEvent(eventId: string, newStartLocal: string) {
   const ctx = await requirePermission("calendar.edit_own");
   const orgId = ctx.membership!.organizationId;
   const userId = ctx.session.user.id;
@@ -93,8 +106,10 @@ export async function moveEvent(eventId: string, newStartISO: string) {
   const event = await canMutateEvent(eventId, orgId, userId, ctx.permissions);
   if (!event) return { error: "Not allowed" };
 
+  const newStart = fromLocalInput(newStartLocal);
+  if (!newStart) return { error: "Invalid time" };
+
   const durationMs = event.endAt.getTime() - event.startAt.getTime();
-  const newStart = new Date(newStartISO);
 
   await prisma.calendarEvent.update({
     where: { id: eventId },

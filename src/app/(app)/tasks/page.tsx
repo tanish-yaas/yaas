@@ -1,29 +1,10 @@
 import { prisma } from "@/lib/prisma";
 import { getCurrentContext } from "@/server/auth/session";
 import { buildTaskScope } from "@/server/services/tasks";
-import { APP_CONFIG } from "@/config/app";
+import { toLocalInput, formatIST } from "@/lib/dates";
 import { TaskComposer } from "@/components/tasks/task-composer";
 import { SmartComposer } from "@/components/tasks/smart-composer";
 import { TaskRow, type TaskRowData } from "@/components/tasks/task-row";
-
-const TZ = APP_CONFIG.timezone;
-
-/** Format a Date as the YYYY-MM-DDTHH:mm a datetime-local input expects, in IST. */
-function toInputValue(date: Date | null): string {
-  if (!date) return "";
-  const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: TZ,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  }).formatToParts(date);
-
-  const get = (t: string) => parts.find((p) => p.type === t)?.value ?? "00";
-  return `${get("year")}-${get("month")}-${get("day")}T${get("hour")}:${get("minute")}`;
-}
 
 function Section({
   title,
@@ -86,14 +67,6 @@ export default async function TasksPage() {
     name: m.user.name ?? m.user.email ?? "Member",
   }));
 
-  const fmt = new Intl.DateTimeFormat("en-GB", {
-    day: "numeric",
-    month: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-    timeZone: TZ,
-  });
-
   const now = new Date();
   const endOfToday = new Date();
   endOfToday.setHours(23, 59, 59, 999);
@@ -106,8 +79,8 @@ export default async function TasksPage() {
     description: t.description ?? "",
     status: t.status,
     priority: t.priority,
-    dueAtInput: toInputValue(t.dueAt),
-    dueAtLabel: t.dueAt ? fmt.format(t.dueAt) : null,
+    dueAtInput: toLocalInput(t.dueAt),
+    dueAtLabel: formatIST(t.dueAt),
     estimatedMinutes: t.estimatedMinutes ? String(t.estimatedMinutes) : "",
     overdue: !!t.dueAt && t.dueAt < now,
     assignees: t.assignments.map((a) => a.user.name ?? "").filter(Boolean),

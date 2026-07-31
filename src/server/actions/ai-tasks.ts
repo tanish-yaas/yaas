@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/server/rbac/guard";
 import { parseTaskInput } from "@/server/services/ai-parser";
 import { computePriorityScore } from "@/server/services/tasks";
+import { fromLocalInput } from "@/lib/dates";
 import type { ParsedTask } from "@/lib/ai/schemas";
 
 export async function parseTask(rawInput: string) {
@@ -14,7 +15,6 @@ export async function parseTask(rawInput: string) {
     rawInput,
     orgId: ctx.membership!.organizationId,
     userId: ctx.session.user.id,
-    timezone: ctx.profile?.timezone ?? "UTC",
   });
 }
 
@@ -42,10 +42,13 @@ export async function applyParsedTask(
   });
   if (!record) return { error: "That draft expired" };
 
-  const dueAt = edited.dueAt ? new Date(edited.dueAt) : null;
-  const estimate = edited.estimatedMinutes
+  const dueAt = fromLocalInput(edited.dueAt);
+
+  const estimateRaw = edited.estimatedMinutes
     ? Number(edited.estimatedMinutes)
     : null;
+  const estimate =
+    estimateRaw !== null && Number.isFinite(estimateRaw) ? estimateRaw : null;
 
   const validMembers = await prisma.organizationMember.findMany({
     where: {
@@ -71,7 +74,7 @@ export async function applyParsedTask(
         priority: edited.priority as "LOW" | "MEDIUM" | "HIGH" | "URGENT",
         priorityScore: computePriorityScore(edited.priority, dueAt),
         dueAt,
-        estimatedMinutes: Number.isFinite(estimate) ? estimate : null,
+        estimatedMinutes: estimate,
         status: "TODO",
         source: "AI_PARSED",
         aiParsedTaskId: record.id,
@@ -140,6 +143,7 @@ export async function applyParsedTask(
 
   revalidatePath("/tasks");
   revalidatePath("/");
+  revalidatePath("/calendar");
   return { ok: true };
 }
 

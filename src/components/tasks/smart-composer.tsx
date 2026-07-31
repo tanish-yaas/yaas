@@ -2,21 +2,18 @@
 
 import { useState, useTransition } from "react";
 import { Sparkles, X, HelpCircle } from "lucide-react";
-import { parseTask, applyParsedTask, discardParsedTask } from "@/server/actions/ai-tasks";
+import {
+  parseTask,
+  applyParsedTask,
+  discardParsedTask,
+} from "@/server/actions/ai-tasks";
+import { toLocalInput } from "@/lib/dates";
 import type { ParsedTask } from "@/lib/ai/schemas";
 
 type Member = { userId: string; name: string };
 
 const field =
   "w-full rounded-lg border border-border bg-secondary/50 px-3 py-2 text-sm outline-none transition-colors placeholder:text-muted-foreground focus:border-brand-violet";
-
-function toLocalInput(iso: string | null) {
-  if (!iso) return "";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "";
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
 
 export function SmartComposer({
   members,
@@ -26,7 +23,9 @@ export function SmartComposer({
   currentUserId: string;
 }) {
   const [input, setInput] = useState("");
-  const [draft, setDraft] = useState<{ parsed: ParsedTask; id: string } | null>(null);
+  const [draft, setDraft] = useState<{ parsed: ParsedTask; id: string } | null>(
+    null
+  );
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -55,7 +54,7 @@ export function SmartComposer({
       setTitle(p.title);
       setDescription(p.description ?? "");
       setPriority(p.priority);
-      setDueAt(toLocalInput(p.dueAt));
+      setDueAt(p.dueAt ? toLocalInput(new Date(p.dueAt)) : "");
       setEstimate(p.estimatedMinutes ? String(p.estimatedMinutes) : "");
       setSubtasks(p.subtasks);
 
@@ -119,7 +118,7 @@ export function SmartComposer({
               if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) handleParse();
             }}
             rows={2}
-            placeholder="Review the Q3 deck with Priya before Thursday standup, about an hour"
+            placeholder="Call Aman today at 1pm about the Q3 deck"
             className="flex-1 resize-none bg-transparent py-2 text-sm outline-none placeholder:text-muted-foreground"
           />
           <button
@@ -171,12 +170,20 @@ export function SmartComposer({
 
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="sm:col-span-2">
-          <label className="mb-1.5 block text-xs text-muted-foreground">Title</label>
-          <input value={title} onChange={(e) => setTitle(e.target.value)} className={field} />
+          <label className="mb-1.5 block text-xs text-muted-foreground">
+            Title
+          </label>
+          <input
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            className={field}
+          />
         </div>
 
         <div className="sm:col-span-2">
-          <label className="mb-1.5 block text-xs text-muted-foreground">Description</label>
+          <label className="mb-1.5 block text-xs text-muted-foreground">
+            Description
+          </label>
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
@@ -186,8 +193,14 @@ export function SmartComposer({
         </div>
 
         <div>
-          <label className="mb-1.5 block text-xs text-muted-foreground">Priority</label>
-          <select value={priority} onChange={(e) => setPriority(e.target.value)} className={field}>
+          <label className="mb-1.5 block text-xs text-muted-foreground">
+            Priority
+          </label>
+          <select
+            value={priority}
+            onChange={(e) => setPriority(e.target.value)}
+            className={field}
+          >
             <option value="LOW">Low</option>
             <option value="MEDIUM">Medium</option>
             <option value="HIGH">High</option>
@@ -196,7 +209,9 @@ export function SmartComposer({
         </div>
 
         <div>
-          <label className="mb-1.5 block text-xs text-muted-foreground">Due</label>
+          <label className="mb-1.5 block text-xs text-muted-foreground">
+            Due
+          </label>
           <input
             type="datetime-local"
             value={dueAt}
@@ -218,10 +233,15 @@ export function SmartComposer({
         </div>
 
         <div>
-          <label className="mb-1.5 block text-xs text-muted-foreground">Assign to</label>
+          <label className="mb-1.5 block text-xs text-muted-foreground">
+            Assign to
+          </label>
           <div className="flex max-h-20 flex-col gap-1 overflow-y-auto rounded-lg border border-border bg-secondary/30 px-2 py-2">
             {members.map((m) => (
-              <label key={m.userId} className="flex cursor-pointer items-center gap-2 text-xs">
+              <label
+                key={m.userId}
+                className="flex cursor-pointer items-center gap-2 text-xs"
+              >
                 <input
                   type="checkbox"
                   checked={assignees.includes(m.userId)}
@@ -259,7 +279,9 @@ export function SmartComposer({
                   />
                   <button
                     type="button"
-                    onClick={() => setSubtasks((prev) => prev.filter((_, idx) => idx !== i))}
+                    onClick={() =>
+                      setSubtasks((prev) => prev.filter((_, idx) => idx !== i))
+                    }
                     className="shrink-0 rounded p-1 text-muted-foreground hover:text-destructive"
                   >
                     <X size={13} />
