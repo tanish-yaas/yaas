@@ -1,8 +1,10 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Check, Trash2, Circle, Pencil, X } from "lucide-react";
+import { motion } from "framer-motion";
+import { Check, Trash2, Circle, Pencil } from "lucide-react";
 import { setTaskStatus, deleteTask, updateTask } from "@/server/actions/tasks";
+import { useToast } from "@/components/ui/toast";
 
 const PRIORITY_STYLE: Record<string, string> = {
   URGENT: "bg-[#FF4D6D]/15 text-[#FF4D6D]",
@@ -41,6 +43,7 @@ export function TaskRow({ task }: { task: TaskRowData }) {
   const [confirming, setConfirming] = useState(false);
   const [editing, setEditing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { push } = useToast();
 
   const [title, setTitle] = useState(task.title);
   const [description, setDescription] = useState(task.description);
@@ -54,6 +57,7 @@ export function TaskRow({ task }: { task: TaskRowData }) {
   function toggle() {
     startTransition(async () => {
       await setTaskStatus(task.id, done ? "TODO" : "DONE");
+      push(done ? "Reopened" : "Done");
     });
   }
 
@@ -65,6 +69,7 @@ export function TaskRow({ task }: { task: TaskRowData }) {
     }
     startTransition(async () => {
       await deleteTask(task.id);
+      push("Task deleted");
     });
   }
 
@@ -81,9 +86,11 @@ export function TaskRow({ task }: { task: TaskRowData }) {
       });
       if (!result.ok) {
         setError(result.error);
+        push(result.error, "error");
         return;
       }
       setEditing(false);
+      push("Saved");
     });
   }
 
@@ -100,7 +107,12 @@ export function TaskRow({ task }: { task: TaskRowData }) {
 
   if (editing) {
     return (
-      <div className="rounded-lg border border-brand-violet/30 bg-brand-violet/5 px-3 py-3">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.99 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+        className="rounded-lg border border-brand-violet/30 bg-brand-violet/5 px-3 py-3"
+      >
         <div className="flex flex-col gap-2.5">
           <input
             value={title}
@@ -163,25 +175,27 @@ export function TaskRow({ task }: { task: TaskRowData }) {
               type="button"
               onClick={save}
               disabled={pending}
-              className="rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
+              className="rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-all hover:opacity-90 active:scale-[0.97] disabled:opacity-50"
             >
               {pending ? "Saving…" : "Save"}
             </button>
             <button
               type="button"
               onClick={cancel}
-              className="text-xs text-muted-foreground underline underline-offset-4 hover:text-foreground"
+              className="text-xs text-muted-foreground underline underline-offset-4 transition-colors hover:text-foreground"
             >
               Cancel
             </button>
           </div>
         </div>
-      </div>
+      </motion.div>
     );
   }
 
   return (
-    <div
+    <motion.div
+      layout
+      transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
       className={`group flex items-center gap-3 rounded-lg px-3 py-2.5 transition-colors hover:bg-secondary/40 ${
         pending ? "opacity-50" : ""
       }`}
@@ -190,10 +204,10 @@ export function TaskRow({ task }: { task: TaskRowData }) {
         type="button"
         onClick={toggle}
         disabled={pending}
-        className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition-colors ${
+        className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition-all active:scale-90 ${
           done
             ? "border-brand-violet bg-brand-violet text-white"
-            : "border-border text-transparent hover:border-brand-violet"
+            : "border-border text-transparent hover:border-brand-violet hover:bg-brand-violet/10"
         }`}
       >
         {done ? <Check size={12} /> : <Circle size={6} />}
@@ -205,7 +219,7 @@ export function TaskRow({ task }: { task: TaskRowData }) {
         className="min-w-0 flex-1 text-left"
       >
         <p
-          className={`truncate text-sm ${
+          className={`truncate text-sm transition-colors ${
             done ? "text-muted-foreground line-through" : ""
           }`}
         >
@@ -220,7 +234,7 @@ export function TaskRow({ task }: { task: TaskRowData }) {
 
       {task.dueAtLabel && (
         <span
-          className={`shrink-0 text-[11px] ${
+          className={`shrink-0 text-[11px] tabular-nums ${
             task.overdue && !done ? "text-[#FF4D6D]" : "text-muted-foreground"
           }`}
         >
@@ -239,7 +253,7 @@ export function TaskRow({ task }: { task: TaskRowData }) {
       <button
         type="button"
         onClick={() => setEditing(true)}
-        className="shrink-0 rounded p-1 text-muted-foreground opacity-0 transition-opacity hover:text-foreground group-hover:opacity-100"
+        className="shrink-0 rounded p-1 text-muted-foreground opacity-0 transition-all hover:text-foreground group-hover:opacity-100"
       >
         <Pencil size={13} />
       </button>
@@ -256,6 +270,6 @@ export function TaskRow({ task }: { task: TaskRowData }) {
       >
         {confirming ? "Sure?" : <Trash2 size={14} />}
       </button>
-    </div>
+    </motion.div>
   );
 }
