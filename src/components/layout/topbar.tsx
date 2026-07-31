@@ -1,16 +1,20 @@
-import { Search, Bell } from "lucide-react";
 import { signOut } from "@/auth";
+import { Search } from "lucide-react";
+import { NotificationBell } from "./notification-bell";
+import type { NotificationRow } from "@/server/services/notifications";
 
 export function Topbar({
   displayName,
-  email,
   roleName,
   image,
+  unreadCount,
+  notifications,
 }: {
   displayName: string;
-  email: string;
   roleName: string;
   image?: string | null;
+  unreadCount: number;
+  notifications: NotificationRow[];
 }) {
   const initial = displayName.charAt(0).toUpperCase();
 
@@ -28,12 +32,10 @@ export function Topbar({
       </button>
 
       <div className="ml-auto flex items-center gap-3">
-        <button
-          type="button"
-          className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-secondary/60 hover:text-foreground"
-        >
-          <Bell size={16} />
-        </button>
+        <NotificationBell
+          unreadCount={unreadCount}
+          notifications={notifications}
+        />
 
         <div className="flex items-center gap-2.5">
           {image ? (

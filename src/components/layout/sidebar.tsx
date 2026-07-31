@@ -6,6 +6,7 @@ import {
   Users,
   Settings,
   Sparkles,
+  Bell,
 } from "lucide-react";
 import { NavLink } from "./nav-link";
 
@@ -43,6 +44,9 @@ export function Sidebar({
         </NavLink>
         <NavLink href="/assistant" label="Assistant">
           <Sparkles size={16} />
+        </NavLink>
+        <NavLink href="/notifications" label="Notifications">
+          <Bell size={16} />
         </NavLink>
 
         {canApprove && (
