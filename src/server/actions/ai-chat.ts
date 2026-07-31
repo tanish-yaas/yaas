@@ -2,9 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { requirePermission } from "@/server/rbac/guard";
+import { requirePermission, checkRate } from "@/server/rbac/guard";
+import { LIMITS } from "@/lib/rate-limit";
 import { runChat, type ChatTurn } from "@/server/services/ai-chat";
 import { computePriorityScore, canMutateTask } from "@/server/services/tasks";
+import { AI_CONFIG } from "@/config/ai";
 import type { Proposal } from "@/lib/ai/tools";
 
 export async function sendChatMessage(
@@ -15,6 +17,20 @@ export async function sendChatMessage(
   const ctx = await requirePermission("ai.use");
   const orgId = ctx.membership!.organizationId;
   const userId = ctx.session.user.id;
+
+  const rate = checkRate(
+    userId,
+    "ai-chat",
+    LIMITS.aiChat.limit,
+    LIMITS.aiChat.window
+  );
+
+  if (!rate.allowed) {
+    return {
+      ok: false as const,
+      error: `Too many messages — try again in ${rate.retryAfterSeconds}s.`,
+    };
+  }
 
   const trimmed = message.trim().slice(0, 2000);
   if (!trimmed) return { ok: false as const, error: "Type something first" };
@@ -30,7 +46,7 @@ export async function sendChatMessage(
       data: {
         organizationId: orgId,
         userId,
-        model: (await import("@/config/ai")).AI_CONFIG.model,
+        model: AI_CONFIG.model,
         title: trimmed.slice(0, 60),
         purpose: "assistant",
       },
@@ -50,7 +66,7 @@ export async function sendChatMessage(
     ctx: {
       orgId,
       userId,
-      timezone: ctx.profile?.timezone ?? "UTC",
+      timezone: ctx.profile?.timezone ?? "Asia/Kolkata",
       permissions: ctx.permissions,
     },
     history: history.slice(-10),
@@ -95,8 +111,9 @@ export async function applyProposal(proposal: Proposal) {
     const title = proposal.title.trim();
     if (!title) return { ok: false as const, error: "Empty title" };
 
-    const dueAt = proposal.dueAt ? new Date(proposal.dueAt) : null;
-    const validDue = dueAt && !Number.isNaN(dueAt.getTime()) ? dueAt : null;
+    const parsedDue = proposal.dueAt ? new Date(proposal.dueAt) : null;
+    const validDue =
+      parsedDue && !Number.isNaN(parsedDue.getTime()) ? parsedDue : null;
 
     const ids = proposal.assigneeIds.length ? proposal.assigneeIds : [userId];
     const valid = await prisma.organizationMember.findMany({
@@ -150,7 +167,6 @@ export async function applyProposal(proposal: Proposal) {
     return { ok: true as const, applied: 1 };
   }
 
-  // update_tasks
   let applied = 0;
 
   for (const taskId of proposal.taskIds.slice(0, 50)) {

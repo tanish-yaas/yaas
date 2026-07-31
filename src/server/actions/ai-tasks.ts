@@ -2,7 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { requirePermission } from "@/server/rbac/guard";
+import { requirePermission, checkRate } from "@/server/rbac/guard";
+import { LIMITS } from "@/lib/rate-limit";
 import { parseTaskInput } from "@/server/services/ai-parser";
 import { computePriorityScore } from "@/server/services/tasks";
 import { fromLocalInput } from "@/lib/dates";
@@ -10,6 +11,20 @@ import type { ParsedTask } from "@/lib/ai/schemas";
 
 export async function parseTask(rawInput: string) {
   const ctx = await requirePermission("ai.use");
+
+  const rate = checkRate(
+    ctx.session.user.id,
+    "ai-parse",
+    LIMITS.aiParse.limit,
+    LIMITS.aiParse.window
+  );
+
+  if (!rate.allowed) {
+    return {
+      ok: false as const,
+      error: `Slow down a moment — try again in ${rate.retryAfterSeconds}s.`,
+    };
+  }
 
   return parseTaskInput({
     rawInput,
