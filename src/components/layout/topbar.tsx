@@ -1,6 +1,6 @@
 import { signOut } from "@/auth";
-import { Search } from "lucide-react";
 import { NotificationBell } from "./notification-bell";
+import { CommandPalette } from "./command-palette";
 import type { NotificationRow } from "@/server/services/notifications";
 
 export function Topbar({
@@ -20,16 +20,7 @@ export function Topbar({
 
   return (
     <header className="flex h-14 shrink-0 items-center gap-4 border-b border-border/60 px-4 backdrop-blur-xl md:px-6">
-      <button
-        type="button"
-        className="flex h-9 flex-1 items-center gap-2 rounded-lg border border-border bg-secondary/40 px-3 text-left text-xs text-muted-foreground transition-colors hover:border-brand-violet/40 md:max-w-sm"
-      >
-        <Search size={14} />
-        Search tasks, events, people
-        <kbd className="ml-auto hidden rounded border border-border bg-background px-1.5 py-0.5 text-[10px] md:inline">
-          ⌘K
-        </kbd>
-      </button>
+      <CommandPalette />
 
       <div className="ml-auto flex items-center gap-3">
         <NotificationBell
