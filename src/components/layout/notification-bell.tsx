@@ -45,14 +45,14 @@ export function NotificationBell({
 }) {
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
-  const panelRef = useRef<HTMLDivElement>(null);
+  const wrapRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
 
   useEffect(() => {
     if (!open) return;
 
     function onClick(e: MouseEvent) {
-      if (!panelRef.current?.contains(e.target as Node)) setOpen(false);
+      if (!wrapRef.current?.contains(e.target as Node)) setOpen(false);
     }
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") setOpen(false);
@@ -73,7 +73,7 @@ export function NotificationBell({
   }
 
   return (
-    <div className="relative" ref={panelRef}>
+    <div ref={wrapRef}>
       <button
         type="button"
         onClick={handleOpen}
@@ -88,99 +88,109 @@ export function NotificationBell({
       </button>
 
       {open && (
-        <div className="absolute right-0 top-11 z-50 w-80 overflow-hidden rounded-xl border border-border bg-popover shadow-2xl">
-          <div className="flex items-center justify-between border-b border-border/60 px-4 py-2.5">
-            <span className="text-xs uppercase tracking-[0.15em] text-muted-foreground">
-              Notifications
-            </span>
-            {unreadCount > 0 && (
-              <button
-                type="button"
-                disabled={pending}
-                onClick={() =>
-                  startTransition(async () => {
-                    await markAllRead();
-                    router.refresh();
-                  })
-                }
-                className="flex items-center gap-1 text-[11px] text-muted-foreground transition-colors hover:text-foreground"
-              >
-                <CheckCheck size={11} />
-                Mark all read
-              </button>
-            )}
-          </div>
-
-          <div className="max-h-96 overflow-y-auto">
-            {notifications.length === 0 ? (
-              <div className="flex flex-col items-center gap-1.5 px-4 py-10 text-center">
-                <Bell size={18} className="text-muted-foreground/40" />
-                <p className="text-xs text-muted-foreground">Nothing yet</p>
-              </div>
-            ) : (
-              notifications.map((n) => {
-                const unread = !n.readAt;
-                const accent = ACCENTS[n.type] ?? "#8B8B9E";
-
-                return (
-                  <button
-                    key={n.id}
-                    type="button"
-                    onClick={() =>
-                      startTransition(async () => {
-                        if (unread) await markRead(n.id);
-                        if (n.taskId) {
-                          setOpen(false);
-                          router.push("/tasks");
-                        } else {
-                          router.refresh();
-                        }
-                      })
-                    }
-                    className={`flex w-full gap-2.5 border-b border-border/40 px-4 py-3 text-left transition-colors last:border-0 hover:bg-secondary/40 ${
-                      unread ? "bg-brand-violet/[0.04]" : ""
-                    }`}
-                  >
-                    <span className="mt-0.5 shrink-0" style={{ color: accent }}>
-                      {ICONS[n.type] ?? <Bell size={13} />}
-                    </span>
-
-                    <div className="min-w-0 flex-1">
-                      <p
-                        className={`truncate text-xs ${
-                          unread ? "text-foreground" : "text-muted-foreground"
-                        }`}
-                      >
-                        {n.title}
-                      </p>
-                      {n.body && (
-                        <p className="mt-0.5 line-clamp-2 whitespace-pre-wrap text-[11px] leading-relaxed text-muted-foreground/70">
-                          {n.body}
-                        </p>
-                      )}
-                      <p className="mt-1 text-[10px] text-muted-foreground/50">
-                        {relativeTime(n.createdAt)}
-                      </p>
-                    </div>
-
-                    {unread && (
-                      <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-brand-violet" />
-                    )}
-                  </button>
-                );
-              })
-            )}
-          </div>
-
-          <Link
-            href="/notifications"
+        <>
+          <div
+            className="fixed inset-0 z-[90]"
             onClick={() => setOpen(false)}
-            className="flex items-center justify-center gap-1.5 border-t border-border/60 px-4 py-2.5 text-[11px] text-muted-foreground transition-colors hover:text-foreground"
-          >
-            <Check size={11} />
-            See all
-          </Link>
-        </div>
+            aria-hidden
+          />
+          <div className="fixed right-4 top-16 z-[100] w-[min(20rem,calc(100vw-2rem))] overflow-hidden rounded-xl border border-border bg-[#16161d] shadow-2xl md:right-6">
+            <div className="flex items-center justify-between border-b border-border/60 px-4 py-2.5">
+              <span className="text-xs uppercase tracking-[0.15em] text-muted-foreground">
+                Notifications
+              </span>
+              {unreadCount > 0 && (
+                <button
+                  type="button"
+                  disabled={pending}
+                  onClick={() =>
+                    startTransition(async () => {
+                      await markAllRead();
+                      router.refresh();
+                    })
+                  }
+                  className="flex items-center gap-1 text-[11px] text-muted-foreground transition-colors hover:text-foreground"
+                >
+                  <CheckCheck size={11} />
+                  Mark all read
+                </button>
+              )}
+            </div>
+
+            <div className="max-h-[60vh] overflow-y-auto">
+              {notifications.length === 0 ? (
+                <div className="flex flex-col items-center gap-1.5 px-4 py-10 text-center">
+                  <Bell size={18} className="text-muted-foreground/40" />
+                  <p className="text-xs text-muted-foreground">Nothing yet</p>
+                </div>
+              ) : (
+                notifications.map((n) => {
+                  const unread = !n.readAt;
+                  const accent = ACCENTS[n.type] ?? "#8B8B9E";
+
+                  return (
+                    <button
+                      key={n.id}
+                      type="button"
+                      onClick={() =>
+                        startTransition(async () => {
+                          if (unread) await markRead(n.id);
+                          if (n.taskId) {
+                            setOpen(false);
+                            router.push("/tasks");
+                          } else {
+                            router.refresh();
+                          }
+                        })
+                      }
+                      className={`flex w-full gap-2.5 border-b border-border/40 px-4 py-3 text-left transition-colors last:border-0 hover:bg-secondary/40 ${
+                        unread ? "bg-brand-violet/[0.06]" : ""
+                      }`}
+                    >
+                      <span
+                        className="mt-0.5 shrink-0"
+                        style={{ color: accent }}
+                      >
+                        {ICONS[n.type] ?? <Bell size={13} />}
+                      </span>
+
+                      <div className="min-w-0 flex-1">
+                        <p
+                          className={`truncate text-xs ${
+                            unread ? "text-foreground" : "text-muted-foreground"
+                          }`}
+                        >
+                          {n.title}
+                        </p>
+                        {n.body && (
+                          <p className="mt-0.5 line-clamp-2 whitespace-pre-wrap text-[11px] leading-relaxed text-muted-foreground/70">
+                            {n.body}
+                          </p>
+                        )}
+                        <p className="mt-1 text-[10px] text-muted-foreground/50">
+                          {relativeTime(n.createdAt)}
+                        </p>
+                      </div>
+
+                      {unread && (
+                        <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-brand-violet" />
+                      )}
+                    </button>
+                  );
+                })
+              )}
+            </div>
+
+            <Link
+              href="/notifications"
+              onClick={() => setOpen(false)}
+              className="flex items-center justify-center gap-1.5 border-t border-border/60 px-4 py-2.5 text-[11px] text-muted-foreground transition-colors hover:text-foreground"
+            >
+              <Check size={11} />
+              See all
+            </Link>
+          </div>
+        </>
       )}
     </div>
   );

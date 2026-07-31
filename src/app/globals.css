@@ -171,3 +171,12 @@ body {
 body {
   overscroll-behavior: none;
 }
+
+/* Aurora must never sit above interactive layers */
+.aurora {
+  z-index: 0;
+}
+
+.aurora::before {
+  z-index: -1;
+}
