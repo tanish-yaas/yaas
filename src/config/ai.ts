@@ -4,7 +4,7 @@ export const AI_CONFIG = {
   model: "gemini-3.5-flash",
   fallbackModel: "gemini-3.1-flash-lite",
 
-  promptVersion: "task-parse-v1",
+  promptVersion: "task-parse-v2",
 
   maxInputChars: 2000,
   minConfidenceToAutofill: 0.4,

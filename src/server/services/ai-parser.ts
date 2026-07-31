@@ -2,6 +2,7 @@ import { generateObject } from "ai";
 import { google } from "@ai-sdk/google";
 import { prisma } from "@/lib/prisma";
 import { AI_CONFIG } from "@/config/ai";
+import { APP_CONFIG } from "@/config/app";
 import { parsedTaskSchema, type ParsedTask } from "@/lib/ai/schemas";
 
 export type ParseSuccess = {
@@ -21,39 +22,135 @@ type ParseParams = {
   rawInput: string;
   orgId: string;
   userId: string;
-  timezone: string;
+  timezone?: string;
 };
 
-type PromptContext = {
-  now: string;
-  timezone: string;
-  memberNames: string[];
-  labels: string[];
-};
+const TZ = APP_CONFIG.timezone;
+const OFFSET = "+05:30";
 
-function buildSystemPrompt(opts: PromptContext): string {
-  return [
-    "You convert informal notes into structured tasks for a team workspace.",
-    "",
-    `Current time: ${opts.now} (${opts.timezone}).`,
-    "Resolve relative dates against that time. 'Thursday' means the next",
-    "upcoming Thursday. 'Tomorrow morning' means 09:00 the following day.",
-    "Return dueAt in ISO 8601 with a timezone offset.",
-    "",
-    opts.memberNames.length > 0
-      ? `Workspace members: ${opts.memberNames.join(", ")}. Match mentioned names to these where a match is plausible.`
-      : "No other members in this workspace yet.",
-    "",
-    opts.labels.length > 0
-      ? `Existing labels: ${opts.labels.join(", ")}. Reuse these before inventing new ones.`
-      : "",
-    "",
-    "Set clarifyingQuestion only when a genuinely essential detail is missing.",
-    "Do not ask about optional fields. Most inputs need no question.",
-    "Never invent deadlines, people, or effort estimates that were not implied.",
-  ]
-    .filter(Boolean)
-    .join("\n");
+function isoDate(d: Date): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: TZ,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(d);
+}
+
+function dayName(d: Date): string {
+  return new Intl.DateTimeFormat("en-GB", {
+    timeZone: TZ,
+    weekday: "long",
+  }).format(d);
+}
+
+function buildDateAnchors(): string {
+  const now = new Date();
+  const lines: string[] = [];
+
+  const add = (days: number) => new Date(now.getTime() + days * 86_400_000);
+
+  lines.push(`today = ${isoDate(now)} (${dayName(now)})`);
+  lines.push(`tomorrow = ${isoDate(add(1))} (${dayName(add(1))})`);
+
+  const targets = [
+    "Monday",
+    "Tuesday",
+    "Wednesday",
+    "Thursday",
+    "Friday",
+    "Saturday",
+    "Sunday",
+  ];
+
+  for (const target of targets) {
+    for (let i = 1; i <= 7; i++) {
+      const candidate = add(i);
+      if (dayName(candidate) === target) {
+        lines.push(`next ${target} = ${isoDate(candidate)}`);
+        break;
+      }
+    }
+  }
+
+  lines.push(`in a week = ${isoDate(add(7))}`);
+  lines.push(`end of month = ${isoDate(add(30))}`);
+
+  return lines.join("\n");
+}
+
+function buildSystemPrompt(memberNames: string[], labels: string[]): string {
+  const now = new Date();
+  const timeNow = new Intl.DateTimeFormat("en-GB", {
+    timeZone: TZ,
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(now);
+
+  return `You convert informal notes into structured tasks for a team workspace in India.
+
+CURRENT DATE AND TIME
+It is ${timeNow} on ${dayName(now)}, ${isoDate(now)}, India Standard Time (UTC${OFFSET}).
+
+DATE REFERENCE — use these exact values, do not calculate your own:
+${buildDateAnchors()}
+
+RULES FOR dueAt
+1. If a date OR a time is mentioned in any form, you MUST return a dueAt. Never return null when the user gave any timing hint.
+2. Format: YYYY-MM-DDTHH:mm:00${OFFSET} — always include the ${OFFSET} offset.
+3. A time with no date: use today if that time is still ahead of ${timeNow}, otherwise tomorrow.
+4. A date with no time: use 17:00.
+5. "morning" = 09:00, "afternoon" = 14:00, "evening" = 18:00, "EOD" / "end of day" = 18:00, "tonight" = 20:00.
+6. Only return null for dueAt when there is genuinely no timing language at all.
+
+EXAMPLES
+"call mukesh today at 5 pm" → dueAt ${isoDate(now)}T17:00:00${OFFSET}
+"send deck by tomorrow morning" → dueAt ${isoDate(new Date(Date.now() + 86400000))}T09:00:00${OFFSET}
+"finish report EOD" → dueAt ${isoDate(now)}T18:00:00${OFFSET}
+"review the pitch" → dueAt null
+
+PRIORITY
+URGENT only for stated emergencies or same-day hard deadlines. HIGH when explicitly called important or urgent-sounding. MEDIUM by default. LOW when described as whenever or low priority.
+
+PEOPLE
+${
+  memberNames.length > 0
+    ? `Workspace members: ${memberNames.join(", ")}. Match mentioned names to these. Names not on this list go in the description instead.`
+    : "No other members yet. Leave assigneeNames empty."
+}
+
+LABELS
+${labels.length > 0 ? `Existing labels: ${labels.join(", ")}. Reuse before inventing.` : "No labels yet."}
+
+OTHER
+Set clarifyingQuestion only when something essential is genuinely missing. Most inputs need none. Never invent people, deadlines or estimates that were not implied.`;
+}
+
+async function callModel(
+  system: string,
+  prompt: string,
+  attempt = 1
+): Promise<Awaited<ReturnType<typeof generateObject<typeof parsedTaskSchema>>>> {
+  try {
+    return await generateObject({
+      model: google(
+        attempt === 1 ? AI_CONFIG.model : AI_CONFIG.fallbackModel
+      ),
+      schema: parsedTaskSchema,
+      system,
+      prompt,
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "";
+    const rateLimited = /429|quota|rate.?limit|resource.?exhausted/i.test(message);
+
+    if (rateLimited && attempt < 3) {
+      await new Promise((r) => setTimeout(r, attempt * 2500));
+      return callModel(system, prompt, attempt + 1);
+    }
+
+    throw err;
+  }
 }
 
 export async function parseTaskInput(params: ParseParams): Promise<ParseResult> {
@@ -80,13 +177,6 @@ export async function parseTaskInput(params: ParseParams): Promise<ParseResult> 
     if (m.user.name) memberNames.push(m.user.name);
   }
 
-  const now = new Date();
-  const nowLabel = new Intl.DateTimeFormat("en-GB", {
-    dateStyle: "full",
-    timeStyle: "short",
-    timeZone: params.timezone,
-  }).format(now);
-
   const record = await prisma.aIParsedTask.create({
     data: {
       organizationId: params.orgId,
@@ -101,17 +191,8 @@ export async function parseTaskInput(params: ParseParams): Promise<ParseResult> 
   const started = Date.now();
 
   try {
-    const result = await generateObject({
-      model: google(AI_CONFIG.model),
-      schema: parsedTaskSchema,
-      system: buildSystemPrompt({
-        now: nowLabel,
-        timezone: params.timezone,
-        memberNames,
-        labels: labelRows.map((l) => l.name),
-      }),
-      prompt: input,
-    });
+    const system = buildSystemPrompt(memberNames, labelRows.map((l) => l.name));
+    const result = await callModel(system, input);
 
     await prisma.aIParsedTask.update({
       where: { id: record.id },
@@ -126,12 +207,9 @@ export async function parseTaskInput(params: ParseParams): Promise<ParseResult> 
       },
     });
 
-    return {
-      ok: true,
-      parsed: result.object,
-      parsedTaskId: record.id,
-    };
+    return { ok: true, parsed: result.object, parsedTaskId: record.id };
   } catch (err) {
+    console.error("[ai-parser]", err);
     const message = err instanceof Error ? err.message : "Parsing failed";
 
     await prisma.aIParsedTask.update({
@@ -143,13 +221,13 @@ export async function parseTaskInput(params: ParseParams): Promise<ParseResult> 
       },
     });
 
-    const rateLimited = /429|quota|rate/i.test(message);
+    const rateLimited = /429|quota|rate|exhausted/i.test(message);
 
     return {
       ok: false,
       error: rateLimited
-        ? "Free tier rate limit hit. Wait a minute and try again."
-        : "Couldn't parse that. Try rephrasing, or add it manually.",
+        ? "Too many requests just now. Add it manually below, or wait a moment."
+        : "Couldn't read that. Try rephrasing, or add it manually.",
     };
   }
 }

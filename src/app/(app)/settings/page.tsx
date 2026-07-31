@@ -44,7 +44,6 @@ export default async function SettingsPage() {
 
       <div className="flex flex-col gap-4">
         <ProfileSettings
-          timezone={ctx.profile.timezone}
           workingHoursStart={ctx.profile.workingHoursStart}
           workingHoursEnd={ctx.profile.workingHoursEnd}
           workingDays={ctx.profile.workingDays}

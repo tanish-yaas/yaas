@@ -155,3 +155,67 @@ export async function deleteTask(taskId: string) {
   refresh();
   return { ok: true };
 }
+
+export async function updateTask(
+  taskId: string,
+  input: {
+    title: string;
+    description: string;
+    priority: string;
+    status: string;
+    dueAt: string;
+    estimatedMinutes: string;
+  }
+) {
+  const ctx = await requirePermission("task.edit_own");
+  const orgId = ctx.membership!.organizationId;
+  const userId = ctx.session.user.id;
+
+  const task = await canMutateTask(taskId, orgId, userId, ctx.permissions);
+  if (!task) return { ok: false as const, error: "Not allowed" };
+
+  const title = input.title.trim();
+  if (!title) return { ok: false as const, error: "Title can't be empty" };
+
+  const parsedStatus = statusSchema.safeParse(input.status);
+  if (!parsedStatus.success) return { ok: false as const, error: "Bad status" };
+
+  const dueAt = input.dueAt ? new Date(input.dueAt) : null;
+  const validDue = dueAt && !Number.isNaN(dueAt.getTime()) ? dueAt : null;
+
+  const estimate = input.estimatedMinutes
+    ? Number(input.estimatedMinutes)
+    : null;
+
+  await prisma.$transaction(async (tx) => {
+    await tx.task.update({
+      where: { id: taskId },
+      data: {
+        title,
+        description: input.description.trim() || null,
+        priority: input.priority as "LOW" | "MEDIUM" | "HIGH" | "URGENT",
+        status: parsedStatus.data,
+        dueAt: validDue,
+        estimatedMinutes:
+          estimate !== null && Number.isFinite(estimate) ? estimate : null,
+        priorityScore: computePriorityScore(input.priority, validDue),
+        completedAt: parsedStatus.data === "DONE" ? new Date() : null,
+      },
+    });
+
+    if (parsedStatus.data !== task.status) {
+      await tx.taskStatusHistory.create({
+        data: {
+          organizationId: orgId,
+          taskId,
+          fromStatus: task.status,
+          toStatus: parsedStatus.data,
+          changedById: userId,
+        },
+      });
+    }
+  });
+
+  refresh();
+  return { ok: true as const };
+}

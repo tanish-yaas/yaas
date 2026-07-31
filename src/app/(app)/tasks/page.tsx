@@ -1,9 +1,29 @@
 import { prisma } from "@/lib/prisma";
 import { getCurrentContext } from "@/server/auth/session";
 import { buildTaskScope } from "@/server/services/tasks";
+import { APP_CONFIG } from "@/config/app";
 import { TaskComposer } from "@/components/tasks/task-composer";
 import { SmartComposer } from "@/components/tasks/smart-composer";
 import { TaskRow, type TaskRowData } from "@/components/tasks/task-row";
+
+const TZ = APP_CONFIG.timezone;
+
+/** Format a Date as the YYYY-MM-DDTHH:mm a datetime-local input expects, in IST. */
+function toInputValue(date: Date | null): string {
+  if (!date) return "";
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: TZ,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(date);
+
+  const get = (t: string) => parts.find((p) => p.type === t)?.value ?? "00";
+  return `${get("year")}-${get("month")}-${get("day")}T${get("hour")}:${get("minute")}`;
+}
 
 function Section({
   title,
@@ -34,11 +54,10 @@ function Section({
 
 export default async function TasksPage() {
   const ctx = await getCurrentContext();
-  if (!ctx?.membership || !ctx.profile) return null;
+  if (!ctx?.membership) return null;
 
   const orgId = ctx.membership.organizationId;
   const userId = ctx.session.user.id;
-  const tz = ctx.profile.timezone;
 
   const scope = await buildTaskScope(orgId, userId, ctx.permissions);
 
@@ -52,9 +71,7 @@ export default async function TasksPage() {
       ],
       take: 200,
       include: {
-        assignments: {
-          include: { user: { select: { name: true } } },
-        },
+        assignments: { include: { user: { select: { name: true } } } },
       },
     }),
     prisma.organizationMember.findMany({
@@ -74,7 +91,7 @@ export default async function TasksPage() {
     month: "short",
     hour: "2-digit",
     minute: "2-digit",
-    timeZone: tz,
+    timeZone: TZ,
   });
 
   const now = new Date();
@@ -86,9 +103,12 @@ export default async function TasksPage() {
   const rows: TaskRowData[] = tasks.map((t) => ({
     id: t.id,
     title: t.title,
+    description: t.description ?? "",
     status: t.status,
     priority: t.priority,
-    dueAt: t.dueAt ? fmt.format(t.dueAt) : null,
+    dueAtInput: toInputValue(t.dueAt),
+    dueAtLabel: t.dueAt ? fmt.format(t.dueAt) : null,
+    estimatedMinutes: t.estimatedMinutes ? String(t.estimatedMinutes) : "",
     overdue: !!t.dueAt && t.dueAt < now,
     assignees: t.assignments.map((a) => a.user.name ?? "").filter(Boolean),
   }));
@@ -105,9 +125,9 @@ export default async function TasksPage() {
     return !!due && due <= endOfToday;
   });
   const later = open.filter(
-    (r) => !r.overdue && r.dueAt !== null && !today.includes(r)
+    (r) => !r.overdue && r.dueAtLabel !== null && !today.includes(r)
   );
-  const undated = open.filter((r) => r.dueAt === null);
+  const undated = open.filter((r) => r.dueAtLabel === null);
 
   return (
     <div className="mx-auto w-full max-w-3xl">
@@ -140,8 +160,7 @@ export default async function TasksPage() {
         <div className="glass mt-6 flex flex-col items-center gap-2 rounded-xl py-14 text-center">
           <p className="text-sm text-muted-foreground">Nothing here yet</p>
           <p className="max-w-xs text-xs text-muted-foreground/70">
-            Describe a task above in plain language and YAAS will structure it
-            for you.
+            Describe a task above in plain language and YAAS will structure it.
           </p>
         </div>
       )}
