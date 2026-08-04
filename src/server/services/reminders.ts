@@ -1,9 +1,9 @@
 import { prisma } from "@/lib/prisma";
 import { getWhatsAppProvider } from "@/lib/whatsapp/provider";
+import { sendSlackToEmail } from "@/lib/slack/provider";
 
 const WINDOW_MS = 24 * 60 * 60 * 1000;
 
-/** Offset in ms between UTC and the given zone at that instant. */
 function zoneOffset(date: Date, timeZone: string): number {
   const dtf = new Intl.DateTimeFormat("en-US", {
     timeZone,
@@ -32,7 +32,6 @@ function zoneOffset(date: Date, timeZone: string): number {
   return asUTC - date.getTime();
 }
 
-/** The UTC instant for a wall-clock time in a given zone. */
 function localToUtc(
   year: number,
   month: number,
@@ -66,27 +65,21 @@ export function computeNextSendAt(
       year: "numeric",
       month: "2-digit",
       day: "2-digit",
-      weekday: "short",
     }).formatToParts(probe);
 
     const get = (type: string) =>
       parts.find((p) => p.type === type)?.value ?? "";
 
-    const year = Number(get("year"));
-    const month = Number(get("month"));
-    const day = Number(get("day"));
-
-    const candidate = localToUtc(year, month, day, hour, minute, timeZone);
-    if (candidate <= after) continue;
-
-    const weekday = candidate.getUTCDay();
-    const localWeekday = Number(
-      new Intl.DateTimeFormat("en-US", { timeZone, weekday: "narrow" })
-        .format(candidate)
-        .charCodeAt(0)
+    const candidate = localToUtc(
+      Number(get("year")),
+      Number(get("month")),
+      Number(get("day")),
+      hour,
+      minute,
+      timeZone
     );
-    void weekday;
-    void localWeekday;
+
+    if (candidate <= after) continue;
 
     const dayName = new Intl.DateTimeFormat("en-US", {
       timeZone,
@@ -184,19 +177,23 @@ async function buildDigest(
     const lines = [`Morning ${firstName}.`, ""];
 
     if (dueToday.length > 0) {
-      lines.push(`Due today (${dueToday.length}):`);
+      lines.push(`*Due today (${dueToday.length})*`);
       dueToday.forEach((t) => lines.push(`• ${t.title}`));
       lines.push("");
     }
 
     if (events.length > 0) {
-      lines.push("Calendar:");
-      events.forEach((e) => lines.push(`• ${timeFmt.format(e.startAt)} ${e.title}`));
+      lines.push("*Calendar*");
+      events.forEach((e) =>
+        lines.push(`• ${timeFmt.format(e.startAt)} ${e.title}`)
+      );
       lines.push("");
     }
 
     if (overdue > 0) {
-      lines.push(`${overdue} overdue ${overdue === 1 ? "task" : "tasks"} still open.`);
+      lines.push(
+        `${overdue} overdue ${overdue === 1 ? "task" : "tasks"} still open.`
+      );
     }
 
     return {
@@ -229,23 +226,14 @@ async function buildDigest(
       }),
     ]);
 
-    const lines = [
-      `Evening ${firstName}.`,
-      "",
-      `Closed today: ${completed}`,
-    ];
+    const lines = [`Evening ${firstName}.`, "", `Closed today: ${completed}`];
 
-    if (stillOpen > 0) {
-      lines.push(`Still open from today: ${stillOpen}`);
-    }
-    if (tomorrow > 0) {
-      lines.push(`Due tomorrow: ${tomorrow}`);
-    }
+    if (stillOpen > 0) lines.push(`Still open from today: ${stillOpen}`);
+    if (tomorrow > 0) lines.push(`Due tomorrow: ${tomorrow}`);
 
     return { title: `${completed} completed today`, body: lines.join("\n") };
   }
 
-  // WEEKLY_REVIEW
   const weekAgo = new Date(now.getTime() - 7 * 86_400_000);
   const [completed, created, overdue] = await Promise.all([
     prisma.task.count({
@@ -271,7 +259,9 @@ async function buildDigest(
       `Completed: ${completed}`,
       `Created: ${created}`,
       `Completion rate: ${rate}%`,
-      overdue > 0 ? `Carrying ${overdue} overdue into next week.` : "Nothing overdue.",
+      overdue > 0
+        ? `Carrying ${overdue} overdue into next week.`
+        : "Nothing overdue.",
     ].join("\n"),
   };
 }
@@ -280,13 +270,8 @@ export async function processDueReminders(limit = 50) {
   const now = new Date();
 
   const due = await prisma.reminderSchedule.findMany({
-    where: {
-      isActive: true,
-      nextSendAt: { lte: now },
-    },
-    include: {
-      user: { include: { profile: true } },
-    },
+    where: { isActive: true, nextSendAt: { lte: now } },
+    include: { user: { include: { profile: true } } },
     take: limit,
   });
 
@@ -329,6 +314,38 @@ export async function processDueReminders(limit = 50) {
         },
       });
 
+      // ---- Slack ----
+      if (schedule.channel === "SLACK") {
+        const email = schedule.user.email;
+
+        if (!email) {
+          await prisma.notificationDelivery.create({
+            data: {
+              organizationId: schedule.organizationId,
+              notificationId: notification.id,
+              channel: "SLACK",
+              status: "FAILED",
+              error: "No email on account",
+            },
+          });
+        } else {
+          const result = await sendSlackToEmail(email, digest.body);
+
+          await prisma.notificationDelivery.create({
+            data: {
+              organizationId: schedule.organizationId,
+              notificationId: notification.id,
+              channel: "SLACK",
+              status: result.ok ? "SENT" : "FAILED",
+              providerMessageId: result.ok ? result.providerMessageId : null,
+              sentAt: result.ok ? now : null,
+              error: result.ok ? null : result.error,
+            },
+          });
+        }
+      }
+
+      // ---- WhatsApp ----
       const wantsWhatsApp =
         schedule.channel === "WHATSAPP" &&
         profile.whatsappVerified &&

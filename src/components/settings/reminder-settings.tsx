@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Bell, MessageCircle } from "lucide-react";
+import { Bell, MessageCircle, Hash } from "lucide-react";
 import {
   updateReminderSchedule,
   ensureWeeklySchedule,
@@ -31,16 +31,20 @@ const DESCRIPTIONS: Record<string, string> = {
 function Row({
   schedule,
   whatsappReady,
+  slackReady,
 }: {
   schedule: ScheduleRow;
   whatsappReady: boolean;
+  slackReady: boolean;
 }) {
   const [time, setTime] = useState(schedule.timeOfDay);
   const [channel, setChannel] = useState(schedule.channel);
   const [active, setActive] = useState(schedule.isActive);
   const [pending, startTransition] = useTransition();
 
-  function save(next: Partial<{ time: string; channel: string; active: boolean }>) {
+  function save(
+    next: Partial<{ time: string; channel: string; active: boolean }>
+  ) {
     const payload = {
       timeOfDay: next.time ?? time,
       channel: next.channel ?? channel,
@@ -50,6 +54,22 @@ function Row({
       await updateReminderSchedule(schedule.id, payload);
     });
   }
+
+  const channels = [
+    { key: "IN_APP", label: "In-app", icon: <Bell size={12} />, enabled: true },
+    {
+      key: "SLACK",
+      label: "Slack",
+      icon: <Hash size={12} />,
+      enabled: slackReady,
+    },
+    {
+      key: "WHATSAPP",
+      label: "WhatsApp",
+      icon: <MessageCircle size={12} />,
+      enabled: whatsappReady,
+    },
+  ];
 
   return (
     <div
@@ -95,38 +115,25 @@ function Row({
             className="rounded-lg border border-border bg-secondary/50 px-2.5 py-1.5 text-xs outline-none focus:border-brand-violet"
           />
 
-          <button
-            type="button"
-            onClick={() => {
-              setChannel("IN_APP");
-              save({ channel: "IN_APP" });
-            }}
-            className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs transition-colors ${
-              channel === "IN_APP"
-                ? "bg-brand-violet/15 text-brand-violet"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            <Bell size={12} />
-            In-app
-          </button>
-
-          <button
-            type="button"
-            disabled={!whatsappReady}
-            onClick={() => {
-              setChannel("WHATSAPP");
-              save({ channel: "WHATSAPP" });
-            }}
-            className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs transition-colors disabled:opacity-40 ${
-              channel === "WHATSAPP"
-                ? "bg-brand-violet/15 text-brand-violet"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            <MessageCircle size={12} />
-            WhatsApp
-          </button>
+          {channels.map((c) => (
+            <button
+              key={c.key}
+              type="button"
+              disabled={!c.enabled}
+              onClick={() => {
+                setChannel(c.key);
+                save({ channel: c.key });
+              }}
+              className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs transition-colors disabled:opacity-30 ${
+                channel === c.key
+                  ? "bg-brand-violet/15 text-brand-violet"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {c.icon}
+              {c.label}
+            </button>
+          ))}
         </div>
       )}
     </div>
@@ -136,9 +143,11 @@ function Row({
 export function ReminderSettings({
   schedules,
   whatsappReady,
+  slackReady,
 }: {
   schedules: ScheduleRow[];
   whatsappReady: boolean;
+  slackReady: boolean;
 }) {
   const [pending, startTransition] = useTransition();
   const hasWeekly = schedules.some((s) => s.type === "WEEKLY_REVIEW");
@@ -147,13 +156,18 @@ export function ReminderSettings({
     <div className="glass rounded-xl px-5 py-5">
       <h2 className="text-sm">Reminders</h2>
       <p className="mt-1 text-xs text-muted-foreground">
-        Delivered in your timezone. In-app always works; WhatsApp needs an open
-        conversation.
+        Delivered in India Standard Time. Slack works for anyone in the
+        workspace with no setup.
       </p>
 
       <div className="mt-4 flex flex-col gap-2">
         {schedules.map((s) => (
-          <Row key={s.id} schedule={s} whatsappReady={whatsappReady} />
+          <Row
+            key={s.id}
+            schedule={s}
+            whatsappReady={whatsappReady}
+            slackReady={slackReady}
+          />
         ))}
       </div>
 
@@ -170,12 +184,6 @@ export function ReminderSettings({
         >
           Add weekly review
         </button>
-      )}
-
-      {!whatsappReady && (
-        <p className="mt-3 text-xs text-muted-foreground/60">
-          Link WhatsApp above to enable that channel.
-        </p>
       )}
     </div>
   );

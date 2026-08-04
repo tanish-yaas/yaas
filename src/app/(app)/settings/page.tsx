@@ -13,8 +13,8 @@ export default async function SettingsPage() {
 
   const businessNumber =
     process.env.WHATSAPP_DISPLAY_NUMBER ?? "the YAAS number";
-
   const sandboxMode = process.env.WHATSAPP_SANDBOX !== "false";
+  const slackReady = !!process.env.SLACK_BOT_TOKEN;
 
   const schedules = await prisma.reminderSchedule.findMany({
     where: { userId: ctx.session.user.id },
@@ -51,6 +51,12 @@ export default async function SettingsPage() {
           workingDays={ctx.profile.workingDays}
         />
 
+        <ReminderSettings
+          schedules={rows}
+          whatsappReady={whatsappReady}
+          slackReady={slackReady}
+        />
+
         {ctx.permissions.has("whatsapp.link") && (
           <WhatsAppLink
             linkedNumber={whatsappReady ? ctx.profile.whatsappNumber : null}
@@ -58,8 +64,6 @@ export default async function SettingsPage() {
             sandboxMode={sandboxMode}
           />
         )}
-
-        <ReminderSettings schedules={rows} whatsappReady={whatsappReady} />
       </div>
     </div>
   );
