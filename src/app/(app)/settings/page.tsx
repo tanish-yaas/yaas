@@ -12,7 +12,9 @@ export default async function SettingsPage() {
   if (!ctx?.profile) return null;
 
   const businessNumber =
-    process.env.WHATSAPP_DISPLAY_NUMBER ?? "your test number in Meta";
+    process.env.WHATSAPP_DISPLAY_NUMBER ?? "the YAAS number";
+
+  const sandboxMode = process.env.WHATSAPP_SANDBOX !== "false";
 
   const schedules = await prisma.reminderSchedule.findMany({
     where: { userId: ctx.session.user.id },
@@ -53,6 +55,7 @@ export default async function SettingsPage() {
           <WhatsAppLink
             linkedNumber={whatsappReady ? ctx.profile.whatsappNumber : null}
             businessNumber={businessNumber}
+            sandboxMode={sandboxMode}
           />
         )}
 

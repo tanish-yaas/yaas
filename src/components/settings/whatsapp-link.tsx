@@ -1,15 +1,17 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { MessageCircle, Copy, Check } from "lucide-react";
+import { MessageCircle, Copy, Check, Info } from "lucide-react";
 import { generateLinkCode, unlinkWhatsApp } from "@/server/actions/whatsapp";
 
 export function WhatsAppLink({
   linkedNumber,
   businessNumber,
+  sandboxMode,
 }: {
   linkedNumber: string | null;
   businessNumber: string;
+  sandboxMode: boolean;
 }) {
   const [code, setCode] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -37,6 +39,16 @@ export function WhatsAppLink({
     setTimeout(() => setCopied(false), 1500);
   }
 
+  const sandboxNotice = sandboxMode && (
+    <div className="mt-4 flex items-start gap-2 rounded-lg border border-[#F5B544]/30 bg-[#F5B544]/10 px-3 py-2.5">
+      <Info size={13} className="mt-0.5 shrink-0 text-[#F5B544]" />
+      <p className="text-[11px] leading-relaxed text-muted-foreground">
+        WhatsApp is in test mode. Only numbers an admin has added in Meta can
+        send or receive messages. Ask your admin before linking.
+      </p>
+    </div>
+  );
+
   if (linkedNumber) {
     return (
       <div className="glass rounded-xl px-5 py-5">
@@ -47,6 +59,7 @@ export function WhatsAppLink({
         <p className="mt-2 text-xs text-muted-foreground">
           {linkedNumber} · send a message any time to create a task
         </p>
+        {sandboxNotice}
         <button
           type="button"
           onClick={unlink}
@@ -70,12 +83,14 @@ export function WhatsAppLink({
         number, and you&apos;re linked.
       </p>
 
+      {sandboxNotice}
+
       {!code ? (
         <button
           type="button"
           onClick={generate}
           disabled={pending}
-          className="mt-4 rounded-lg bg-primary px-4 py-2 text-xs font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
+          className="mt-4 rounded-lg bg-primary px-4 py-2 text-xs font-medium text-primary-foreground transition-all hover:opacity-90 active:scale-[0.98] disabled:opacity-50"
         >
           {pending ? "Generating…" : "Get link code"}
         </button>
