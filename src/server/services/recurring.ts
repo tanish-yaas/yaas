@@ -162,15 +162,22 @@ export function describeRRule(rrule: string): string {
 /**
  * Materialise every recurring task that has come due, then wind its schedule
  * forward. Runs from the cron route.
+ *
+ * `lookaheadMs` pulls runs forward that are due before the *next* cron tick.
+ * On a once-a-day schedule that matters: without it, a task set for 09:00
+ * would not be created until the following night's run, arriving a day late
+ * with its deadline already in the past. The created task still carries its
+ * scheduled time as `dueAt` — only its creation happens early.
  */
-export async function processRecurringTasks(limit = 50) {
+export async function processRecurringTasks(limit = 50, lookaheadMs = 0) {
   const now = new Date();
+  const horizon = new Date(now.getTime() + Math.max(0, lookaheadMs));
 
   const due = await prisma.recurringTask.findMany({
     where: {
       isActive: true,
       deletedAt: null,
-      nextRunAt: { lte: now },
+      nextRunAt: { lte: horizon },
     },
     orderBy: { nextRunAt: "asc" },
     take: limit,

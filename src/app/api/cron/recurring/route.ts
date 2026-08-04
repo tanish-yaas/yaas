@@ -14,9 +14,13 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  // This runs once a day, so reach a little past the next tick — 25h rather
+  // than 24h absorbs cron jitter so no run slips through the gap.
+  const LOOKAHEAD_MS = 25 * 60 * 60 * 1000;
+
   try {
     const backfilled = await backfillNextRunAt();
-    const result = await processRecurringTasks();
+    const result = await processRecurringTasks(50, LOOKAHEAD_MS);
 
     return NextResponse.json({
       ok: true,
