@@ -62,7 +62,7 @@ export function SuggestionCard({
             className="inline-flex items-center gap-1 rounded-md bg-secondary px-2.5 py-1 text-[11px] transition-colors hover:bg-secondary/70"
           >
             <Check size={11} />
-            Apply
+            Do it
           </button>
         )}
         <button
@@ -76,7 +76,7 @@ export function SuggestionCard({
           className="inline-flex items-center gap-1 text-[11px] text-muted-foreground transition-colors hover:text-foreground"
         >
           <X size={11} />
-          Dismiss
+          No thanks
         </button>
       </div>
     </div>

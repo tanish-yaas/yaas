@@ -102,7 +102,7 @@ export function RecurringSettings({
       }
 
       reset();
-      push("Recurring task scheduled");
+      push("Repeating task created");
     });
   }
 
@@ -134,7 +134,7 @@ export function RecurringSettings({
         push(result.error, "error");
         return;
       }
-      push("Recurring task removed");
+      push("Repeating task deleted");
     });
   }
 
@@ -147,7 +147,7 @@ export function RecurringSettings({
             Recurring tasks
           </h2>
           <p className="mt-1 text-xs text-muted-foreground">
-            YAAS creates each run on schedule and assigns it for you.
+            Nova creates each run on schedule and assigns it for you.
           </p>
         </div>
         {!adding && (
@@ -375,7 +375,7 @@ export function RecurringSettings({
             disabled={pending || !title.trim()}
             className="mt-3 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-40"
           >
-            Schedule it
+            Create it
           </button>
         </div>
       )}

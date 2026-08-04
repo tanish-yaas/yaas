@@ -220,7 +220,7 @@ export default async function DashboardPage() {
                 <EmptyState
                   icon={Sparkles}
                   title="Nothing to flag"
-                  description="YAAS reviews your workload nightly and surfaces anything worth a look."
+                  description="Nova reviews your workload nightly and surfaces anything worth a look."
                 />
               ) : (
                 <div className="flex flex-col gap-2">

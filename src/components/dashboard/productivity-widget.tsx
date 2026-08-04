@@ -46,7 +46,7 @@ export function ProductivityWidget({ trend }: { trend: ScoreTrend }) {
 
       {trend.latest === null ? (
         <p className="text-xs text-muted-foreground/70">
-          No snapshots yet. YAAS records one each night — your score and trend
+          No snapshots yet. Nova records one each night — your score and trend
           appear here from tomorrow.
         </p>
       ) : (

@@ -207,7 +207,7 @@ export default async function TasksPage({
           />
           <details>
             <summary className="cursor-pointer text-xs text-muted-foreground transition-colors hover:text-foreground">
-              Add manually instead
+              Fill in the details myself
             </summary>
             <div className="mt-2">
               <TaskComposer
@@ -293,7 +293,7 @@ export default async function TasksPage({
         <div className="glass mt-6 flex flex-col items-center gap-2 rounded-xl py-14 text-center">
           <p className="text-sm text-muted-foreground">Nothing here yet</p>
           <p className="max-w-xs text-xs text-muted-foreground/70">
-            Describe a task above in plain language and YAAS will structure it.
+            Type what needs doing above — Nova works out the date, the priority and who is on it.
           </p>
         </div>
       )}

@@ -163,6 +163,87 @@ body {
   transition: border-color 180ms ease;
 }
 
+/* ─── Sign-in orbit ───────────────────────────────────── */
+@keyframes nova-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes nova-pulse {
+  0%,
+  100% {
+    opacity: 0.5;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.09);
+  }
+}
+
+@keyframes nova-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+@keyframes nova-dash {
+  to {
+    stroke-dashoffset: -260;
+  }
+}
+
+@keyframes nova-rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Rotation happens in the orbit's own un-squashed frame, so the parent
+   ellipse transform carries the dot around a true elliptical path. */
+.nova-orbit {
+  transform-origin: 0 0;
+  animation: nova-spin linear infinite;
+}
+
+.nova-core {
+  transform-origin: center;
+  animation: nova-pulse 4.5s ease-in-out infinite;
+}
+
+.nova-float {
+  animation: nova-float 7s ease-in-out infinite;
+}
+
+.nova-trace {
+  stroke-dasharray: 5 11;
+  animation: nova-dash 14s linear infinite;
+}
+
+.nova-rise {
+  animation: nova-rise 0.65s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nova-orbit,
+  .nova-core,
+  .nova-float,
+  .nova-trace,
+  .nova-rise {
+    animation: none;
+  }
+}
+
 .text-gradient {
   background: linear-gradient(100deg, var(--brand-violet), var(--brand-magenta));
   -webkit-background-clip: text;

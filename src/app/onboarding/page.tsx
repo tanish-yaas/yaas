@@ -46,7 +46,7 @@ export default async function OnboardingPage({
               Set up your workspace
             </h1>
             <p className="mt-2 text-sm text-muted-foreground">
-              This shapes your calendar, reminders, and how YAAS schedules work
+              This shapes your calendar, reminders, and how Nova schedules work
               around you.
             </p>
           </div>

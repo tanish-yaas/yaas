@@ -173,12 +173,13 @@ export function SmartComposer({
             disabled={pending || !input.trim()}
             className="mt-1 shrink-0 rounded-lg bg-primary px-4 py-2 text-xs font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-40"
           >
-            {pending ? "Reading…" : "Parse"}
+            {pending ? "Reading…" : "Add"}
           </button>
         </div>
         {error && <p className="mt-2 pl-7 text-xs text-destructive">{error}</p>}
         <p className="mt-1 pl-7 text-[11px] text-muted-foreground/60">
-          Write it however you&apos;d say it. ⌘/Ctrl + Enter to parse.
+          Write it however you&apos;d say it — we&apos;ll sort out the details.
+          ⌘/Ctrl + Enter to add.
         </p>
       </div>
     );
@@ -189,11 +190,9 @@ export function SmartComposer({
       <div className="mb-4 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Sparkles size={14} className="text-brand-violet" />
-          <span className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
-            Review before adding
-          </span>
+          <span className="text-sm">Check this looks right</span>
           <span className="rounded-full bg-secondary px-2 py-0.5 text-[10px] text-muted-foreground">
-            {Math.round(draft.parsed.confidence * 100)}% confident
+            {Math.round(draft.parsed.confidence * 100)}% sure
           </span>
         </div>
         <button
@@ -388,7 +387,7 @@ export function SmartComposer({
           disabled={pending}
           className="text-xs text-muted-foreground underline underline-offset-4 hover:text-foreground"
         >
-          Discard
+          Start over
         </button>
       </div>
     </div>

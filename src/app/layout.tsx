@@ -14,8 +14,12 @@ const spaceGrotesk = Space_Grotesk({
 });
 
 export const metadata: Metadata = {
-  title: "YAAS",
-  description: "AI-powered team task management and WhatsApp productivity.",
+  title: {
+    default: "Nova by YAAS",
+    template: "%s · Nova",
+  },
+  description:
+    "Nova is the YAAS workspace for tasks, calendars and everything your team owes each other.",
 };
 
 export default function RootLayout({

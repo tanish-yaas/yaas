@@ -24,7 +24,7 @@ export default function GlobalError({
         }}
       >
         <div style={{ textAlign: "center", padding: "2rem" }}>
-          <h1 style={{ fontSize: "1.25rem", margin: 0 }}>YAAS is down</h1>
+          <h1 style={{ fontSize: "1.25rem", margin: 0 }}>Nova is down</h1>
           <p
             style={{
               fontSize: "0.8rem",

@@ -103,7 +103,7 @@ async function tryLinkNumber(message: InboundMessage): Promise<boolean> {
   if (taken) {
     await reply(
       message.from,
-      "That number is already linked to another YAAS account.",
+      "That number is already linked to another Nova account.",
       null
     );
     return true;
@@ -146,7 +146,7 @@ export async function handleInbound(message: InboundMessage) {
     if (!linked) {
       await reply(
         message.from,
-        "This number isn't linked to a YAAS account yet. Open YAAS → Settings → WhatsApp to get a link code.",
+        "This number isn't linked to a Nova account yet. Open Nova → Settings → WhatsApp to get a link code.",
         null
       );
     }

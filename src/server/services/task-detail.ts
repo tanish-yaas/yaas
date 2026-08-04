@@ -219,7 +219,7 @@ export async function getTaskDetail(
       id: `s-${h.id}`,
       kind: "status" as const,
       at: h.createdAt.toISOString(),
-      actor: h.changedBy?.name ?? h.changedBy?.email ?? "YAAS",
+      actor: h.changedBy?.name ?? h.changedBy?.email ?? "Nova",
       from: h.fromStatus ?? null,
       to: h.toStatus,
       reason: h.reason,
@@ -230,7 +230,7 @@ export async function getTaskDetail(
       kind: "priority" as const,
       at: h.createdAt.toISOString(),
       actor: h.changedByAI
-        ? "YAAS"
+        ? "Nova"
         : h.changedBy?.name ?? h.changedBy?.email ?? "Someone",
       from: h.fromPriority ?? (h.fromScore !== null ? `${h.fromScore}` : null),
       to: h.toPriority ?? `${h.toScore}`,

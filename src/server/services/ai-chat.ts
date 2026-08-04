@@ -15,7 +15,7 @@ export type ChatReply = {
 
 function systemPrompt(ctx: ChatContext, nowLabel: string): string {
   return [
-    "You are the assistant inside YAAS, a team task and calendar workspace.",
+    "You are the assistant inside Nova, a team task and calendar workspace.",
     "",
     `Current time: ${nowLabel} (${ctx.timezone}).`,
     "",

@@ -255,7 +255,7 @@ export function CalendarPanel({
                       className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-primary px-2 py-1.5 text-[11px] font-medium text-primary-foreground disabled:opacity-40"
                     >
                       <UserPlus size={11} />
-                      Grant access
+                      Share it
                     </button>
                   </div>
                 </div>
