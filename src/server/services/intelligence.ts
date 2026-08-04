@@ -183,7 +183,64 @@ export async function runIntelligence(organizationId: string) {
       });
     }
 
-    // ---- 5. Tasks too big to start ----
+    // ---- 5. Unblocked work ----
+    // Anything whose blockers have all landed is ready to pick up, and is easy
+    // to miss because nothing about the task itself changed.
+    const openIds = tasks.map((t) => t.id);
+    const dependencies =
+      openIds.length > 0
+        ? await prisma.taskDependency.findMany({
+            where: {
+              organizationId,
+              type: "BLOCKS",
+              taskId: { in: openIds },
+              dependsOn: { deletedAt: null },
+            },
+            select: { taskId: true, dependsOn: { select: { status: true } } },
+          })
+        : [];
+
+    const blockerState = new Map<string, { open: number; total: number }>();
+    for (const dep of dependencies) {
+      const entry = blockerState.get(dep.taskId) ?? { open: 0, total: 0 };
+      entry.total += 1;
+      if (
+        dep.dependsOn.status !== "DONE" &&
+        dep.dependsOn.status !== "CANCELLED"
+      ) {
+        entry.open += 1;
+      }
+      blockerState.set(dep.taskId, entry);
+    }
+
+    const ready = tasks.filter((t) => {
+      const state = blockerState.get(t.id);
+      return (
+        state !== undefined &&
+        state.total > 0 &&
+        state.open === 0 &&
+        (t.status === "BLOCKED" || t.status === "TODO" || t.status === "BACKLOG")
+      );
+    });
+
+    for (const task of ready.slice(0, 5)) {
+      drafts.push({
+        userId,
+        taskId: task.id,
+        type: "ROADBLOCK_RESOLUTION",
+        reason: `Everything "${task.title}" was waiting on is finished. It's ready to start.`,
+        payload: {
+          taskId: task.id,
+          apply:
+            task.status === "BLOCKED"
+              ? { action: "set_status", status: "TODO" }
+              : undefined,
+        },
+        confidence: 0.9,
+      });
+    }
+
+    // ---- 6. Tasks too big to start ----
     const oversized = tasks.filter(
       (t) => (t.estimatedMinutes ?? 0) >= 240 && t._count.subtasks === 0
     );

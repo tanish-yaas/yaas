@@ -48,11 +48,33 @@ export async function createTask(formData: FormData) {
   const finalAssignees = validMembers.map((m) => m.userId);
   if (finalAssignees.length === 0) finalAssignees.push(userId);
 
+  const requestedTeamId = String(formData.get("teamId") ?? "");
+  const team = requestedTeamId
+    ? await prisma.team.findFirst({
+        where: {
+          id: requestedTeamId,
+          organizationId: orgId,
+          deletedAt: null,
+        },
+        select: { id: true },
+      })
+    : null;
+
+  const labelIds = formData.getAll("labelIds").map(String).filter(Boolean);
+  const validLabels =
+    labelIds.length > 0
+      ? await prisma.label.findMany({
+          where: { organizationId: orgId, id: { in: labelIds } },
+          select: { id: true },
+        })
+      : [];
+
   await prisma.$transaction(async (tx) => {
     const task = await tx.task.create({
       data: {
         organizationId: orgId,
         createdById: userId,
+        teamId: team?.id ?? null,
         title: d.title,
         description: d.description || null,
         priority: d.priority,
@@ -74,6 +96,17 @@ export async function createTask(formData: FormData) {
       })),
       skipDuplicates: true,
     });
+
+    if (validLabels.length > 0) {
+      await tx.taskLabel.createMany({
+        data: validLabels.map((l) => ({
+          organizationId: orgId,
+          taskId: task.id,
+          labelId: l.id,
+        })),
+        skipDuplicates: true,
+      });
+    }
 
     await tx.activityLog.create({
       data: {

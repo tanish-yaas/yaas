@@ -2,9 +2,10 @@
 
 import { useState, useTransition } from "react";
 import { motion } from "framer-motion";
-import { Check, Trash2, Circle, Pencil } from "lucide-react";
+import { Ban, Check, Trash2, Circle, Pencil } from "lucide-react";
 import { setTaskStatus, deleteTask, updateTask } from "@/server/actions/tasks";
 import { useToast } from "@/components/ui/toast";
+import { TaskDetailSheet } from "./task-detail-sheet";
 
 const PRIORITY_STYLE: Record<string, string> = {
   URGENT: "bg-[#FF4D6D]/15 text-[#FF4D6D]",
@@ -33,6 +34,13 @@ export type TaskRowData = {
   estimatedMinutes: string;
   assignees: string[];
   overdue: boolean;
+  /** Subtask progress, when the task has any. */
+  subtasks?: { done: number; total: number };
+  labels?: { id: string; name: string; color: string }[];
+  /** How many incomplete tasks are holding this one up. */
+  blockedBy?: number;
+  /** Had blockers, all of them are finished. */
+  readyToStart?: boolean;
 };
 
 const field =
@@ -42,6 +50,7 @@ export function TaskRow({ task }: { task: TaskRowData }) {
   const [pending, startTransition] = useTransition();
   const [confirming, setConfirming] = useState(false);
   const [editing, setEditing] = useState(false);
+  const [detailOpen, setDetailOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { push } = useToast();
 
@@ -215,7 +224,7 @@ export function TaskRow({ task }: { task: TaskRowData }) {
 
       <button
         type="button"
-        onClick={() => setEditing(true)}
+        onClick={() => setDetailOpen(true)}
         className="min-w-0 flex-1 text-left"
       >
         <p
@@ -225,12 +234,62 @@ export function TaskRow({ task }: { task: TaskRowData }) {
         >
           {task.title}
         </p>
-        {task.assignees.length > 0 && (
-          <p className="truncate text-[11px] text-muted-foreground/70">
-            {task.assignees.join(", ")}
-          </p>
-        )}
+        <span className="flex items-center gap-2">
+          {task.assignees.length > 0 && (
+            <span className="truncate text-[11px] text-muted-foreground/70">
+              {task.assignees.join(", ")}
+            </span>
+          )}
+          {task.subtasks && task.subtasks.total > 0 && (
+            <span className="shrink-0 rounded-full bg-secondary px-1.5 py-0.5 text-[10px] tabular-nums text-muted-foreground">
+              {task.subtasks.done}/{task.subtasks.total}
+            </span>
+          )}
+        </span>
       </button>
+
+      {!done && task.blockedBy !== undefined && task.blockedBy > 0 && (
+        <span
+          title={`Waiting on ${task.blockedBy} unfinished ${
+            task.blockedBy === 1 ? "task" : "tasks"
+          }`}
+          className="inline-flex shrink-0 items-center gap-1 rounded-full bg-[#FF4D6D]/12 px-2 py-0.5 text-[10px] text-[#FF4D6D]"
+        >
+          <Ban size={10} />
+          Blocked
+        </span>
+      )}
+
+      {!done && task.readyToStart && (
+        <span
+          title="Every blocker is done"
+          className="hidden shrink-0 items-center gap-1 rounded-full bg-[#4ADE80]/12 px-2 py-0.5 text-[10px] text-[#4ADE80] sm:inline-flex"
+        >
+          Ready
+        </span>
+      )}
+
+      {task.labels && task.labels.length > 0 && (
+        <span className="hidden shrink-0 items-center gap-1 sm:flex">
+          {task.labels.slice(0, 3).map((label) => (
+            <span
+              key={label.id}
+              className="rounded-full px-1.5 py-0.5 text-[10px]"
+              style={{
+                color: label.color,
+                backgroundColor: `color-mix(in oklab, ${label.color} 18%, transparent)`,
+              }}
+            >
+              {label.name}
+            </span>
+          ))}
+        </span>
+      )}
+
+      <TaskDetailSheet
+        taskId={detailOpen ? task.id : null}
+        onClose={() => setDetailOpen(false)}
+      />
 
       {task.dueAtLabel && (
         <span

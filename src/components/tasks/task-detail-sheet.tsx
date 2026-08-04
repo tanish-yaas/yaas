@@ -1,0 +1,947 @@
+"use client";
+
+import { useCallback, useEffect, useState, useTransition } from "react";
+import { createPortal } from "react-dom";
+import { AnimatePresence, motion } from "framer-motion";
+import {
+  Check,
+  Download,
+  Loader2,
+  MessageSquare,
+  Paperclip,
+  Plus,
+  Trash2,
+  X,
+} from "lucide-react";
+import { relativeTime } from "@/lib/relative-time";
+import { useToast } from "@/components/ui/toast";
+import { updateTask } from "@/server/actions/tasks";
+import {
+  addComment,
+  addSubtask,
+  attachmentLink,
+  deleteAttachment,
+  deleteComment,
+  deleteSubtask,
+  editComment,
+  loadTaskDetail,
+  setSubtaskDone,
+  uploadTaskAttachment,
+} from "@/server/actions/task-detail";
+import { setTaskLabels } from "@/server/actions/labels";
+import { setTaskTeam } from "@/server/actions/teams";
+import { DependencySection } from "./dependency-section";
+import { LabelPicker } from "./label-picker";
+import type {
+  CommentNode,
+  TaskDetailData,
+} from "@/server/services/task-detail";
+
+const STATUSES = [
+  "BACKLOG",
+  "TODO",
+  "IN_PROGRESS",
+  "BLOCKED",
+  "IN_REVIEW",
+  "DONE",
+  "CANCELLED",
+];
+
+const PRIORITY_COLOR: Record<string, string> = {
+  URGENT: "#FF4D6D",
+  HIGH: "#F5B544",
+  MEDIUM: "#22D3EE",
+  LOW: "#8B8B9E",
+};
+
+const field =
+  "w-full rounded-lg border border-border bg-secondary/50 px-2.5 py-1.5 text-xs outline-none transition-colors focus:border-brand-violet";
+
+function formatBytes(bytes: number) {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function Avatar({ name, image }: { name: string; image: string | null }) {
+  if (image) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={image}
+        alt=""
+        className="h-6 w-6 shrink-0 rounded-full border border-border object-cover"
+      />
+    );
+  }
+  return (
+    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-violet/20 text-[10px] font-medium text-brand-violet">
+      {name.charAt(0).toUpperCase()}
+    </span>
+  );
+}
+
+function Section({
+  title,
+  count,
+  icon,
+  children,
+}: {
+  title: string;
+  count?: number;
+  icon?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="mt-6">
+      <h3 className="mb-2 flex items-center gap-1.5 text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+        {icon}
+        {title}
+        {count !== undefined && count > 0 && ` · ${count}`}
+      </h3>
+      {children}
+    </section>
+  );
+}
+
+export function TaskDetailSheet({
+  taskId,
+  onClose,
+}: {
+  taskId: string | null;
+  onClose: () => void;
+}) {
+  const { push } = useToast();
+  const [mounted, setMounted] = useState(false);
+  const [detail, setDetail] = useState<TaskDetailData | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [pending, startTransition] = useTransition();
+
+  useEffect(() => setMounted(true), []);
+
+  const reload = useCallback(async () => {
+    if (!taskId) return;
+    const result = await loadTaskDetail(taskId);
+    if (result.ok) setDetail(result.detail);
+    else push(result.error, "error");
+  }, [taskId, push]);
+
+  useEffect(() => {
+    if (!taskId) {
+      setDetail(null);
+      return;
+    }
+    setLoading(true);
+    loadTaskDetail(taskId).then((result) => {
+      setLoading(false);
+      if (result.ok) setDetail(result.detail);
+    });
+  }, [taskId]);
+
+  useEffect(() => {
+    if (!taskId) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [taskId, onClose]);
+
+  if (!mounted) return null;
+
+  function run(fn: () => Promise<{ ok: boolean; error?: string }>) {
+    startTransition(async () => {
+      const result = await fn();
+      if (!result.ok && result.error) {
+        push(result.error, "error");
+        return;
+      }
+      await reload();
+    });
+  }
+
+  const doneSubtasks = detail?.subtasks.filter((s) => s.done).length ?? 0;
+  const totalSubtasks = detail?.subtasks.length ?? 0;
+
+  const sheet = (
+    <AnimatePresence>
+      {taskId && (
+        <>
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            onClick={onClose}
+            className="fixed inset-0 z-[92] bg-black/50"
+          />
+
+          <motion.aside
+            initial={{ x: "100%" }}
+            animate={{ x: 0 }}
+            exit={{ x: "100%" }}
+            transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
+            className="fixed inset-y-0 right-0 z-[93] flex w-full flex-col border-l border-border bg-card sm:w-[30rem]"
+          >
+            <header className="flex shrink-0 items-start justify-between gap-3 border-b border-border/60 px-5 py-4">
+              <div className="min-w-0">
+                <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+                  Task
+                </p>
+                <p className="mt-0.5 truncate text-sm">
+                  {detail?.title ?? "Loading…"}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={onClose}
+                className="rounded p-1 text-muted-foreground transition-colors hover:text-foreground"
+              >
+                <X size={16} />
+              </button>
+            </header>
+
+            <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
+              {loading && !detail && (
+                <div className="flex items-center gap-2 py-10 text-xs text-muted-foreground">
+                  <Loader2 size={14} className="animate-spin" />
+                  Loading task…
+                </div>
+              )}
+
+              {detail && (
+                <>
+                  <Fields detail={detail} onSaved={reload} />
+
+                  <Section title="Subtasks" count={totalSubtasks}>
+                    {totalSubtasks > 0 && (
+                      <div className="mb-2">
+                        <div className="mb-1 flex items-center justify-between text-[11px] text-muted-foreground">
+                          <span>
+                            {doneSubtasks} of {totalSubtasks} done
+                          </span>
+                          <span className="tabular-nums">
+                            {Math.round((doneSubtasks / totalSubtasks) * 100)}%
+                          </span>
+                        </div>
+                        <div className="h-1 overflow-hidden rounded-full bg-secondary">
+                          <div
+                            className="h-full rounded-full bg-brand-violet transition-all"
+                            style={{
+                              width: `${(doneSubtasks / totalSubtasks) * 100}%`,
+                            }}
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="flex flex-col">
+                      {detail.subtasks.map((sub) => (
+                        <div
+                          key={sub.id}
+                          className="group flex items-center gap-2.5 rounded-lg px-1 py-1.5 transition-colors hover:bg-secondary/40"
+                        >
+                          <button
+                            type="button"
+                            disabled={pending || !detail.canEdit}
+                            onClick={() =>
+                              run(() => setSubtaskDone(sub.id, !sub.done))
+                            }
+                            className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-all active:scale-90 ${
+                              sub.done
+                                ? "border-brand-violet bg-brand-violet text-white"
+                                : "border-border hover:border-brand-violet"
+                            }`}
+                          >
+                            {sub.done && <Check size={10} />}
+                          </button>
+                          <span
+                            className={`min-w-0 flex-1 truncate text-xs ${
+                              sub.done
+                                ? "text-muted-foreground line-through"
+                                : ""
+                            }`}
+                          >
+                            {sub.title}
+                          </span>
+                          {detail.canEdit && (
+                            <button
+                              type="button"
+                              disabled={pending}
+                              onClick={() => run(() => deleteSubtask(sub.id))}
+                              className="shrink-0 rounded p-1 text-muted-foreground opacity-0 transition-all hover:text-destructive group-hover:opacity-100"
+                            >
+                              <Trash2 size={12} />
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+
+                    {detail.canEdit && (
+                      <AddSubtask
+                        pending={pending}
+                        onAdd={(title) => run(() => addSubtask(detail.id, title))}
+                      />
+                    )}
+                  </Section>
+
+                  {detail.readyToStart && (
+                    <div className="mt-5 flex items-center gap-2 rounded-lg border border-[#4ADE80]/30 bg-[#4ADE80]/10 px-3 py-2">
+                      <Check size={13} className="shrink-0 text-[#4ADE80]" />
+                      <p className="text-xs text-[#4ADE80]">
+                        Every blocker is done — this is ready to start.
+                      </p>
+                    </div>
+                  )}
+
+                  <Section title="Blocked by" count={detail.blockedBy.length}>
+                    <DependencySection
+                      taskId={detail.id}
+                      direction="blocked-by"
+                      rows={detail.blockedBy}
+                      canEdit={detail.canEdit}
+                      onChanged={reload}
+                    />
+                  </Section>
+
+                  <Section title="Blocks" count={detail.blocks.length}>
+                    <DependencySection
+                      taskId={detail.id}
+                      direction="blocks"
+                      rows={detail.blocks}
+                      canEdit={detail.canEdit}
+                      onChanged={reload}
+                    />
+                  </Section>
+
+                  <Section
+                    title="Comments"
+                    count={detail.comments.length}
+                    icon={<MessageSquare size={11} />}
+                  >
+                    <div className="flex flex-col gap-3">
+                      {detail.comments.map((node) => (
+                        <Comment
+                          key={node.id}
+                          node={node}
+                          depth={0}
+                          pending={pending}
+                          onReply={(parentId, body) =>
+                            run(() => addComment(detail.id, body, parentId))
+                          }
+                          onEdit={(id, body) => run(() => editComment(id, body))}
+                          onDelete={(id) => run(() => deleteComment(id))}
+                        />
+                      ))}
+                    </div>
+
+                    <CommentBox
+                      pending={pending}
+                      placeholder="Add a comment…"
+                      onSubmit={(body) => run(() => addComment(detail.id, body))}
+                    />
+                  </Section>
+
+                  <Section
+                    title="Attachments"
+                    count={detail.attachments.length}
+                    icon={<Paperclip size={11} />}
+                  >
+                    <div className="flex flex-col gap-1.5">
+                      {detail.attachments.map((file) => (
+                        <div
+                          key={file.id}
+                          className="group flex items-center gap-2.5 rounded-lg border border-border/60 px-2.5 py-2"
+                        >
+                          <Paperclip
+                            size={13}
+                            className="shrink-0 text-muted-foreground"
+                          />
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-xs">{file.fileName}</p>
+                            <p className="truncate text-[10px] text-muted-foreground">
+                              {formatBytes(file.sizeBytes)} ·{" "}
+                              {file.mimeType.split("/").pop()} · {file.uploadedBy}{" "}
+                              · {relativeTime(file.createdAt)}
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              const result = await attachmentLink(file.id);
+                              if (!result.ok) {
+                                push(result.error, "error");
+                                return;
+                              }
+                              window.open(result.url, "_blank", "noopener");
+                            }}
+                            className="shrink-0 rounded p-1 text-muted-foreground transition-colors hover:text-foreground"
+                            title="Download"
+                          >
+                            <Download size={13} />
+                          </button>
+                          {file.isMine && (
+                            <button
+                              type="button"
+                              disabled={pending}
+                              onClick={() => run(() => deleteAttachment(file.id))}
+                              className="shrink-0 rounded p-1 text-muted-foreground opacity-0 transition-all hover:text-destructive group-hover:opacity-100"
+                            >
+                              <Trash2 size={12} />
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+
+                    <UploadField
+                      taskId={detail.id}
+                      onUploaded={reload}
+                      onError={(message) => push(message, "error")}
+                    />
+                  </Section>
+
+                  <Section title="Activity" count={detail.activity.length}>
+                    {detail.activity.length === 0 ? (
+                      <p className="text-xs text-muted-foreground/70">
+                        Nothing has changed yet.
+                      </p>
+                    ) : (
+                      <ol className="flex flex-col gap-0">
+                        {detail.activity.map((row, i) => (
+                          <li key={row.id} className="flex gap-3">
+                            <div className="flex flex-col items-center">
+                              <span
+                                className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full"
+                                style={{
+                                  backgroundColor:
+                                    row.kind === "priority"
+                                      ? "#F5B544"
+                                      : "#7C5CFF",
+                                }}
+                              />
+                              {i < detail.activity.length - 1 && (
+                                <span className="w-px flex-1 bg-border/60" />
+                              )}
+                            </div>
+                            <div className="pb-3">
+                              <p className="text-xs">
+                                {row.kind === "status" ? "Status" : "Priority"}{" "}
+                                {row.from ? (
+                                  <>
+                                    <span className="text-muted-foreground">
+                                      {row.from.replace("_", " ")}
+                                    </span>{" "}
+                                    →{" "}
+                                  </>
+                                ) : (
+                                  "set to "
+                                )}
+                                <span className="text-foreground">
+                                  {row.to.replace("_", " ")}
+                                </span>
+                              </p>
+                              <p className="text-[10px] text-muted-foreground">
+                                {row.actor} · {relativeTime(row.at)}
+                                {row.byAI && " · automatic"}
+                              </p>
+                              {row.reason && (
+                                <p className="mt-0.5 text-[10px] text-muted-foreground/70">
+                                  {row.reason}
+                                </p>
+                              )}
+                            </div>
+                          </li>
+                        ))}
+                      </ol>
+                    )}
+                  </Section>
+
+                  <p className="mt-6 border-t border-border/60 pt-3 text-[10px] text-muted-foreground/70">
+                    Created by {detail.createdBy} on {detail.createdAtLabel}
+                    {" · "}updated {detail.updatedAtLabel}
+                  </p>
+                </>
+              )}
+            </div>
+          </motion.aside>
+        </>
+      )}
+    </AnimatePresence>
+  );
+
+  return createPortal(sheet, document.body);
+}
+
+// ---------------------------------------------------------------------------
+
+function Fields({
+  detail,
+  onSaved,
+}: {
+  detail: TaskDetailData;
+  onSaved: () => Promise<void>;
+}) {
+  const { push } = useToast();
+  const [description, setDescription] = useState(detail.description);
+  const [pending, startTransition] = useTransition();
+
+  useEffect(() => setDescription(detail.description), [detail.description]);
+
+  function save(patch: Partial<{ status: string; priority: string; description: string }>) {
+    startTransition(async () => {
+      const result = await updateTask(detail.id, {
+        title: detail.title,
+        description: patch.description ?? description,
+        priority: patch.priority ?? detail.priority,
+        status: patch.status ?? detail.status,
+        dueAt: detail.dueAtInput,
+        estimatedMinutes: detail.estimatedMinutes,
+      });
+
+      if (!result.ok) {
+        push(result.error, "error");
+        return;
+      }
+      await onSaved();
+    });
+  }
+
+  return (
+    <div className={pending ? "opacity-70" : ""}>
+      <div className="grid grid-cols-2 gap-2">
+        <label className="flex flex-col gap-1">
+          <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+            Status
+          </span>
+          <select
+            value={detail.status}
+            disabled={!detail.canEdit}
+            onChange={(e) => save({ status: e.target.value })}
+            className={field}
+          >
+            {STATUSES.map((s) => (
+              <option key={s} value={s}>
+                {s.replace("_", " ")}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label className="flex flex-col gap-1">
+          <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+            Priority
+          </span>
+          <select
+            value={detail.priority}
+            disabled={!detail.canEdit}
+            onChange={(e) => save({ priority: e.target.value })}
+            className={field}
+            style={{ color: PRIORITY_COLOR[detail.priority] }}
+          >
+            <option value="LOW">Low</option>
+            <option value="MEDIUM">Medium</option>
+            <option value="HIGH">High</option>
+            <option value="URGENT">Urgent</option>
+          </select>
+        </label>
+      </div>
+
+      <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+        <div>
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+            Due
+          </p>
+          <p className="mt-1">{detail.dueAtLabel ?? "No date"}</p>
+        </div>
+        <div>
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+            Estimate
+          </p>
+          <p className="mt-1">
+            {detail.estimatedMinutes
+              ? `${detail.estimatedMinutes} min`
+              : "Not set"}
+          </p>
+        </div>
+      </div>
+
+      {detail.teams.length > 0 && (
+        <label className="mt-3 flex flex-col gap-1">
+          <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+            Team
+          </span>
+          <select
+            value={detail.teamId ?? ""}
+            disabled={!detail.canEdit}
+            onChange={(e) =>
+              startTransition(async () => {
+                const result = await setTaskTeam(
+                  detail.id,
+                  e.target.value || null
+                );
+                if (!result.ok) {
+                  push(result.error, "error");
+                  return;
+                }
+                await onSaved();
+              })
+            }
+            className={field}
+          >
+            <option value="">No team</option>
+            {detail.teams.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.name}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
+
+      {detail.assignees.length > 0 && (
+        <div className="mt-3">
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+            Assignees
+          </p>
+          <div className="mt-1.5 flex flex-wrap items-center gap-2">
+            {detail.assignees.map((a) => (
+              <span key={a.id} className="flex items-center gap-1.5 text-xs">
+                <Avatar name={a.name} image={a.image} />
+                {a.name}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="mt-3">
+        <p className="mb-1.5 text-[10px] uppercase tracking-wider text-muted-foreground">
+          Labels
+        </p>
+        <LabelPicker
+          value={detail.labels.map((l) => l.id)}
+          options={detail.allLabels}
+          canEdit={detail.canEdit}
+          onChange={(ids) =>
+            startTransition(async () => {
+              const result = await setTaskLabels(detail.id, ids);
+              if (!result.ok) {
+                push(result.error, "error");
+                return;
+              }
+              await onSaved();
+            })
+          }
+        />
+      </div>
+
+      <div className="mt-3">
+        <p className="mb-1 text-[10px] uppercase tracking-wider text-muted-foreground">
+          Description
+        </p>
+        <textarea
+          value={description}
+          disabled={!detail.canEdit}
+          rows={3}
+          placeholder="No description yet"
+          onChange={(e) => setDescription(e.target.value)}
+          onBlur={() => {
+            if (description === detail.description) return;
+            save({ description });
+          }}
+          className={field}
+        />
+      </div>
+    </div>
+  );
+}
+
+function AddSubtask({
+  pending,
+  onAdd,
+}: {
+  pending: boolean;
+  onAdd: (title: string) => void;
+}) {
+  const [value, setValue] = useState("");
+
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (!value.trim()) return;
+        onAdd(value);
+        setValue("");
+      }}
+      className="mt-2 flex items-center gap-2"
+    >
+      <Plus size={13} className="shrink-0 text-muted-foreground" />
+      <input
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        disabled={pending}
+        placeholder="Add a subtask"
+        className={field}
+      />
+    </form>
+  );
+}
+
+function CommentBox({
+  pending,
+  placeholder,
+  autoFocus,
+  onSubmit,
+  onCancel,
+}: {
+  pending: boolean;
+  placeholder: string;
+  autoFocus?: boolean;
+  onSubmit: (body: string) => void;
+  onCancel?: () => void;
+}) {
+  const [value, setValue] = useState("");
+
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (!value.trim()) return;
+        onSubmit(value);
+        setValue("");
+      }}
+      className="mt-3 flex flex-col gap-2"
+    >
+      <textarea
+        value={value}
+        autoFocus={autoFocus}
+        onChange={(e) => setValue(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+            e.preventDefault();
+            if (!value.trim()) return;
+            onSubmit(value);
+            setValue("");
+          }
+        }}
+        rows={2}
+        placeholder={placeholder}
+        className={`${field} resize-none`}
+      />
+      <div className="flex items-center gap-2">
+        <button
+          type="submit"
+          disabled={pending || !value.trim()}
+          className="rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-40"
+        >
+          Post
+        </button>
+        {onCancel && (
+          <button
+            type="button"
+            onClick={onCancel}
+            className="text-xs text-muted-foreground underline underline-offset-4 hover:text-foreground"
+          >
+            Cancel
+          </button>
+        )}
+      </div>
+    </form>
+  );
+}
+
+function Comment({
+  node,
+  depth,
+  pending,
+  onReply,
+  onEdit,
+  onDelete,
+}: {
+  node: CommentNode;
+  depth: number;
+  pending: boolean;
+  onReply: (parentId: string, body: string) => void;
+  onEdit: (id: string, body: string) => void;
+  onDelete: (id: string) => void;
+}) {
+  const [replying, setReplying] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(node.body);
+
+  return (
+    <div className={depth > 0 ? "ml-6 border-l border-border/50 pl-3" : ""}>
+      <div className="flex items-start gap-2">
+        <Avatar name={node.authorName} image={node.authorImage} />
+        <div className="min-w-0 flex-1">
+          <p className="flex items-baseline gap-2">
+            <span className="text-xs">{node.authorName}</span>
+            <span className="text-[10px] text-muted-foreground">
+              {relativeTime(node.createdAt)}
+              {node.isEdited && " · edited"}
+            </span>
+          </p>
+
+          {node.isDeleted ? (
+            <p className="mt-0.5 text-xs italic text-muted-foreground/60">
+              Comment deleted
+            </p>
+          ) : editing ? (
+            <div className="mt-1 flex flex-col gap-2">
+              <textarea
+                value={draft}
+                autoFocus
+                rows={2}
+                onChange={(e) => setDraft(e.target.value)}
+                className={`${field} resize-none`}
+              />
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  disabled={pending}
+                  onClick={() => {
+                    onEdit(node.id, draft);
+                    setEditing(false);
+                  }}
+                  className="rounded-lg bg-primary px-2.5 py-1 text-[11px] font-medium text-primary-foreground"
+                >
+                  Save
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDraft(node.body);
+                    setEditing(false);
+                  }}
+                  className="text-[11px] text-muted-foreground underline underline-offset-4"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : (
+            <p className="mt-0.5 whitespace-pre-wrap text-xs text-secondary-foreground">
+              {node.body}
+            </p>
+          )}
+
+          {!node.isDeleted && !editing && (
+            <div className="mt-1 flex items-center gap-3">
+              {depth === 0 && (
+                <button
+                  type="button"
+                  onClick={() => setReplying((prev) => !prev)}
+                  className="text-[10px] text-muted-foreground transition-colors hover:text-foreground"
+                >
+                  Reply
+                </button>
+              )}
+              {node.isMine && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setEditing(true)}
+                    className="text-[10px] text-muted-foreground transition-colors hover:text-foreground"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    type="button"
+                    disabled={pending}
+                    onClick={() => onDelete(node.id)}
+                    className="text-[10px] text-muted-foreground transition-colors hover:text-destructive"
+                  >
+                    Delete
+                  </button>
+                </>
+              )}
+            </div>
+          )}
+
+          {replying && (
+            <CommentBox
+              pending={pending}
+              autoFocus
+              placeholder={`Reply to ${node.authorName}…`}
+              onSubmit={(body) => {
+                onReply(node.id, body);
+                setReplying(false);
+              }}
+              onCancel={() => setReplying(false)}
+            />
+          )}
+        </div>
+      </div>
+
+      {node.replies.length > 0 && (
+        <div className="mt-3 flex flex-col gap-3">
+          {node.replies.map((reply) => (
+            <Comment
+              key={reply.id}
+              node={reply}
+              depth={depth + 1}
+              pending={pending}
+              onReply={onReply}
+              onEdit={onEdit}
+              onDelete={onDelete}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function UploadField({
+  taskId,
+  onUploaded,
+  onError,
+}: {
+  taskId: string;
+  onUploaded: () => Promise<void>;
+  onError: (message: string) => void;
+}) {
+  const [uploading, setUploading] = useState(false);
+
+  return (
+    <label className="mt-2 flex h-9 cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-border text-xs text-muted-foreground transition-colors hover:border-brand-violet hover:text-foreground">
+      {uploading ? (
+        <>
+          <Loader2 size={13} className="animate-spin" />
+          Uploading…
+        </>
+      ) : (
+        <>
+          <Paperclip size={13} />
+          Attach a file
+        </>
+      )}
+      <input
+        type="file"
+        className="hidden"
+        disabled={uploading}
+        onChange={async (e) => {
+          const file = e.target.files?.[0];
+          e.target.value = "";
+          if (!file) return;
+
+          setUploading(true);
+          const formData = new FormData();
+          formData.set("taskId", taskId);
+          formData.set("file", file);
+
+          const result = await uploadTaskAttachment(formData);
+          setUploading(false);
+
+          if (!result.ok) {
+            onError(result.error);
+            return;
+          }
+          await onUploaded();
+        }}
+      />
+    </label>
+  );
+}

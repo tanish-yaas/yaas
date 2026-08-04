@@ -50,6 +50,77 @@ export async function getVisibleCalendarIds(
   return [...ids];
 }
 
+export type VisibleCalendar = {
+  id: string;
+  name: string;
+  color: string;
+  type: string;
+  ownerId: string;
+  ownerName: string;
+  isOwn: boolean;
+  isDefault: boolean;
+  canEdit: boolean;
+};
+
+const PALETTE = [
+  "#7C5CFF",
+  "#22D3EE",
+  "#FF4D8F",
+  "#F5B544",
+  "#4ADE80",
+  "#A78BFA",
+  "#FB7185",
+];
+
+/**
+ * Every calendar the user can see, with display metadata and whether they may
+ * write to it. Visibility still comes from getVisibleCalendarIds — this only
+ * decorates that answer.
+ */
+export async function getCalendarsForUser(
+  orgId: string,
+  userId: string,
+  permissions: Set<string>
+): Promise<VisibleCalendar[]> {
+  const ids = await getVisibleCalendarIds(orgId, userId, permissions);
+  if (ids.length === 0) return [];
+
+  const [calendars, shares] = await Promise.all([
+    prisma.calendar.findMany({
+      where: { organizationId: orgId, id: { in: ids }, deletedAt: null },
+      include: { owner: { select: { name: true, email: true } } },
+      orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }],
+    }),
+    prisma.calendarShare.findMany({
+      where: { organizationId: orgId, userId, calendarId: { in: ids } },
+      select: { calendarId: true, accessLevel: true },
+    }),
+  ]);
+
+  const shareLevel = new Map(shares.map((s) => [s.calendarId, s.accessLevel]));
+
+  return calendars.map((c, i) => {
+    const level = shareLevel.get(c.id);
+    const isOwn = c.ownerId === userId;
+
+    return {
+      id: c.id,
+      name: c.name,
+      color: c.color ?? PALETTE[i % PALETTE.length],
+      type: c.type,
+      ownerId: c.ownerId,
+      ownerName: c.owner.name ?? c.owner.email ?? "Someone",
+      isOwn,
+      isDefault: c.isDefault,
+      canEdit:
+        permissions.has("calendar.edit_any") ||
+        (isOwn && permissions.has("calendar.edit_own")) ||
+        level === "EDIT" ||
+        level === "FULL_ACCESS",
+    };
+  });
+}
+
 export async function getWritableCalendar(orgId: string, userId: string) {
   const existing = await prisma.calendar.findFirst({
     where: {

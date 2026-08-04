@@ -43,6 +43,7 @@ export async function applyParsedTask(
     estimatedMinutes: string;
     assigneeIds: string[];
     subtasks: string[];
+    labelIds?: string[];
   }
 ) {
   const ctx = await requirePermission("task.create");
@@ -79,6 +80,15 @@ export async function applyParsedTask(
 
   const parsed = record.parsedOutput as unknown as ParsedTask | null;
 
+  const labelIds = edited.labelIds ?? [];
+  const validLabels =
+    labelIds.length > 0
+      ? await prisma.label.findMany({
+          where: { organizationId: orgId, id: { in: labelIds } },
+          select: { id: true },
+        })
+      : [];
+
   await prisma.$transaction(async (tx) => {
     const task = await tx.task.create({
       data: {
@@ -108,6 +118,17 @@ export async function applyParsedTask(
       })),
       skipDuplicates: true,
     });
+
+    if (validLabels.length > 0) {
+      await tx.taskLabel.createMany({
+        data: validLabels.map((l) => ({
+          organizationId: orgId,
+          taskId: task.id,
+          labelId: l.id,
+        })),
+        skipDuplicates: true,
+      });
+    }
 
     const subtasks = edited.subtasks.map((s) => s.trim()).filter(Boolean);
     if (subtasks.length > 0) {

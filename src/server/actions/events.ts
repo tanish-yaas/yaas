@@ -3,48 +3,74 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/server/rbac/guard";
-import { createEventSchema } from "@/lib/validators/event";
+import {
+  eventInputSchema,
+  eventPatchSchema,
+  type EventInput,
+  type EventPatch,
+} from "@/lib/validators/event";
 import { getWritableCalendar, canMutateEvent } from "@/server/services/calendar";
 import { fromLocalInput } from "@/lib/dates";
 import { APP_CONFIG } from "@/config/app";
 
-export async function createEvent(formData: FormData) {
+export async function createCalendarEvent(input: EventInput) {
   const ctx = await requirePermission("calendar.edit_own");
   const orgId = ctx.membership!.organizationId;
   const userId = ctx.session.user.id;
 
-  const parsed = createEventSchema.safeParse({
-    title: formData.get("title") ?? "",
-    description: formData.get("description") ?? "",
-    location: formData.get("location") ?? "",
-    startAt: formData.get("startAt") ?? "",
-    endAt: formData.get("endAt") ?? "",
-    allDay: formData.get("allDay") === "on",
-    taskId: formData.get("taskId") ?? "",
-  });
-
+  const parsed = eventInputSchema.safeParse(input);
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+    return {
+      ok: false as const,
+      error: parsed.error.issues[0]?.message ?? "Invalid input",
+    };
   }
 
-  const d = parsed.data;
-
-  const startAt = fromLocalInput(d.startAt);
-  const endAt = fromLocalInput(d.endAt);
+  const title = parsed.data.title;
+  const startAt = fromLocalInput(parsed.data.startAt);
+  const endAt = fromLocalInput(parsed.data.endAt);
 
   if (!startAt || !endAt) {
-    return { error: "Pick a valid start and end time" };
+    return { ok: false as const, error: "Pick a valid start and end time" };
   }
   if (endAt <= startAt) {
-    return { error: "End time must be after the start time" };
+    return { ok: false as const, error: "End time must be after the start time" };
   }
 
-  const calendar = await getWritableCalendar(orgId, userId);
+  let calendarId: string | null = null;
+  if (input.calendarId) {
+    const target = await prisma.calendar.findFirst({
+      where: { id: input.calendarId, organizationId: orgId, deletedAt: null },
+      select: { id: true, ownerId: true },
+    });
+
+    if (target) {
+      const writable =
+        ctx.permissions.has("calendar.edit_any") ||
+        target.ownerId === userId ||
+        (await prisma.calendarShare.findFirst({
+          where: {
+            calendarId: target.id,
+            userId,
+            accessLevel: { in: ["EDIT", "FULL_ACCESS"] },
+          },
+          select: { id: true },
+        })) !== null;
+
+      if (!writable) return { ok: false as const, error: "Not allowed" };
+      calendarId = target.id;
+    }
+  }
+
+  if (!calendarId) {
+    const fallback = await getWritableCalendar(orgId, userId);
+    calendarId = fallback.id;
+  }
 
   let taskId: string | null = null;
-  if (d.taskId) {
+  if (input.taskId) {
     const task = await prisma.task.findFirst({
-      where: { id: d.taskId, organizationId: orgId, deletedAt: null },
+      where: { id: input.taskId, organizationId: orgId, deletedAt: null },
       select: { id: true },
     });
     taskId = task?.id ?? null;
@@ -53,14 +79,14 @@ export async function createEvent(formData: FormData) {
   const event = await prisma.calendarEvent.create({
     data: {
       organizationId: orgId,
-      calendarId: calendar.id,
+      calendarId,
       createdById: userId,
-      title: d.title,
-      description: d.description || null,
-      location: d.location || null,
+      title,
+      description: input.description?.trim() || null,
+      location: input.location?.trim() || null,
       startAt,
       endAt,
-      allDay: d.allDay,
+      allDay: input.allDay ?? false,
       timezone: APP_CONFIG.timezone,
       taskId,
     },
@@ -75,6 +101,112 @@ export async function createEvent(formData: FormData) {
       entityId: event.id,
       metadata: { title: event.title },
     },
+  });
+
+  revalidatePath("/calendar");
+  return { ok: true as const, id: event.id };
+}
+
+/** Inline edits from the event popover. Every field is optional. */
+export async function updateCalendarEvent(eventId: string, input: EventPatch) {
+  const ctx = await requirePermission("calendar.edit_own");
+  const orgId = ctx.membership!.organizationId;
+  const userId = ctx.session.user.id;
+
+  const parsed = eventPatchSchema.safeParse(input);
+  if (!parsed.success) {
+    return {
+      ok: false as const,
+      error: parsed.error.issues[0]?.message ?? "Invalid input",
+    };
+  }
+  const patch = parsed.data;
+
+  const event = await canMutateEvent(eventId, orgId, userId, ctx.permissions);
+  if (!event) return { ok: false as const, error: "Not allowed" };
+
+  const data: {
+    title?: string;
+    description?: string | null;
+    location?: string | null;
+    meetingUrl?: string | null;
+    startAt?: Date;
+    endAt?: Date;
+    allDay?: boolean;
+    taskId?: string | null;
+  } = {};
+
+  if (patch.title !== undefined) {
+    const title = patch.title.trim();
+    if (!title) return { ok: false as const, error: "Title can't be empty" };
+    data.title = title;
+  }
+
+  if (patch.description !== undefined) {
+    data.description = patch.description.trim() || null;
+  }
+  if (patch.location !== undefined) {
+    data.location = patch.location.trim() || null;
+  }
+  if (patch.meetingUrl !== undefined) {
+    data.meetingUrl = patch.meetingUrl.trim() || null;
+  }
+  if (patch.allDay !== undefined) data.allDay = patch.allDay;
+
+  if (patch.startAt !== undefined) {
+    const startAt = fromLocalInput(patch.startAt);
+    if (!startAt) return { ok: false as const, error: "Invalid start time" };
+    data.startAt = startAt;
+  }
+
+  if (patch.endAt !== undefined) {
+    const endAt = fromLocalInput(patch.endAt);
+    if (!endAt) return { ok: false as const, error: "Invalid end time" };
+    data.endAt = endAt;
+  }
+
+  const nextStart = data.startAt ?? event.startAt;
+  const nextEnd = data.endAt ?? event.endAt;
+  if (nextEnd <= nextStart) {
+    return { ok: false as const, error: "End time must be after the start time" };
+  }
+
+  if (patch.taskId !== undefined) {
+    if (!patch.taskId) {
+      data.taskId = null;
+    } else {
+      const task = await prisma.task.findFirst({
+        where: { id: patch.taskId, organizationId: orgId, deletedAt: null },
+        select: { id: true },
+      });
+      data.taskId = task?.id ?? null;
+    }
+  }
+
+  await prisma.calendarEvent.update({ where: { id: eventId }, data });
+
+  revalidatePath("/calendar");
+  return { ok: true as const };
+}
+
+/** Drag the bottom edge of an event: the start stays put, the end moves. */
+export async function resizeEvent(eventId: string, newEndLocal: string) {
+  const ctx = await requirePermission("calendar.edit_own");
+  const orgId = ctx.membership!.organizationId;
+  const userId = ctx.session.user.id;
+
+  const event = await canMutateEvent(eventId, orgId, userId, ctx.permissions);
+  if (!event) return { error: "Not allowed" };
+
+  const newEnd = fromLocalInput(newEndLocal);
+  if (!newEnd) return { error: "Invalid time" };
+  if (newEnd <= event.startAt) {
+    return { error: "An event has to last at least a few minutes" };
+  }
+
+  await prisma.calendarEvent.update({
+    where: { id: eventId },
+    data: { endAt: newEnd },
   });
 
   revalidatePath("/calendar");

@@ -1,3 +1,5 @@
+import Link from "next/link";
+import { Users } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { getCurrentContext } from "@/server/auth/session";
 import { buildTaskScope } from "@/server/services/tasks";
@@ -33,7 +35,12 @@ function Section({
   );
 }
 
-export default async function TasksPage() {
+export default async function TasksPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ label?: string; team?: string }>;
+}) {
+  const { label: labelFilter, team: teamFilter } = await searchParams;
   const ctx = await getCurrentContext();
   if (!ctx?.membership) return null;
 
@@ -42,9 +49,17 @@ export default async function TasksPage() {
 
   const scope = await buildTaskScope(orgId, userId, ctx.permissions);
 
-  const [tasks, memberRows] = await Promise.all([
+  const [tasks, memberRows, subtaskCounts, labels, teams] = await Promise.all([
     prisma.task.findMany({
-      where: scope,
+      // Subtasks live inside the parent's detail sheet, not as top-level rows.
+      where: {
+        ...scope,
+        parentTaskId: null,
+        ...(labelFilter
+          ? { labels: { some: { labelId: labelFilter } } }
+          : {}),
+        ...(teamFilter ? { teamId: teamFilter } : {}),
+      },
       orderBy: [
         { status: "asc" },
         { priorityScore: "desc" },
@@ -53,6 +68,7 @@ export default async function TasksPage() {
       take: 200,
       include: {
         assignments: { include: { user: { select: { name: true } } } },
+        labels: { include: { label: true } },
       },
     }),
     prisma.organizationMember.findMany({
@@ -60,12 +76,71 @@ export default async function TasksPage() {
       include: { user: { select: { name: true, email: true } } },
       orderBy: { createdAt: "asc" },
     }),
+    prisma.task.groupBy({
+      by: ["parentTaskId", "status"],
+      where: { ...scope, parentTaskId: { not: null } },
+      _count: { _all: true },
+    }),
+    prisma.label.findMany({
+      where: { organizationId: orgId },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true, color: true },
+    }),
+    prisma.team.findMany({
+      where: { organizationId: orgId, deletedAt: null },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true, color: true },
+    }),
   ]);
+
+  // A task is blocked while any task it depends on is still open.
+  const dependencies =
+    tasks.length > 0
+      ? await prisma.taskDependency.findMany({
+          where: {
+            organizationId: orgId,
+            type: "BLOCKS",
+            taskId: { in: tasks.map((t) => t.id) },
+            dependsOn: { deletedAt: null },
+          },
+          select: { taskId: true, dependsOn: { select: { status: true } } },
+        })
+      : [];
+
+  const blockers = new Map<string, { open: number; total: number }>();
+  for (const dep of dependencies) {
+    const entry = blockers.get(dep.taskId) ?? { open: 0, total: 0 };
+    entry.total += 1;
+    if (dep.dependsOn.status !== "DONE" && dep.dependsOn.status !== "CANCELLED") {
+      entry.open += 1;
+    }
+    blockers.set(dep.taskId, entry);
+  }
+
+  const progress = new Map<string, { done: number; total: number }>();
+  for (const row of subtaskCounts) {
+    if (!row.parentTaskId) continue;
+    const entry = progress.get(row.parentTaskId) ?? { done: 0, total: 0 };
+    entry.total += row._count._all;
+    if (row.status === "DONE") entry.done += row._count._all;
+    progress.set(row.parentTaskId, entry);
+  }
 
   const members = memberRows.map((m) => ({
     userId: m.userId,
     name: m.user.name ?? m.user.email ?? "Member",
   }));
+
+  /** Keep whichever filter isn't being toggled. */
+  const filterHref = (next: { label?: string | null; team?: string | null }) => {
+    const params = new URLSearchParams();
+    const label = next.label === undefined ? labelFilter : next.label;
+    const team = next.team === undefined ? teamFilter : next.team;
+    if (label) params.set("label", label);
+    if (team) params.set("team", team);
+    const query = params.toString();
+    return query ? `/tasks?${query}` : "/tasks";
+  };
 
   const now = new Date();
   const endOfToday = new Date();
@@ -84,6 +159,16 @@ export default async function TasksPage() {
     estimatedMinutes: t.estimatedMinutes ? String(t.estimatedMinutes) : "",
     overdue: !!t.dueAt && t.dueAt < now,
     assignees: t.assignments.map((a) => a.user.name ?? "").filter(Boolean),
+    subtasks: progress.get(t.id),
+    labels: t.labels.map((l) => ({
+      id: l.label.id,
+      name: l.label.name,
+      color: l.label.color,
+    })),
+    blockedBy: blockers.get(t.id)?.open ?? 0,
+    readyToStart:
+      (blockers.get(t.id)?.total ?? 0) > 0 &&
+      (blockers.get(t.id)?.open ?? 0) === 0,
   }));
 
   const open = rows.filter(
@@ -115,18 +200,93 @@ export default async function TasksPage() {
 
       {ctx.permissions.has("ai.use") ? (
         <div className="flex flex-col gap-3">
-          <SmartComposer members={members} currentUserId={userId} />
+          <SmartComposer
+            members={members}
+            currentUserId={userId}
+            labels={labels}
+          />
           <details>
             <summary className="cursor-pointer text-xs text-muted-foreground transition-colors hover:text-foreground">
               Add manually instead
             </summary>
             <div className="mt-2">
-              <TaskComposer members={members} currentUserId={userId} />
+              <TaskComposer
+                members={members}
+                currentUserId={userId}
+                labels={labels}
+                teams={teams}
+              />
             </div>
           </details>
         </div>
       ) : (
-        <TaskComposer members={members} currentUserId={userId} />
+        <TaskComposer
+          members={members}
+          currentUserId={userId}
+          labels={labels}
+          teams={teams}
+        />
+      )}
+
+      {(labels.length > 0 || teams.length > 0) && (
+        <div className="mt-4 flex flex-wrap items-center gap-1.5">
+          <Link
+            href="/tasks"
+            className={`rounded-full border px-2.5 py-1 text-[11px] transition-colors ${
+              labelFilter || teamFilter
+                ? "border-border text-muted-foreground hover:text-foreground"
+                : "border-brand-violet/40 bg-brand-violet/10 text-brand-violet"
+            }`}
+          >
+            All
+          </Link>
+
+          {teams.map((team) => {
+            const active = teamFilter === team.id;
+            const color = team.color ?? "#7C5CFF";
+            return (
+              <Link
+                key={team.id}
+                href={filterHref({ team: active ? null : team.id })}
+                className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] transition-opacity hover:opacity-80"
+                style={{
+                  color,
+                  borderColor: `color-mix(in oklab, ${color} ${
+                    active ? "60%" : "25%"
+                  }, transparent)`,
+                  backgroundColor: active
+                    ? `color-mix(in oklab, ${color} 18%, transparent)`
+                    : "transparent",
+                }}
+              >
+                <Users size={10} />
+                {team.name}
+              </Link>
+            );
+          })}
+
+          {labels.map((label) => {
+            const active = labelFilter === label.id;
+            return (
+              <Link
+                key={label.id}
+                href={filterHref({ label: active ? null : label.id })}
+                className="rounded-full border px-2.5 py-1 text-[11px] transition-opacity hover:opacity-80"
+                style={{
+                  color: label.color,
+                  borderColor: `color-mix(in oklab, ${label.color} ${
+                    active ? "60%" : "25%"
+                  }, transparent)`,
+                  backgroundColor: active
+                    ? `color-mix(in oklab, ${label.color} 18%, transparent)`
+                    : "transparent",
+                }}
+              >
+                {label.name}
+              </Link>
+            );
+          })}
+        </div>
       )}
 
       {rows.length === 0 && (

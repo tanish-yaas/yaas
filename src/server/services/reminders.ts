@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { getWhatsAppProvider } from "@/lib/whatsapp/provider";
 import { sendSlackToEmail } from "@/lib/slack/provider";
+import { getScoreTrend } from "@/server/services/snapshots";
 
 const WINDOW_MS = 24 * 60 * 60 * 1000;
 
@@ -250,19 +251,36 @@ async function buildDigest(
   ]);
 
   const rate = created > 0 ? Math.round((completed / created) * 100) : 0;
+  const trend = await getScoreTrend(userId, 14);
+
+  const lines = [
+    `Week in review, ${firstName}.`,
+    "",
+    `Completed: ${completed}`,
+    `Created: ${created}`,
+    `Completion rate: ${rate}%`,
+  ];
+
+  if (trend.average !== null) {
+    const direction =
+      trend.change === null || trend.change === 0
+        ? "flat against last week"
+        : trend.change > 0
+          ? `up ${trend.change} on last week`
+          : `down ${Math.abs(trend.change)} on last week`;
+
+    lines.push(`Productivity score: ${trend.average}/100 — ${direction}`);
+  }
+
+  lines.push(
+    overdue > 0
+      ? `Carrying ${overdue} overdue into next week.`
+      : "Nothing overdue."
+  );
 
   return {
     title: `Week in review: ${completed} done`,
-    body: [
-      `Week in review, ${firstName}.`,
-      "",
-      `Completed: ${completed}`,
-      `Created: ${created}`,
-      `Completion rate: ${rate}%`,
-      overdue > 0
-        ? `Carrying ${overdue} overdue into next week.`
-        : "Nothing overdue.",
-    ].join("\n"),
+    body: lines.join("\n"),
   };
 }
 

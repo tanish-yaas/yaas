@@ -3,6 +3,7 @@
 import { useState, useRef, useTransition } from "react";
 import { Plus, ChevronDown, ChevronUp } from "lucide-react";
 import { createTask } from "@/server/actions/tasks";
+import { LabelPicker, type LabelOption } from "./label-picker";
 
 type Member = { userId: string; name: string };
 
@@ -12,17 +13,25 @@ const field =
 export function TaskComposer({
   members,
   currentUserId,
+  labels,
+  teams,
 }: {
   members: Member[];
   currentUserId: string;
+  labels: LabelOption[];
+  teams: { id: string; name: string }[];
 }) {
   const [expanded, setExpanded] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const [labelIds, setLabelIds] = useState<string[]>([]);
+  const [labelOptions, setLabelOptions] = useState<LabelOption[]>(labels);
   const formRef = useRef<HTMLFormElement>(null);
 
   function handleSubmit(formData: FormData) {
     setError(null);
+    for (const id of labelIds) formData.append("labelIds", id);
+
     startTransition(async () => {
       const result = await createTask(formData);
       if (result?.error) {
@@ -30,6 +39,7 @@ export function TaskComposer({
         return;
       }
       formRef.current?.reset();
+      setLabelIds([]);
       setExpanded(false);
     });
   }
@@ -90,6 +100,20 @@ export function TaskComposer({
             <input type="datetime-local" name="dueAt" className={field} />
           </div>
 
+          {teams.length > 0 && (
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs text-muted-foreground">Team</label>
+              <select name="teamId" defaultValue="" className={field}>
+                <option value="">No team</option>
+                {teams.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
           <div className="flex flex-col gap-1.5">
             <label className="text-xs text-muted-foreground">
               Estimate (minutes)
@@ -100,6 +124,18 @@ export function TaskComposer({
               min={0}
               placeholder="60"
               className={field}
+            />
+          </div>
+
+          <div className="flex flex-col gap-1.5 sm:col-span-2">
+            <span className="text-xs text-muted-foreground">Labels</span>
+            <LabelPicker
+              value={labelIds}
+              options={labelOptions}
+              onChange={setLabelIds}
+              onCreated={(label) =>
+                setLabelOptions((prev) => [...prev, label])
+              }
             />
           </div>
 

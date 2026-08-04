@@ -8,6 +8,10 @@ import {
   discardParsedTask,
 } from "@/server/actions/ai-tasks";
 import { toLocalInput } from "@/lib/dates";
+import { createLabel } from "@/server/actions/labels";
+import { theme } from "@/config/theme";
+import { useToast } from "@/components/ui/toast";
+import { LabelPicker, type LabelOption } from "./label-picker";
 import type { ParsedTask } from "@/lib/ai/schemas";
 
 type Member = { userId: string; name: string };
@@ -18,10 +22,13 @@ const field =
 export function SmartComposer({
   members,
   currentUserId,
+  labels,
 }: {
   members: Member[];
   currentUserId: string;
+  labels: LabelOption[];
 }) {
+  const { push } = useToast();
   const [input, setInput] = useState("");
   const [draft, setDraft] = useState<{ parsed: ParsedTask; id: string } | null>(
     null
@@ -36,6 +43,9 @@ export function SmartComposer({
   const [estimate, setEstimate] = useState("");
   const [assignees, setAssignees] = useState<string[]>([]);
   const [subtasks, setSubtasks] = useState<string[]>([]);
+  const [labelIds, setLabelIds] = useState<string[]>([]);
+  const [labelOptions, setLabelOptions] = useState<LabelOption[]>(labels);
+  const [suggestedLabels, setSuggestedLabels] = useState<string[]>([]);
 
   function handleParse() {
     if (!input.trim()) return;
@@ -69,6 +79,39 @@ export function SmartComposer({
         .map((m) => m.userId);
 
       setAssignees(matched.length > 0 ? matched : [currentUserId]);
+
+      // The parser hands back label names; match them to what already exists
+      // and offer the rest as one-click creations.
+      const known: string[] = [];
+      const unknown: string[] = [];
+
+      for (const name of p.labels) {
+        const hit = labelOptions.find(
+          (l) => l.name.toLowerCase() === name.trim().toLowerCase()
+        );
+        if (hit) known.push(hit.id);
+        else if (name.trim()) unknown.push(name.trim());
+      }
+
+      setLabelIds(known);
+      setSuggestedLabels(unknown);
+    });
+  }
+
+  function createSuggested(name: string) {
+    startTransition(async () => {
+      const color =
+        theme.labelPalette[labelOptions.length % theme.labelPalette.length];
+      const result = await createLabel(name, color);
+
+      if (!result.ok) {
+        push(result.error, "error");
+        return;
+      }
+
+      setLabelOptions((prev) => [...prev, { id: result.id, name, color }]);
+      setLabelIds((prev) => [...prev, result.id]);
+      setSuggestedLabels((prev) => prev.filter((n) => n !== name));
     });
   }
 
@@ -85,6 +128,7 @@ export function SmartComposer({
         estimatedMinutes: estimate,
         assigneeIds: assignees,
         subtasks,
+        labelIds,
       });
 
       if (result?.error) {
@@ -94,6 +138,8 @@ export function SmartComposer({
 
       setDraft(null);
       setInput("");
+      setLabelIds([]);
+      setSuggestedLabels([]);
     });
   }
 
@@ -258,6 +304,38 @@ export function SmartComposer({
               </label>
             ))}
           </div>
+        </div>
+
+        <div className="sm:col-span-2">
+          <label className="mb-1.5 block text-xs text-muted-foreground">
+            Labels
+          </label>
+          <LabelPicker
+            value={labelIds}
+            options={labelOptions}
+            onChange={setLabelIds}
+            onCreated={(label) => setLabelOptions((prev) => [...prev, label])}
+          />
+
+          {suggestedLabels.length > 0 && (
+            <div className="mt-2 flex flex-wrap items-center gap-1.5">
+              <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                Suggested
+              </span>
+              {suggestedLabels.map((name) => (
+                <button
+                  key={name}
+                  type="button"
+                  disabled={pending}
+                  onClick={() => createSuggested(name)}
+                  title="Create this label and attach it"
+                  className="rounded-full border border-dashed border-brand-violet/40 px-2 py-0.5 text-[10px] text-brand-violet transition-colors hover:bg-brand-violet/10 disabled:opacity-50"
+                >
+                  + {name}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         {subtasks.length > 0 && (

@@ -8,6 +8,8 @@ import {
 import { prisma } from "@/lib/prisma";
 import { getCurrentContext } from "@/server/auth/session";
 import { SuggestionCard } from "@/components/dashboard/suggestion-card";
+import { ProductivityWidget } from "@/components/dashboard/productivity-widget";
+import { getScoreTrend } from "@/server/services/snapshots";
 import { EmptyState } from "@/components/ui/empty-state";
 import { FadeIn, Stagger, StaggerItem } from "@/components/motion/fade-in";
 import { APP_CONFIG } from "@/config/app";
@@ -104,7 +106,7 @@ export default async function DashboardPage() {
     }),
   ]);
 
-  const [recentTasks, suggestions] = await Promise.all([
+  const [recentTasks, suggestions, scoreTrend] = await Promise.all([
     prisma.task.findMany({
       where: mine,
       orderBy: { createdAt: "desc" },
@@ -121,6 +123,7 @@ export default async function DashboardPage() {
       orderBy: [{ confidence: "desc" }, { createdAt: "desc" }],
       take: 5,
     }),
+    getScoreTrend(userId, 14),
   ]);
 
   return (
@@ -205,34 +208,38 @@ export default async function DashboardPage() {
             )}
           </section>
 
-          <section className="glass rounded-xl px-5 py-5">
-            <h2 className="mb-4 flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-muted-foreground">
-              <Sparkles size={13} className="text-brand-violet" />
-              Suggestions
-            </h2>
-            {suggestions.length === 0 ? (
-              <EmptyState
-                icon={Sparkles}
-                title="Nothing to flag"
-                description="YAAS reviews your workload nightly and surfaces anything worth a look."
-              />
-            ) : (
-              <div className="flex flex-col gap-2">
-                {suggestions.map((s) => {
-                  const payload = s.payload as SuggestionPayload | null;
-                  return (
-                    <SuggestionCard
-                      key={s.id}
-                      id={s.id}
-                      type={s.type}
-                      reason={s.reason ?? ""}
-                      actionable={!!payload?.apply}
-                    />
-                  );
-                })}
-              </div>
-            )}
-          </section>
+          <div className="flex flex-col gap-4">
+            <ProductivityWidget trend={scoreTrend} />
+
+            <section className="glass rounded-xl px-5 py-5">
+              <h2 className="mb-4 flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-muted-foreground">
+                <Sparkles size={13} className="text-brand-violet" />
+                Suggestions
+              </h2>
+              {suggestions.length === 0 ? (
+                <EmptyState
+                  icon={Sparkles}
+                  title="Nothing to flag"
+                  description="YAAS reviews your workload nightly and surfaces anything worth a look."
+                />
+              ) : (
+                <div className="flex flex-col gap-2">
+                  {suggestions.map((s) => {
+                    const payload = s.payload as SuggestionPayload | null;
+                    return (
+                      <SuggestionCard
+                        key={s.id}
+                        id={s.id}
+                        type={s.type}
+                        reason={s.reason ?? ""}
+                        actionable={!!payload?.apply}
+                      />
+                    );
+                  })}
+                </div>
+              )}
+            </section>
+          </div>
         </div>
       </FadeIn>
     </div>

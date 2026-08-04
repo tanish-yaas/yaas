@@ -1,8 +1,11 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getCurrentContext } from "@/server/auth/session";
 import { approveMember, deactivateMember } from "@/server/actions/members";
+import {
+  TeamManager,
+  type TeamRow,
+} from "@/components/teams/team-manager";
 
 export default async function MembersPage() {
   const ctx = await getCurrentContext();
@@ -10,12 +13,38 @@ export default async function MembersPage() {
   if (!ctx.permissions.has("member.approve")) redirect("/");
 
   const canDeactivate = ctx.permissions.has("member.deactivate");
+  const orgId = ctx.membership.organizationId;
 
-  const members = await prisma.organizationMember.findMany({
-    where: { organizationId: ctx.membership.organizationId },
-    include: { user: true, role: true },
-    orderBy: [{ status: "asc" }, { createdAt: "desc" }],
-  });
+  const [members, teams] = await Promise.all([
+    prisma.organizationMember.findMany({
+      where: { organizationId: orgId },
+      include: { user: true, role: true },
+      orderBy: [{ status: "asc" }, { createdAt: "desc" }],
+    }),
+    prisma.team.findMany({
+      where: { organizationId: orgId, deletedAt: null },
+      orderBy: { name: "asc" },
+      include: {
+        members: {
+          include: { user: { select: { name: true, email: true } } },
+          orderBy: [{ role: "asc" }, { joinedAt: "asc" }],
+        },
+        _count: { select: { tasks: true } },
+      },
+    }),
+  ]);
+
+  const teamRows: TeamRow[] = teams.map((t) => ({
+    id: t.id,
+    name: t.name,
+    color: t.color ?? "#7C5CFF",
+    taskCount: t._count.tasks,
+    members: t.members.map((m) => ({
+      userId: m.userId,
+      name: m.user.name ?? m.user.email ?? "Member",
+      role: m.role,
+    })),
+  }));
 
   const pending = members.filter((m) => m.status === "PENDING");
   const active = members.filter((m) => m.status === "ACTIVE");
@@ -102,6 +131,19 @@ export default async function MembersPage() {
           ))}
         </ul>
       </section>
+
+      {(ctx.permissions.has("team.view") ||
+        ctx.permissions.has("team.manage")) && (
+        <TeamManager
+          teams={teamRows}
+          members={active.map((m) => ({
+            userId: m.userId,
+            name: m.user.name ?? m.user.email ?? "Member",
+          }))}
+          canCreate={ctx.permissions.has("team.create")}
+          canManage={ctx.permissions.has("team.manage")}
+        />
+      )}
 
       {inactive.length > 0 && (
         <section className="mt-10">
