@@ -82,6 +82,7 @@ enum RiskLevel {
 enum TaskSource {
   MANUAL
   WHATSAPP
+  SLACK
   AI_PARSED
   RECURRING
   CALENDAR
