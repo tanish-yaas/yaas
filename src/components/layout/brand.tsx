@@ -1,45 +1,60 @@
-/**
- * The YAAS mark sits in the corner as a badge; Nova is the product name.
- * Keep the mark square and fixed-width so it survives the sidebar collapsing
- * to an icon rail.
- */
-export function BrandMark({ size = 34 }: { size?: number }) {
+import Image from "next/image";
+
+export function YaasMark({
+  size = 44,
+  className = "",
+}: {
+  size?: number;
+  className?: string;
+}) {
   return (
-    <span
-      aria-hidden
-      className="flex shrink-0 items-center justify-center rounded-[9px] border border-white/[0.14] bg-white/[0.04] font-display font-bold leading-none tracking-tight text-foreground"
-      style={{ width: size, height: size, fontSize: size * 0.26 }}
-    >
-      YAAS
-    </span>
+    <Image
+      src="/yaas-logo.png"
+      alt="YAAS"
+      width={size}
+      height={size}
+      priority
+      className={`object-contain ${className}`}
+    />
   );
 }
 
 export function BrandLockup({
-  size = 34,
-  subtitle,
+  size = 48,
+  product = "Nova",
+  badge = "BETA",
+  subtitle = "Workspace",
+  className = "",
 }: {
   size?: number;
-  subtitle?: string;
+  product?: string;
+  badge?: string | null;
+  subtitle?: string | null;
+  className?: string;
 }) {
   return (
-    <span className="flex items-center gap-2.5">
-      <BrandMark size={size} />
-      <span className="flex min-w-0 flex-col leading-none">
-        <span className="flex items-center gap-1.5">
-          <span className="font-display text-[15px] font-semibold tracking-tight">
-            Nova
+    <div className={`flex items-center gap-3.5 ${className}`}>
+      <YaasMark size={size} className="shrink-0" />
+
+      <span className="h-9 w-px shrink-0 bg-border-strong" />
+
+      <div className="leading-tight">
+        <div className="flex items-center gap-2">
+          <span className="text-[17px] font-semibold tracking-tight">
+            {product}
           </span>
-          <span className="rounded bg-brand-violet/15 px-1.5 py-[3px] text-[9px] font-medium uppercase tracking-[0.12em] text-brand-violet">
-            Beta
-          </span>
-        </span>
+          {badge && (
+            <span className="rounded border border-brand-violet/50 bg-brand-violet/[0.12] px-1.5 py-[3px] text-[9px] font-semibold uppercase leading-none tracking-[0.14em] text-brand-violet">
+              {badge}
+            </span>
+          )}
+        </div>
         {subtitle && (
-          <span className="mt-1 truncate text-[10px] uppercase tracking-[0.14em] text-muted-foreground/70">
+          <p className="mt-1 text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
             {subtitle}
-          </span>
+          </p>
         )}
-      </span>
-    </span>
+      </div>
+    </div>
   );
 }

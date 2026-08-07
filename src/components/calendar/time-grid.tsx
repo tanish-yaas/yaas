@@ -224,9 +224,9 @@ export function TimeGrid({
   const columns = { gridTemplateColumns: `repeat(${dayKeys.length}, minmax(0, 1fr))` };
 
   return (
-    <div className="glass flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl">
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
       {/* Day headers */}
-      <div className="flex shrink-0 border-b border-border/60">
+      <div className="flex shrink-0 border-b border-[color-mix(in_oklab,white_6%,transparent)]">
         <div className="w-14 shrink-0" />
         <div className="grid flex-1" style={columns}>
           {dayKeys.map((key) => {
@@ -238,15 +238,15 @@ export function TimeGrid({
                 key={key}
                 type="button"
                 onClick={() => onOpenDay(key)}
-                className="flex flex-col items-center gap-0.5 border-l border-border/40 px-2 py-2 transition-colors hover:bg-secondary/30"
+                className="flex flex-col items-center gap-0.5 border-l border-[color-mix(in_oklab,white_6%,transparent)] px-2 py-2 transition-colors hover:bg-[color-mix(in_oklab,white_4%,transparent)]"
               >
-                <span className="text-[10px] uppercase tracking-[0.15em] text-muted-foreground">
+                <span className="text-[11px] uppercase tracking-[0.12em] text-faint">
                   {formatIST(date, { weekday: "short" })}
                 </span>
                 <span
                   className={`inline-flex h-6 min-w-6 items-center justify-center rounded-full px-1 text-sm tabular-nums ${
                     isToday
-                      ? "bg-brand-violet font-medium text-white"
+                      ? "bg-[var(--primary)] font-medium text-white"
                       : "text-foreground"
                   }`}
                 >
@@ -259,15 +259,15 @@ export function TimeGrid({
       </div>
 
       {/* All-day + deadlines */}
-      <div className="flex shrink-0 border-b border-border/60 bg-secondary/20">
-        <div className="flex w-14 shrink-0 items-start justify-end px-2 py-1.5 text-[10px] uppercase tracking-wider text-muted-foreground">
+      <div className="flex shrink-0 border-b border-[color-mix(in_oklab,white_6%,transparent)] bg-[color-mix(in_oklab,white_3%,transparent)]">
+        <div className="flex w-14 shrink-0 items-start justify-end px-2 py-1.5 text-[11px] uppercase tracking-[0.12em] text-faint">
           All day
         </div>
         <div className="grid flex-1" style={columns}>
           {dayKeys.map((key) => (
             <div
               key={key}
-              className="flex min-h-9 flex-col gap-0.5 border-l border-border/40 px-1 py-1"
+              className="flex min-h-9 flex-col gap-0.5 border-l border-[color-mix(in_oklab,white_6%,transparent)] px-1 py-1"
             >
               {allDayEventsForDay(events, key).map((event) => (
                 <EventChip
@@ -293,7 +293,7 @@ export function TimeGrid({
             {hours.map((hour) => (
               <div
                 key={hour}
-                className="absolute right-2 text-[10px] tabular-nums text-muted-foreground"
+                className="absolute right-2 text-[10px] tabular-nums text-faint"
                 style={{ top: (hour - startHour) * HOUR_HEIGHT + 2 }}
               >
                 {String(hour).padStart(2, "0")}:00
@@ -310,14 +310,16 @@ export function TimeGrid({
                 <div
                   key={dayKey}
                   onClick={(e) => handleColumnClick(e, dayKey)}
-                  className={`relative border-l border-border/40 ${
-                    dayKey === todayKey ? "bg-brand-violet/[0.04]" : ""
+                  className={`relative border-l border-[color-mix(in_oklab,white_6%,transparent)] ${
+                    dayKey === todayKey
+                      ? "bg-[color-mix(in_oklab,var(--primary)_5%,transparent)]"
+                      : ""
                   }`}
                 >
                   {hours.map((hour) => (
                     <div
                       key={hour}
-                      className="border-b border-border/25"
+                      className="border-b border-[color-mix(in_oklab,white_4%,transparent)]"
                       style={{ height: HOUR_HEIGHT }}
                     />
                   ))}
@@ -403,7 +405,7 @@ export function TimeGrid({
                           </p>
                         )}
                         {!slot.event.isOwnCalendar && height > 44 && (
-                          <p className="truncate text-[10px] text-muted-foreground/80">
+                          <p className="truncate text-[10px] text-faint">
                             {slot.event.ownerName}
                           </p>
                         )}
@@ -413,7 +415,7 @@ export function TimeGrid({
                           </p>
                         )}
                         {detailed && height > 76 && slot.event.description && (
-                          <p className="line-clamp-2 text-[10px] text-muted-foreground/80">
+                          <p className="line-clamp-2 text-[10px] text-faint">
                             {slot.event.description}
                           </p>
                         )}

@@ -1,4 +1,5 @@
 import { signOut } from "@/auth";
+import { LogOut } from "lucide-react";
 import { NotificationBell } from "./notification-bell";
 import { CommandPalette } from "./command-palette";
 import type { NotificationRow } from "@/server/services/notifications";
@@ -19,32 +20,25 @@ export function Topbar({
   const initial = displayName.charAt(0).toUpperCase();
 
   return (
-    <header className="flex h-14 shrink-0 items-center gap-4 border-b border-border/60 px-4 backdrop-blur-xl md:px-6">
+    <>
       <CommandPalette />
 
-      <div className="ml-auto flex items-center gap-3">
+      <div className="ml-auto flex items-center gap-2">
         <NotificationBell
           unreadCount={unreadCount}
           notifications={notifications}
         />
 
-        <div className="flex items-center gap-2.5">
+        <div className="pill" title={`${displayName} · ${roleName}`}>
           {image ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={image}
-              alt=""
-              className="h-8 w-8 rounded-full border border-border object-cover"
-            />
+            <img src={image} alt="" className="h-5 w-5 rounded-full" />
           ) : (
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-violet/20 text-xs font-medium text-brand-violet">
+            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[var(--card-hover)] text-[10px]">
               {initial}
-            </div>
+            </span>
           )}
-          <div className="hidden leading-tight sm:block">
-            <p className="text-xs">{displayName}</p>
-            <p className="text-[10px] text-muted-foreground">{roleName}</p>
-          </div>
+          <span className="hidden sm:block">{displayName}</span>
         </div>
 
         <form
@@ -53,14 +47,11 @@ export function Topbar({
             await signOut({ redirectTo: "/login" });
           }}
         >
-          <button
-            type="submit"
-            className="text-xs text-muted-foreground underline underline-offset-4 transition-colors hover:text-foreground"
-          >
-            Sign out
+          <button type="submit" title="Sign out" className="icon-btn">
+            <LogOut size={14} />
           </button>
         </form>
       </div>
-    </header>
+    </>
   );
 }

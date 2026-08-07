@@ -3,11 +3,11 @@
 import { formatIST } from "@/lib/dates";
 import type { EventItem, TaskItem } from "./types";
 
-const PRIORITY_DOT: Record<string, string> = {
-  URGENT: "#FF4D6D",
-  HIGH: "#F5B544",
-  MEDIUM: "#22D3EE",
-  LOW: "#8B8B9E",
+const PRIORITY_COLOR: Record<string, string> = {
+  URGENT: "var(--status-red)",
+  HIGH: "var(--status-amber)",
+  MEDIUM: "var(--status-blue)",
+  LOW: "var(--text-faint)",
 };
 
 export function EventChip({
@@ -33,16 +33,13 @@ export function EventChip({
           ? event.title
           : `${event.title} — ${event.ownerName}'s calendar`
       }
-      className="flex w-full items-center gap-1 truncate rounded px-1.5 py-0.5 text-left text-[10px] leading-tight transition-colors hover:brightness-125"
+      className="flex w-full items-center gap-1 truncate rounded-full border px-1.5 py-0.5 text-left text-[10px] font-medium leading-tight transition-[filter] hover:brightness-125"
       style={{
-        backgroundColor: `color-mix(in oklab, ${event.color} 22%, transparent)`,
-        color: "var(--foreground)",
+        borderColor: `color-mix(in oklab, ${event.color} 45%, transparent)`,
+        backgroundColor: `color-mix(in oklab, ${event.color} 18%, transparent)`,
+        color: `color-mix(in oklab, ${event.color} 88%, white)`,
       }}
     >
-      <span
-        className="h-1.5 w-1.5 shrink-0 rounded-full"
-        style={{ backgroundColor: event.color }}
-      />
       {time && <span className="shrink-0 opacity-70">{time}</span>}
       <span className="truncate">{event.title}</span>
     </button>
@@ -57,6 +54,7 @@ export function TaskChip({
   onSelect: (dayKey: string) => void;
 }) {
   const done = task.row.status === "DONE" || task.row.status === "CANCELLED";
+  const color = PRIORITY_COLOR[task.row.priority] ?? PRIORITY_COLOR.LOW;
 
   return (
     <button
@@ -66,18 +64,20 @@ export function TaskChip({
         onSelect(task.dayKey);
       }}
       title={task.row.title}
-      className={`flex w-full items-center gap-1 truncate rounded border border-dashed px-1.5 py-0.5 text-left text-[10px] leading-tight transition-colors hover:bg-secondary/60 ${
+      className={`flex w-full items-center gap-1 truncate rounded-full border px-1.5 py-0.5 text-left text-[10px] font-medium leading-tight transition-[filter] hover:brightness-125 ${
         done ? "opacity-45 line-through" : ""
       }`}
-      style={{ borderColor: "color-mix(in oklab, var(--border) 100%, transparent)" }}
+      style={{
+        borderColor: `color-mix(in oklab, ${color} 45%, transparent)`,
+        backgroundColor: `color-mix(in oklab, ${color} 14%, transparent)`,
+        color: `color-mix(in oklab, ${color} 88%, white)`,
+      }}
     >
       <span
         className="h-1.5 w-1.5 shrink-0 rounded-[2px]"
-        style={{
-          backgroundColor: PRIORITY_DOT[task.row.priority] ?? PRIORITY_DOT.LOW,
-        }}
+        style={{ backgroundColor: color }}
       />
-      <span className="truncate text-muted-foreground">{task.row.title}</span>
+      <span className="truncate">{task.row.title}</span>
     </button>
   );
 }

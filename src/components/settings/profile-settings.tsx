@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { Clock, Globe } from "lucide-react";
 import { updateWorkingHours } from "@/server/actions/profile";
 import { APP_CONFIG } from "@/config/app";
+import { SettingsPanel } from "./settings-panel";
 
 const DAYS = [
   { value: 1, label: "Mon" },
@@ -15,8 +16,7 @@ const DAYS = [
   { value: 0, label: "Sun" },
 ];
 
-const field =
-  "rounded-lg border border-border bg-secondary/50 px-3 py-2 text-sm outline-none transition-colors focus:border-brand-violet";
+const field = "field";
 
 export function ProfileSettings({
   workingHoursStart,
@@ -53,21 +53,20 @@ export function ProfileSettings({
   }
 
   return (
-    <div className={`glass rounded-xl px-5 py-5 ${pending ? "opacity-70" : ""}`}>
-      <h2 className="text-sm">Your schedule</h2>
-      <p className="mt-1 text-xs text-muted-foreground">
-        Drives reminder timing and workload calculations.
-      </p>
-
-      <div className="mt-4 flex items-center gap-2 rounded-lg border border-border/60 px-3 py-2.5">
-        <Globe size={13} className="text-muted-foreground" />
-        <span className="text-xs text-muted-foreground">
+    <SettingsPanel
+      title="Your schedule"
+      dimmed={pending}
+      description="Drives reminder timing and workload calculations."
+    >
+      <div className="flex items-center gap-2 rounded-xl border border-[color-mix(in_oklab,white_9%,transparent)] px-3 py-2.5">
+        <Globe size={13} className="text-faint" />
+        <span className="text-[12px] text-muted-foreground">
           India Standard Time · currently {localTime}
         </span>
       </div>
 
       <div className="mt-5 flex flex-col gap-2">
-        <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+        <label className="flex items-center gap-1.5 text-[11px] uppercase tracking-[0.12em] text-faint">
           <Clock size={12} />
           Working hours
         </label>
@@ -87,7 +86,7 @@ export function ProfileSettings({
               </option>
             ))}
           </select>
-          <span className="text-xs text-muted-foreground">to</span>
+          <span className="shrink-0 text-[12px] text-faint">to</span>
           <select
             value={end}
             onChange={(e) => {
@@ -107,7 +106,9 @@ export function ProfileSettings({
       </div>
 
       <div className="mt-5 flex flex-col gap-2">
-        <span className="text-xs text-muted-foreground">Working days</span>
+        <span className="text-[11px] uppercase tracking-[0.12em] text-faint">
+          Working days
+        </span>
         <div className="flex flex-wrap gap-1.5">
           {DAYS.map((d) => {
             const on = days.includes(d.value);
@@ -115,6 +116,7 @@ export function ProfileSettings({
               <button
                 key={d.value}
                 type="button"
+                data-on={on}
                 onClick={() => {
                   const next = on
                     ? days.filter((x) => x !== d.value)
@@ -123,11 +125,7 @@ export function ProfileSettings({
                   setDays(next);
                   save({ days: next });
                 }}
-                className={`rounded-lg px-3 py-1.5 text-xs transition-colors ${
-                  on
-                    ? "bg-brand-violet/15 text-brand-violet"
-                    : "bg-secondary/50 text-muted-foreground hover:text-foreground"
-                }`}
+                className="pill pill-sm"
               >
                 {d.label}
               </button>
@@ -136,7 +134,7 @@ export function ProfileSettings({
         </div>
       </div>
 
-      {note && <p className="mt-4 text-xs text-muted-foreground/70">{note}</p>}
-    </div>
+      {note && <p className="mt-4 text-[12px] text-faint">{note}</p>}
+    </SettingsPanel>
   );
 }

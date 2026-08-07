@@ -10,6 +10,7 @@ import {
   setRecurringActive,
 } from "@/server/actions/recurring";
 import { LabelPicker, type LabelOption } from "@/components/tasks/label-picker";
+import { SettingsPanel } from "./settings-panel";
 
 export type RecurringRow = {
   id: string;
@@ -31,8 +32,9 @@ const DAYS = [
   { value: 0, label: "Sun" },
 ];
 
-const field =
-  "w-full rounded-lg border border-border bg-secondary/50 px-2.5 py-1.5 text-xs outline-none transition-colors focus:border-brand-violet";
+const field = "field";
+
+const sectionLabel = "text-[11px] uppercase tracking-[0.12em] text-faint";
 
 export function RecurringSettings({
   rows,
@@ -139,43 +141,38 @@ export function RecurringSettings({
   }
 
   return (
-    <div className={`glass rounded-xl px-5 py-5 ${pending ? "opacity-70" : ""}`}>
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h2 className="flex items-center gap-2 text-sm">
-            <Repeat size={14} className="text-brand-violet" />
-            Recurring tasks
-          </h2>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Nova creates each run on schedule and assigns it for you.
-          </p>
-        </div>
-        {!adding && (
+    <SettingsPanel
+      title="Recurring tasks"
+      icon={<Repeat size={12} style={{ color: "var(--primary)" }} />}
+      dimmed={pending}
+      description="Nova creates each run on schedule and assigns it for you."
+      action={
+        !adding && (
           <button
             type="button"
             onClick={() => setAdding(true)}
-            className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
+            className="pill pill-sm shrink-0"
           >
-            <Plus size={13} />
+            <Plus size={12} />
             New
           </button>
-        )}
-      </div>
-
+        )
+      }
+    >
       {adding && (
-        <div className="mt-4 rounded-lg border border-brand-violet/30 bg-brand-violet/5 px-3 py-3">
+        <div className="rounded-xl border border-[color-mix(in_oklab,var(--primary)_35%,transparent)] bg-[color-mix(in_oklab,var(--primary)_6%,transparent)] px-3 py-3">
           <div className="flex items-center gap-2">
             <input
               value={title}
               autoFocus
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Task title"
-              className={`${field} text-sm`}
+              className={field}
             />
             <button
               type="button"
               onClick={() => setAdding(false)}
-              className="shrink-0 rounded p-1 text-muted-foreground hover:text-foreground"
+              className="shrink-0 rounded p-1 text-faint transition-colors hover:text-foreground"
             >
               <X size={14} />
             </button>
@@ -191,7 +188,7 @@ export function RecurringSettings({
 
           <div className="mt-2 grid grid-cols-2 gap-2">
             <label className="flex flex-col gap-1">
-              <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+              <span className={sectionLabel}>
                 Priority
               </span>
               <select
@@ -207,7 +204,7 @@ export function RecurringSettings({
             </label>
 
             <label className="flex flex-col gap-1">
-              <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+              <span className={sectionLabel}>
                 Estimate (min)
               </span>
               <input
@@ -221,30 +218,31 @@ export function RecurringSettings({
             </label>
           </div>
 
-          <div className="mt-3 rounded-lg border border-border/60 px-2.5 py-2.5">
+          <div className="mt-3 rounded-xl border border-[color-mix(in_oklab,white_9%,transparent)] px-2.5 py-2.5">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-xs text-muted-foreground">Repeat</span>
+              <span className="text-[12px] text-faint">Repeat</span>
               <select
                 value={freq}
                 onChange={(e) =>
                   setFreq(e.target.value as "DAILY" | "WEEKLY" | "MONTHLY")
                 }
-                className={`${field} w-auto`}
+                className={`${field} field-auto`}
               >
                 <option value="DAILY">Daily</option>
                 <option value="WEEKLY">Weekly</option>
                 <option value="MONTHLY">Monthly</option>
               </select>
-              <span className="text-xs text-muted-foreground">every</span>
+              <span className="text-[12px] text-faint">every</span>
               <input
                 type="number"
                 min={1}
                 max={52}
                 value={interval}
                 onChange={(e) => setInterval(Number(e.target.value) || 1)}
-                className={`${field} w-16`}
+                className={`${field} field-auto`}
+                style={{ width: "4rem" }}
               />
-              <span className="text-xs text-muted-foreground">
+              <span className="text-[12px] text-faint">
                 {freq === "DAILY"
                   ? "day(s)"
                   : freq === "WEEKLY"
@@ -261,6 +259,7 @@ export function RecurringSettings({
                     <button
                       key={d.value}
                       type="button"
+                      data-on={on}
                       onClick={() =>
                         setByWeekday((prev) =>
                           on
@@ -268,11 +267,7 @@ export function RecurringSettings({
                             : [...prev, d.value]
                         )
                       }
-                      className={`rounded-lg px-2.5 py-1 text-[11px] transition-colors ${
-                        on
-                          ? "bg-brand-violet/15 text-brand-violet"
-                          : "bg-secondary/50 text-muted-foreground hover:text-foreground"
-                      }`}
+                      className="pill pill-sm"
                     >
                       {d.label}
                     </button>
@@ -283,16 +278,17 @@ export function RecurringSettings({
 
             {freq === "MONTHLY" && (
               <div className="mt-3 flex items-center gap-2">
-                <span className="text-xs text-muted-foreground">On day</span>
+                <span className="text-[12px] text-faint">On day</span>
                 <input
                   type="number"
                   min={1}
                   max={31}
                   value={byMonthDay}
                   onChange={(e) => setByMonthDay(Number(e.target.value) || 1)}
-                  className={`${field} w-20`}
+                  className={`${field} field-auto`}
+                  style={{ width: "5rem" }}
                 />
-                <span className="text-[10px] text-muted-foreground/70">
+                <span className="text-[11px] text-faint">
                   Months without that day are skipped.
                 </span>
               </div>
@@ -301,7 +297,7 @@ export function RecurringSettings({
 
           <div className="mt-2 grid grid-cols-2 gap-2">
             <label className="flex flex-col gap-1">
-              <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+              <span className={sectionLabel}>
                 Starts
               </span>
               <input
@@ -313,7 +309,7 @@ export function RecurringSettings({
             </label>
 
             <label className="flex flex-col gap-1">
-              <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+              <span className={sectionLabel}>
                 Ends (optional)
               </span>
               <input
@@ -326,14 +322,14 @@ export function RecurringSettings({
           </div>
 
           <div className="mt-2">
-            <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+            <span className={sectionLabel}>
               Assign to
             </span>
-            <div className="mt-1 flex max-h-24 flex-col gap-1 overflow-y-auto rounded-lg border border-border bg-secondary/30 px-2 py-2">
+            <div className="mt-1 flex max-h-24 flex-col gap-1 overflow-y-auto rounded-xl border border-[color-mix(in_oklab,white_9%,transparent)] px-2 py-2">
               {members.map((m) => (
                 <label
                   key={m.userId}
-                  className="flex cursor-pointer items-center gap-2 text-xs"
+                  className="flex cursor-pointer items-center gap-2 text-[12px]"
                 >
                   <input
                     type="checkbox"
@@ -345,7 +341,7 @@ export function RecurringSettings({
                           : prev.filter((id) => id !== m.userId)
                       )
                     }
-                    className="h-3.5 w-3.5 accent-[#7C5CFF]"
+                    className="h-3.5 w-3.5 accent-[var(--primary)]"
                   />
                   <span className="truncate">{m.name}</span>
                 </label>
@@ -354,7 +350,7 @@ export function RecurringSettings({
           </div>
 
           <div className="mt-2">
-            <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+            <span className={sectionLabel}>
               Labels
             </span>
             <div className="mt-1">
@@ -373,30 +369,35 @@ export function RecurringSettings({
             type="button"
             onClick={create}
             disabled={pending || !title.trim()}
-            className="mt-3 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-40"
+            className="mt-3 inline-flex h-8 items-center rounded-full bg-primary px-3.5 text-[12px] font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-40"
           >
             Create it
           </button>
         </div>
       )}
 
-      <div className="mt-4 flex flex-col gap-1">
+      <div className={`flex flex-col gap-1 ${adding ? "mt-4" : ""}`}>
         {rows.length === 0 && !adding && (
-          <p className="py-4 text-xs text-muted-foreground/70">
-            Nothing recurring yet.
-          </p>
+          <div className="py-6 text-center">
+            <p className="text-[13px] text-muted-foreground">
+              Nothing recurring yet
+            </p>
+            <p className="mt-1 text-[12px] text-faint">
+              Set one up and Nova files each run for you.
+            </p>
+          </div>
         )}
 
         {rows.map((row) => (
           <div
             key={row.id}
-            className={`group flex items-center gap-3 rounded-lg px-2 py-2 transition-colors hover:bg-secondary/40 ${
+            className={`group flex items-center gap-3 rounded-lg px-2 py-2 transition-colors hover:bg-[color-mix(in_oklab,white_4%,transparent)] ${
               row.isActive ? "" : "opacity-60"
             }`}
           >
             <div className="min-w-0 flex-1">
-              <p className="truncate text-xs">{row.title}</p>
-              <p className="truncate text-[10px] text-muted-foreground">
+              <p className="truncate text-[13px]">{row.title}</p>
+              <p className="truncate text-[11px] text-faint">
                 {row.summary}
                 {row.nextRunAt && row.isActive && ` · next ${row.nextRunAt}`}
                 {!row.isActive && " · paused"}
@@ -411,7 +412,7 @@ export function RecurringSettings({
                   disabled={pending}
                   onClick={() => toggle(row)}
                   title={row.isActive ? "Pause" : "Resume"}
-                  className="shrink-0 rounded p-1 text-muted-foreground transition-colors hover:text-foreground"
+                  className="shrink-0 rounded p-1 text-faint transition-colors hover:text-foreground"
                 >
                   {row.isActive ? <Pause size={13} /> : <Play size={13} />}
                 </button>
@@ -419,10 +420,10 @@ export function RecurringSettings({
                   type="button"
                   disabled={pending}
                   onClick={() => remove(row.id)}
-                  className={`shrink-0 rounded px-1.5 py-1 text-[10px] transition-all ${
+                  className={`shrink-0 rounded px-1.5 py-1 text-[10px] ${
                     confirmingId === row.id
-                      ? "bg-destructive/15 text-destructive opacity-100"
-                      : "text-muted-foreground opacity-0 hover:text-destructive group-hover:opacity-100"
+                      ? "text-[var(--status-red)]"
+                      : "hover-action hover-action--danger"
                   }`}
                 >
                   {confirmingId === row.id ? "Sure?" : <Trash2 size={13} />}
@@ -432,6 +433,6 @@ export function RecurringSettings({
           </div>
         ))}
       </div>
-    </div>
+    </SettingsPanel>
   );
 }

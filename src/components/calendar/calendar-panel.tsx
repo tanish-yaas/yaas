@@ -20,8 +20,7 @@ const ACCESS_LABEL: Record<string, string> = {
   FULL_ACCESS: "Full access",
 };
 
-const field =
-  "w-full rounded-lg border border-border bg-secondary/50 px-2 py-1.5 text-xs outline-none transition-colors focus:border-brand-violet";
+const field = "field";
 
 export function CalendarPanel({
   anchor,
@@ -117,17 +116,17 @@ export function CalendarPanel({
       initial={{ opacity: 0, y: -4 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.15 }}
-      className="fixed z-[94] max-h-[70vh] overflow-y-auto rounded-xl border border-border bg-popover p-3 shadow-[0_24px_64px_rgba(0,0,0,0.6)]"
+      className="overlay fixed z-[94] max-h-[70vh] overflow-y-auto p-3"
       style={{ left: position.left, top: position.top, width: WIDTH }}
     >
       <div className="mb-2 flex items-center justify-between">
-        <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+        <p className="text-[11px] uppercase tracking-[0.12em] text-faint">
           Calendars
         </p>
         <button
           type="button"
           onClick={onClose}
-          className="rounded p-0.5 text-muted-foreground hover:text-foreground"
+          className="rounded p-0.5 text-faint transition-colors hover:text-foreground"
         >
           <X size={13} />
         </button>
@@ -139,7 +138,7 @@ export function CalendarPanel({
 
           return (
             <div key={calendar.id}>
-              <div className="group flex items-center gap-2 rounded-lg px-1.5 py-1.5 transition-colors hover:bg-secondary/50">
+              <div className="group flex items-center gap-2 rounded-lg px-1.5 py-1.5 transition-colors hover:bg-[color-mix(in_oklab,white_5%,transparent)]">
                 <button
                   type="button"
                   onClick={() => onToggle(calendar.id)}
@@ -158,15 +157,15 @@ export function CalendarPanel({
                 </button>
 
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-xs">{calendar.name}</p>
+                  <p className="truncate text-[13px]">{calendar.name}</p>
                   {!calendar.isOwn && (
-                    <p className="truncate text-[10px] text-muted-foreground">
+                    <p className="truncate text-[11px] text-faint">
                       {calendar.ownerName}
                     </p>
                   )}
                 </div>
 
-                <span className="shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100">
+                <span className="hover-action shrink-0">
                   {visible ? <Eye size={12} /> : <EyeOff size={12} />}
                 </span>
 
@@ -179,8 +178,8 @@ export function CalendarPanel({
                     title="Share this calendar"
                     className={`shrink-0 rounded p-1 transition-colors ${
                       sharingId === calendar.id
-                        ? "text-brand-violet"
-                        : "text-muted-foreground hover:text-foreground"
+                        ? "text-[var(--primary)]"
+                        : "text-faint hover:text-foreground"
                     }`}
                   >
                     <Share2 size={12} />
@@ -189,7 +188,7 @@ export function CalendarPanel({
               </div>
 
               {sharingId === calendar.id && (
-                <div className="mb-1 ml-6 rounded-lg border border-brand-violet/30 bg-brand-violet/5 px-2 py-2">
+                <div className="mb-1 ml-6 rounded-xl border border-[color-mix(in_oklab,var(--primary)_35%,transparent)] bg-[color-mix(in_oklab,var(--primary)_6%,transparent)] px-2 py-2">
                   {calendar.shares.length > 0 && (
                     <div className="mb-2 flex flex-col gap-1">
                       {calendar.shares.map((row) => (
@@ -200,14 +199,14 @@ export function CalendarPanel({
                           <span className="min-w-0 flex-1 truncate">
                             {row.name}
                           </span>
-                          <span className="shrink-0 text-[10px] text-muted-foreground">
+                          <span className="shrink-0 text-[10px] text-faint">
                             {ACCESS_LABEL[row.accessLevel] ?? row.accessLevel}
                           </span>
                           <button
                             type="button"
                             disabled={pending}
                             onClick={() => revoke(row.id)}
-                            className="shrink-0 text-muted-foreground transition-colors hover:text-destructive"
+                            className="shrink-0 text-faint transition-colors hover:text-[var(--status-red)]"
                             aria-label={`Revoke ${row.name}`}
                           >
                             <X size={11} />
@@ -252,7 +251,7 @@ export function CalendarPanel({
                       type="button"
                       disabled={pending || !target}
                       onClick={() => share(calendar.id)}
-                      className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-primary px-2 py-1.5 text-[11px] font-medium text-primary-foreground disabled:opacity-40"
+                      className="inline-flex h-8 items-center justify-center gap-1.5 rounded-full bg-primary px-3 text-[12px] font-medium text-primary-foreground disabled:opacity-40"
                     >
                       <UserPlus size={11} />
                       Share it
@@ -266,7 +265,7 @@ export function CalendarPanel({
       </div>
 
       {calendars.some((c) => !c.isOwn) && (
-        <p className="mt-2 border-t border-border/60 pt-2 text-[10px] text-muted-foreground/70">
+        <p className="mt-2 border-t border-[color-mix(in_oklab,white_7%,transparent)] pt-2 text-[11px] text-faint">
           Events are coloured by whose calendar they live on.
         </p>
       )}

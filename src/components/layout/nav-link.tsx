@@ -2,12 +2,11 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { motion } from "framer-motion";
 
 export function NavLink({
   href,
   label,
-  collapsed = false,
+  collapsed,
   badge,
   children,
 }: {
@@ -25,53 +24,25 @@ export function NavLink({
       href={href}
       prefetch
       title={collapsed ? label : undefined}
-      aria-label={label}
-      className={`group relative flex items-center rounded-md text-sm transition-colors ${
-        collapsed ? "h-9 w-9 justify-center" : "gap-2.5 px-2.5 py-[7px]"
-      } ${active ? "" : "hover:bg-white/[0.05]"}`}
+      className={`group relative flex h-7 items-center gap-2 rounded px-2 text-[13px] transition-colors ${
+        active
+          ? "bg-[var(--card-hover)] text-foreground"
+          : "text-muted-foreground hover:bg-[var(--card-hover)] hover:text-foreground"
+      }`}
     >
       {active && (
-        <motion.span
-          layoutId="nav-active"
-          transition={{ type: "spring", stiffness: 400, damping: 34 }}
-          className="absolute inset-0 rounded-md bg-white/[0.07]"
-        />
+        <span className="absolute left-0 top-1/2 h-4 w-0.5 -translate-y-1/2 rounded-full bg-primary" />
       )}
-
-      {active && !collapsed && (
-        <span className="absolute left-0 top-1/2 h-4 w-[2px] -translate-y-1/2 rounded-full bg-brand-violet" />
-      )}
-
       <span
-        className={`relative z-10 shrink-0 transition-colors ${
-          active
-            ? "text-brand-violet"
-            : "text-muted-foreground group-hover:text-foreground"
+        className={`flex w-4 shrink-0 items-center justify-center transition-colors ${
+          active ? "text-foreground" : "text-muted-foreground group-hover:text-foreground"
         }`}
       >
         {children}
       </span>
-
-      {!collapsed && (
-        <span
-          className={`relative z-10 min-w-0 flex-1 truncate transition-colors ${
-            active
-              ? "font-medium text-foreground"
-              : "text-muted-foreground group-hover:text-foreground"
-          }`}
-        >
-          {label}
-        </span>
-      )}
-
-      {badge !== undefined && badge > 0 && (
-        <span
-          className={`z-10 shrink-0 rounded-full bg-brand-magenta text-[10px] font-medium leading-none text-white ${
-            collapsed
-              ? "absolute right-0 top-0 flex h-4 w-4 items-center justify-center"
-              : "relative px-1.5 py-[3px]"
-          }`}
-        >
+      {!collapsed && <span className="truncate">{label}</span>}
+      {!collapsed && badge !== undefined && badge > 0 && (
+        <span className="ml-auto text-[11px] tabular-nums text-faint">
           {badge}
         </span>
       )}

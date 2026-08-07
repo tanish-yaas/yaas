@@ -28,8 +28,9 @@ export type TeamRow = {
 
 export type MemberOption = { userId: string; name: string };
 
-const field =
-  "w-full rounded-lg border border-border bg-secondary/50 px-2.5 py-1.5 text-xs outline-none transition-colors focus:border-brand-violet";
+const field = "field";
+
+const separator = "border-t border-[color-mix(in_oklab,white_6%,transparent)]";
 
 export function TeamManager({
   teams,
@@ -65,26 +66,27 @@ export function TeamManager({
   }
 
   return (
-    <section className="mt-10">
-      <div className="mb-3 flex items-center justify-between gap-3">
-        <h2 className="flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-muted-foreground">
-          <Users size={13} />
-          Teams · {teams.length}
+    <section className="panel mt-4 overflow-hidden">
+      <div className="flex items-center justify-between gap-3 border-b border-[color-mix(in_oklab,white_7%,transparent)] px-4 py-2.5">
+        <h2 className="flex items-center gap-2 text-[11px] uppercase tracking-[0.12em] text-faint">
+          <Users size={12} />
+          Teams
+          <span className="tabular-nums">{teams.length}</span>
         </h2>
         {canCreate && !adding && (
           <button
             type="button"
             onClick={() => setAdding(true)}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
+            className="pill pill-sm"
           >
-            <Plus size={13} />
+            <Plus size={12} />
             New team
           </button>
         )}
       </div>
 
       {adding && (
-        <div className="glass mb-2 rounded-xl px-4 py-4">
+        <div className="border-b border-[color-mix(in_oklab,white_7%,transparent)] px-4 py-4">
           <div className="flex items-center gap-2">
             <input
               value={name}
@@ -99,7 +101,7 @@ export function TeamManager({
             <button
               type="button"
               onClick={() => setAdding(false)}
-              className="shrink-0 rounded p-1 text-muted-foreground hover:text-foreground"
+              className="shrink-0 rounded p-1 text-faint transition-colors hover:text-foreground"
             >
               <X size={14} />
             </button>
@@ -133,7 +135,7 @@ export function TeamManager({
                 }
               )
             }
-            className="mt-3 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground disabled:opacity-40"
+            className="mt-3 inline-flex h-8 items-center rounded-full bg-primary px-3.5 text-[12px] font-medium text-primary-foreground disabled:opacity-40"
           >
             Create team
           </button>
@@ -141,14 +143,20 @@ export function TeamManager({
       )}
 
       {teams.length === 0 && !adding && (
-        <p className="glass rounded-xl px-5 py-6 text-sm text-muted-foreground">
-          No teams yet. Teams control who can see which tasks.
-        </p>
+        <div className="px-6 py-10 text-center">
+          <p className="text-[13px] text-muted-foreground">No teams yet</p>
+          <p className="mt-1 text-[12px] text-faint">
+            Teams control who can see which tasks.
+          </p>
+        </div>
       )}
 
-      <ul className="flex flex-col gap-2">
-        {teams.map((team) => (
-          <li key={team.id} className="glass rounded-xl px-5 py-4">
+      <ul>
+        {teams.map((team, index) => (
+          <li
+            key={team.id}
+            className={`px-4 py-3.5 ${index > 0 ? separator : ""}`}
+          >
             {editingId === team.id ? (
               <div>
                 <input
@@ -190,7 +198,7 @@ export function TeamManager({
                   <button
                     type="button"
                     onClick={() => setEditingId(null)}
-                    className="text-xs text-muted-foreground underline underline-offset-4"
+                    className="text-[12px] text-faint transition-colors hover:text-foreground"
                   >
                     Cancel
                   </button>
@@ -203,8 +211,10 @@ export function TeamManager({
                     className="h-2.5 w-2.5 shrink-0 rounded-full"
                     style={{ backgroundColor: team.color }}
                   />
-                  <p className="min-w-0 flex-1 truncate text-sm">{team.name}</p>
-                  <span className="shrink-0 text-[11px] text-muted-foreground">
+                  <p className="min-w-0 flex-1 truncate text-[13px]">
+                    {team.name}
+                  </p>
+                  <span className="shrink-0 text-[11px] text-faint">
                     {team.members.length}{" "}
                     {team.members.length === 1 ? "member" : "members"} ·{" "}
                     {team.taskCount} {team.taskCount === 1 ? "task" : "tasks"}
@@ -219,7 +229,7 @@ export function TeamManager({
                           setEditName(team.name);
                           setEditColor(team.color);
                         }}
-                        className="shrink-0 text-[11px] text-muted-foreground opacity-0 transition-all hover:text-foreground group-hover:opacity-100"
+                        className="hover-action shrink-0 text-[11px]"
                       >
                         Edit
                       </button>
@@ -246,10 +256,10 @@ export function TeamManager({
                             }
                           );
                         }}
-                        className={`shrink-0 rounded px-1.5 py-1 text-[10px] transition-all ${
+                        className={`shrink-0 rounded px-1.5 py-1 text-[10px] ${
                           confirmingId === team.id
-                            ? "bg-destructive/15 text-destructive opacity-100"
-                            : "text-muted-foreground opacity-0 hover:text-destructive group-hover:opacity-100"
+                            ? "text-[var(--status-red)]"
+                            : "hover-action hover-action--danger"
                         }`}
                       >
                         {confirmingId === team.id ? "Sure?" : <Trash2 size={13} />}
@@ -262,7 +272,7 @@ export function TeamManager({
                   {team.members.map((member) => (
                     <span
                       key={member.userId}
-                      className="inline-flex items-center gap-1.5 rounded-full bg-secondary px-2.5 py-1 text-[11px]"
+                      className="inline-flex items-center gap-1.5 rounded-full border border-[color-mix(in_oklab,white_11%,transparent)] bg-[color-mix(in_oklab,white_5%,transparent)] px-2.5 py-1 text-[11px]"
                     >
                       {member.name}
                       {canManage ? (
@@ -278,13 +288,13 @@ export function TeamManager({
                               )
                             )
                           }
-                          className="bg-transparent text-[10px] uppercase tracking-wider text-muted-foreground outline-none"
+                          className="bg-transparent text-[10px] uppercase tracking-[0.12em] text-faint outline-none"
                         >
                           <option value="MEMBER">Member</option>
                           <option value="LEAD">Lead</option>
                         </select>
                       ) : (
-                        <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                        <span className="text-[10px] uppercase tracking-[0.12em] text-faint">
                           {member.role}
                         </span>
                       )}
@@ -295,7 +305,7 @@ export function TeamManager({
                           onClick={() =>
                             run(() => removeTeamMember(team.id, member.userId))
                           }
-                          className="text-muted-foreground transition-colors hover:text-destructive"
+                          className="text-faint transition-colors hover:text-[var(--status-red)]"
                           aria-label={`Remove ${member.name}`}
                         >
                           ×
@@ -337,7 +347,7 @@ export function TeamManager({
                       <button
                         type="button"
                         onClick={() => setAddingTo(team.id)}
-                        className="inline-flex items-center gap-1 rounded-full border border-dashed border-border px-2.5 py-1 text-[11px] text-muted-foreground transition-colors hover:border-brand-violet hover:text-foreground"
+                        className="inline-flex items-center gap-1 rounded-full border border-dashed border-[color-mix(in_oklab,white_16%,transparent)] px-2.5 py-1 text-[11px] text-faint transition-colors hover:border-[var(--primary)] hover:text-foreground"
                       >
                         <UserPlus size={11} />
                         Add

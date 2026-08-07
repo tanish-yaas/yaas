@@ -82,12 +82,12 @@ export function MonthView({
   const days = Array.from({ length: 42 }, (_, i) => addDaysToKey(gridStart, i));
 
   return (
-    <div className="glass flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl">
-      <div className="grid shrink-0 grid-cols-7 border-b border-border/60">
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+      <div className="grid shrink-0 grid-cols-7 border-b border-[color-mix(in_oklab,white_6%,transparent)]">
         {WEEKDAYS.map((d) => (
           <div
             key={d}
-            className="px-2 py-2 text-center text-[10px] uppercase tracking-[0.15em] text-muted-foreground"
+            className="px-2 py-2 text-center text-[11px] uppercase tracking-[0.12em] text-faint"
           >
             {d}
           </div>
@@ -95,11 +95,13 @@ export function MonthView({
       </div>
 
       <div className="grid min-h-0 flex-1 grid-cols-7 grid-rows-6">
-        {days.map((key) => {
+        {days.map((key, index) => {
           const items = byDay.get(key) ?? [];
           const inMonth = key >= monthStart && key < monthEnd;
           const isToday = key === todayKey;
           const dayNumber = istKeyToDate(key, 12).getUTCDate();
+          const lastColumn = (index + 1) % 7 === 0;
+          const lastRow = index >= 35;
 
           return (
             <div
@@ -107,18 +109,18 @@ export function MonthView({
               role="button"
               tabIndex={-1}
               onClick={() => onOpenDay(key)}
-              className={`group flex min-h-24 min-w-0 cursor-pointer flex-col overflow-hidden border-b border-r border-border/40 px-1.5 py-1.5 text-left transition-colors hover:bg-secondary/30 ${
-                inMonth ? "" : "opacity-40"
-              }`}
+              className={`group flex min-h-24 min-w-0 cursor-pointer flex-col overflow-hidden border-[color-mix(in_oklab,white_6%,transparent)] px-1.5 py-1.5 text-left transition-colors hover:bg-[color-mix(in_oklab,white_4%,transparent)] ${
+                lastColumn ? "" : "border-r"
+              } ${lastRow ? "" : "border-b"} ${inMonth ? "" : "opacity-35"}`}
             >
               <div className="mb-1 flex shrink-0 items-center justify-between">
-                <span className="text-[10px] text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100">
+                <span className="text-[10px] text-faint opacity-0 transition-opacity group-hover:opacity-100">
                   Open
                 </span>
                 <span
                   className={`inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[11px] tabular-nums ${
                     isToday
-                      ? "bg-brand-violet font-medium text-white"
+                      ? "bg-[var(--primary)] font-medium text-white"
                       : "text-muted-foreground"
                   }`}
                 >
@@ -149,7 +151,7 @@ export function MonthView({
                       e.stopPropagation();
                       onOpenDay(key);
                     }}
-                    className="cursor-pointer px-1.5 text-[10px] text-muted-foreground transition-colors hover:text-foreground"
+                    className="cursor-pointer px-1.5 text-[10px] text-faint transition-colors hover:text-foreground"
                   >
                     +{items.length - MAX_CHIPS} more
                   </span>

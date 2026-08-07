@@ -31,10 +31,12 @@ export function NotificationList({
 
   if (notifications.length === 0) {
     return (
-      <div className="glass flex flex-col items-center gap-2 rounded-xl py-14 text-center">
-        <Bell size={20} className="text-muted-foreground/40" />
-        <p className="text-sm text-muted-foreground">Nothing here yet</p>
-        <p className="max-w-xs text-xs text-muted-foreground/70">
+      <div className="panel flex flex-col items-center gap-2 px-6 py-14 text-center">
+        <div className="mb-1 flex h-10 w-10 items-center justify-center rounded-xl border border-[color-mix(in_oklab,white_9%,transparent)] bg-[color-mix(in_oklab,white_4%,transparent)]">
+          <Bell size={17} className="text-faint" />
+        </div>
+        <p className="text-[13px] text-muted-foreground">Nothing here yet</p>
+        <p className="max-w-xs text-[12px] leading-relaxed text-faint">
           Digests, assignments and approvals will appear here.
         </p>
       </div>
@@ -42,7 +44,7 @@ export function NotificationList({
   }
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-2.5">
       {hasUnread && (
         <button
           type="button"
@@ -53,19 +55,19 @@ export function NotificationList({
               router.refresh();
             })
           }
-          className="self-end text-xs text-muted-foreground underline underline-offset-4 transition-colors hover:text-foreground"
+          className="pill h-7 self-end text-[12px] disabled:opacity-50"
         >
-          <CheckCheck size={11} className="mr-1 inline" />
+          <CheckCheck size={12} />
           Mark all read
         </button>
       )}
 
-      <div className="glass overflow-hidden rounded-xl">
+      <div className="list">
         {notifications.map((n) => (
           <div
             key={n.id}
-            className={`group flex gap-3 border-b border-border/40 px-4 py-3.5 transition-colors last:border-0 hover:bg-secondary/30 ${
-              n.unread ? "bg-brand-violet/[0.04]" : ""
+            className={`group flex gap-3 px-4 py-3.5 transition-colors hover:bg-[color-mix(in_oklab,white_4%,transparent)] ${
+              n.unread ? "bg-brand-violet/[0.05]" : ""
             }`}
           >
             <span
@@ -86,20 +88,18 @@ export function NotificationList({
               className="min-w-0 flex-1 text-left"
             >
               <p
-                className={`text-sm ${
+                className={`text-[13px] ${
                   n.unread ? "" : "text-muted-foreground"
                 }`}
               >
                 {n.title}
               </p>
               {n.body && (
-                <p className="mt-1 whitespace-pre-wrap text-xs leading-relaxed text-muted-foreground/70">
+                <p className="mt-1 whitespace-pre-wrap text-[12px] leading-relaxed text-muted-foreground">
                   {n.body}
                 </p>
               )}
-              <p className="mt-1.5 text-[10px] text-muted-foreground/50">
-                {n.when}
-              </p>
+              <p className="mt-1.5 text-[10px] text-faint">{n.when}</p>
             </button>
 
             <button
@@ -111,7 +111,7 @@ export function NotificationList({
                   router.refresh();
                 })
               }
-              className="shrink-0 self-start rounded p-1 text-muted-foreground opacity-0 transition-opacity hover:text-foreground group-hover:opacity-100"
+              className="hover-action shrink-0 self-start rounded p-1"
             >
               <X size={13} />
             </button>

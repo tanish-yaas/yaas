@@ -20,7 +20,7 @@ const WIDTH = 340;
 const MARGIN = 12;
 
 const ghostField =
-  "w-full rounded-md border border-transparent bg-transparent px-1.5 py-1 text-xs outline-none transition-colors hover:border-border focus:border-brand-violet focus:bg-secondary/40 disabled:hover:border-transparent";
+  "w-full rounded-md border border-transparent bg-transparent px-1.5 py-1 text-[13px] outline-none transition-colors hover:border-[color-mix(in_oklab,white_11%,transparent)] focus:border-[color-mix(in_oklab,var(--primary)_45%,transparent)] focus:bg-[color-mix(in_oklab,white_4%,transparent)] disabled:hover:border-transparent";
 
 export function EventPopover({
   event,
@@ -129,7 +129,7 @@ export function EventPopover({
       animate={{ opacity: 1, scale: 1 }}
       transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
       onPointerDown={(e) => e.stopPropagation()}
-      className="fixed z-[95] rounded-xl border border-border bg-popover p-3 shadow-[0_24px_64px_rgba(0,0,0,0.6)]"
+      className="overlay fixed z-[95] p-3"
       style={{ left: position.left, top: position.top, width: WIDTH }}
     >
       <div className="mb-2 flex items-start gap-2">
@@ -148,12 +148,12 @@ export function EventPopover({
           onKeyDown={(e) => {
             if (e.key === "Enter") e.currentTarget.blur();
           }}
-          className={`${ghostField} text-sm font-medium`}
+          className={`${ghostField} font-medium`}
         />
         <button
           type="button"
           onClick={onClose}
-          className="mt-1 shrink-0 rounded p-1 text-muted-foreground transition-colors hover:text-foreground"
+          className="mt-1 shrink-0 rounded p-1 text-faint transition-colors hover:text-foreground"
         >
           <X size={13} />
         </button>
@@ -162,7 +162,7 @@ export function EventPopover({
       <div className="flex flex-col gap-1.5">
         <Line icon={<Clock size={12} />}>
           {readOnly ? (
-            <span className="px-1.5 text-xs text-muted-foreground">
+            <span className="px-1.5 text-[13px] text-muted-foreground">
               {formatIST(new Date(event.startAt), {
                 weekday: "short",
                 day: "numeric",
@@ -194,7 +194,7 @@ export function EventPopover({
                 }}
                 className={ghostField}
               />
-              <span className="text-xs text-muted-foreground">→</span>
+              <span className="text-[13px] text-faint">→</span>
               <input
                 type="datetime-local"
                 value={endAt}
@@ -231,7 +231,7 @@ export function EventPopover({
         </Line>
 
         <Line icon={<CalendarDays size={12} />}>
-          <span className="px-1.5 text-xs text-muted-foreground">
+          <span className="px-1.5 text-[13px] text-muted-foreground">
             {event.calendarName}
             {!event.isOwnCalendar && ` · ${event.ownerName}`}
           </span>
@@ -239,7 +239,7 @@ export function EventPopover({
 
         <Line icon={<Link2 size={12} />}>
           {readOnly ? (
-            <span className="px-1.5 text-xs text-muted-foreground">
+            <span className="px-1.5 text-[13px] text-muted-foreground">
               {event.taskTitle ?? "No linked task"}
             </span>
           ) : (
@@ -264,7 +264,7 @@ export function EventPopover({
 
         {event.attendees.length > 0 && (
           <Line icon={<Users size={12} />}>
-            <span className="px-1.5 text-xs text-muted-foreground">
+            <span className="px-1.5 text-[13px] text-muted-foreground">
               {event.attendees.map((a) => a.name).join(", ")}
             </span>
           </Line>
@@ -284,11 +284,15 @@ export function EventPopover({
         />
       </div>
 
-      {error && <p className="mt-2 px-1.5 text-xs text-destructive">{error}</p>}
+      {error && (
+        <p className="mt-2 px-1.5 text-[12px] text-[var(--status-red)]">
+          {error}
+        </p>
+      )}
 
       {event.canEdit && (
-        <div className="mt-3 flex items-center justify-between border-t border-border/60 pt-2.5">
-          <span className="px-1 text-[10px] text-muted-foreground">
+        <div className="mt-3 flex items-center justify-between border-t border-[color-mix(in_oklab,white_7%,transparent)] pt-2.5">
+          <span className="px-1 text-[11px] text-faint">
             {saving ? "Saving…" : "Changes save as you go"}
           </span>
           <button
@@ -304,10 +308,10 @@ export function EventPopover({
               if (message) setError(message);
               else onClose();
             }}
-            className={`inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-[11px] transition-colors ${
+            className={`inline-flex items-center gap-1.5 rounded-full px-2 py-1 text-[11px] transition-colors ${
               confirming
-                ? "bg-destructive/15 text-destructive"
-                : "text-muted-foreground hover:text-destructive"
+                ? "bg-[color-mix(in_oklab,var(--status-red)_18%,transparent)] text-[var(--status-red)]"
+                : "text-faint hover:text-[var(--status-red)]"
             }`}
           >
             <Trash2 size={12} />

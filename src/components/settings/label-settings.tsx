@@ -5,6 +5,7 @@ import { Check, Plus, Tag, Trash2, X } from "lucide-react";
 import { theme } from "@/config/theme";
 import { useToast } from "@/components/ui/toast";
 import { createLabel, deleteLabel, updateLabel } from "@/server/actions/labels";
+import { SettingsPanel } from "./settings-panel";
 
 export type LabelRow = {
   id: string;
@@ -14,8 +15,10 @@ export type LabelRow = {
   canManage: boolean;
 };
 
-const field =
-  "w-full rounded-lg border border-border bg-secondary/50 px-2.5 py-1.5 text-xs outline-none transition-colors focus:border-brand-violet";
+const field = "field";
+
+const accentBox =
+  "rounded-xl border border-[color-mix(in_oklab,var(--primary)_35%,transparent)] bg-[color-mix(in_oklab,var(--primary)_6%,transparent)] px-3 py-3";
 
 function Swatches({
   value,
@@ -103,31 +106,26 @@ export function LabelSettings({ labels }: { labels: LabelRow[] }) {
   }
 
   return (
-    <div className={`glass rounded-xl px-5 py-5 ${pending ? "opacity-70" : ""}`}>
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h2 className="flex items-center gap-2 text-sm">
-            <Tag size={14} className="text-brand-violet" />
-            Labels
-          </h2>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Shared across the workspace. Deleting one removes it from every task.
-          </p>
-        </div>
-        {!adding && (
+    <SettingsPanel
+      title="Labels"
+      icon={<Tag size={12} style={{ color: "var(--primary)" }} />}
+      dimmed={pending}
+      description="Shared across the workspace. Deleting one removes it from every task."
+      action={
+        !adding && (
           <button
             type="button"
             onClick={() => setAdding(true)}
-            className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
+            className="pill pill-sm shrink-0"
           >
-            <Plus size={13} />
+            <Plus size={12} />
             New
           </button>
-        )}
-      </div>
-
+        )
+      }
+    >
       {adding && (
-        <div className="mt-4 rounded-lg border border-brand-violet/30 bg-brand-violet/5 px-3 py-3">
+        <div className={accentBox}>
           <div className="flex items-center gap-2">
             <input
               value={name}
@@ -143,7 +141,7 @@ export function LabelSettings({ labels }: { labels: LabelRow[] }) {
             <button
               type="button"
               onClick={() => setAdding(false)}
-              className="shrink-0 rounded p-1 text-muted-foreground hover:text-foreground"
+              className="shrink-0 rounded p-1 text-faint transition-colors hover:text-foreground"
             >
               <X size={14} />
             </button>
@@ -155,26 +153,26 @@ export function LabelSettings({ labels }: { labels: LabelRow[] }) {
             type="button"
             onClick={submitNew}
             disabled={pending || !name.trim()}
-            className="mt-3 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-40"
+            className="mt-3 inline-flex h-8 items-center rounded-full bg-primary px-3.5 text-[12px] font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-40"
           >
             Create label
           </button>
         </div>
       )}
 
-      <div className="mt-4 flex flex-col gap-1">
+      <div className={`flex flex-col gap-1 ${adding ? "mt-4" : ""}`}>
         {labels.length === 0 && !adding && (
-          <p className="py-4 text-xs text-muted-foreground/70">
-            No labels yet. Create one and it becomes available on every task.
-          </p>
+          <div className="py-6 text-center">
+            <p className="text-[13px] text-muted-foreground">No labels yet</p>
+            <p className="mt-1 text-[12px] text-faint">
+              Create one and it becomes available on every task.
+            </p>
+          </div>
         )}
 
         {labels.map((label) =>
           editingId === label.id ? (
-            <div
-              key={label.id}
-              className="rounded-lg border border-brand-violet/30 bg-brand-violet/5 px-3 py-3"
-            >
+            <div key={label.id} className={accentBox}>
               <input
                 value={editName}
                 autoFocus
@@ -193,14 +191,14 @@ export function LabelSettings({ labels }: { labels: LabelRow[] }) {
                   type="button"
                   onClick={() => submitEdit(label.id)}
                   disabled={pending}
-                  className="rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground disabled:opacity-40"
+                  className="inline-flex h-8 items-center rounded-full bg-primary px-3.5 text-[12px] font-medium text-primary-foreground disabled:opacity-40"
                 >
                   Save
                 </button>
                 <button
                   type="button"
                   onClick={() => setEditingId(null)}
-                  className="text-xs text-muted-foreground underline underline-offset-4 hover:text-foreground"
+                  className="text-[12px] text-faint transition-colors hover:text-foreground"
                 >
                   Cancel
                 </button>
@@ -209,18 +207,15 @@ export function LabelSettings({ labels }: { labels: LabelRow[] }) {
           ) : (
             <div
               key={label.id}
-              className="group flex items-center gap-3 rounded-lg px-2 py-2 transition-colors hover:bg-secondary/40"
+              className="group flex items-center gap-3 rounded-lg px-2 py-2 transition-colors hover:bg-[color-mix(in_oklab,white_4%,transparent)]"
             >
               <span
-                className="rounded-full px-2 py-0.5 text-[11px]"
-                style={{
-                  color: label.color,
-                  backgroundColor: `color-mix(in oklab, ${label.color} 18%, transparent)`,
-                }}
+                className="label-chip"
+                style={{ "--chip-color": label.color } as React.CSSProperties}
               >
                 {label.name}
               </span>
-              <span className="flex-1 text-[11px] text-muted-foreground">
+              <span className="flex-1 text-[11px] text-faint">
                 {label.taskCount} {label.taskCount === 1 ? "task" : "tasks"}
               </span>
 
@@ -233,7 +228,7 @@ export function LabelSettings({ labels }: { labels: LabelRow[] }) {
                       setEditName(label.name);
                       setEditColor(label.color);
                     }}
-                    className="text-[11px] text-muted-foreground opacity-0 transition-all hover:text-foreground group-hover:opacity-100"
+                    className="hover-action text-[11px]"
                   >
                     Edit
                   </button>
@@ -241,10 +236,10 @@ export function LabelSettings({ labels }: { labels: LabelRow[] }) {
                     type="button"
                     onClick={() => remove(label.id)}
                     disabled={pending}
-                    className={`rounded px-1.5 py-1 text-[10px] transition-all ${
+                    className={`rounded px-1.5 py-1 text-[10px] ${
                       confirmingId === label.id
-                        ? "bg-destructive/15 text-destructive opacity-100"
-                        : "text-muted-foreground opacity-0 hover:text-destructive group-hover:opacity-100"
+                        ? "text-[var(--status-red)]"
+                        : "hover-action hover-action--danger"
                     }`}
                   >
                     {confirmingId === label.id ? "Sure?" : <Trash2 size={13} />}
@@ -255,6 +250,6 @@ export function LabelSettings({ labels }: { labels: LabelRow[] }) {
           )
         )}
       </div>
-    </div>
+    </SettingsPanel>
   );
 }

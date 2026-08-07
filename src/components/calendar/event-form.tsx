@@ -14,8 +14,7 @@ export type EventFormValues = {
   calendarId: string;
 };
 
-const field =
-  "w-full rounded-lg border border-border bg-secondary/50 px-2.5 py-1.5 text-xs outline-none transition-colors placeholder:text-muted-foreground focus:border-brand-violet";
+const field = "field";
 
 export function EventForm({
   initial,
@@ -61,12 +60,12 @@ export function EventForm({
         autoFocus
         required
         placeholder="Event title"
-        className={`${field} text-sm`}
+        className={field}
       />
 
       <div className="grid grid-cols-2 gap-2">
         <label className="flex flex-col gap-1">
-          <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+          <span className="text-[11px] uppercase tracking-[0.12em] text-faint">
             Starts
           </span>
           <input
@@ -79,7 +78,7 @@ export function EventForm({
         </label>
 
         <label className="flex flex-col gap-1">
-          <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+          <span className="text-[11px] uppercase tracking-[0.12em] text-faint">
             Ends
           </span>
           <input
@@ -110,7 +109,7 @@ export function EventForm({
       <div className="grid grid-cols-2 gap-2">
         {writable.length > 1 && (
           <label className="flex flex-col gap-1">
-            <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+            <span className="text-[11px] uppercase tracking-[0.12em] text-faint">
               Calendar
             </span>
             <select
@@ -128,7 +127,7 @@ export function EventForm({
         )}
 
         <label className="flex flex-col gap-1">
-          <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+          <span className="text-[11px] uppercase tracking-[0.12em] text-faint">
             Link to task
           </span>
           <select
@@ -153,23 +152,25 @@ export function EventForm({
           onChange={(e) => set("allDay", e.target.checked)}
           className="h-3.5 w-3.5 accent-[#7C5CFF]"
         />
-        <span className="text-xs text-muted-foreground">All day</span>
+        <span className="text-[13px] text-muted-foreground">All day</span>
       </label>
 
-      {error && <p className="text-xs text-destructive">{error}</p>}
+      {error && (
+        <p className="text-[12px] text-[var(--status-red)]">{error}</p>
+      )}
 
-      <div className="flex items-center gap-2 pt-1">
+      <div className="flex items-center gap-3 pt-1">
         <button
           type="submit"
           disabled={pending}
-          className="rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-all hover:opacity-90 active:scale-[0.97] disabled:opacity-50"
+          className="inline-flex h-8 items-center rounded-full bg-primary px-3.5 text-[12px] font-medium text-primary-foreground transition-all hover:opacity-90 active:scale-[0.97] disabled:opacity-50"
         >
           {pending ? "Saving…" : submitLabel}
         </button>
         <button
           type="button"
           onClick={onCancel}
-          className="text-xs text-muted-foreground underline underline-offset-4 transition-colors hover:text-foreground"
+          className="text-[12px] text-faint transition-colors hover:text-foreground"
         >
           Cancel
         </button>

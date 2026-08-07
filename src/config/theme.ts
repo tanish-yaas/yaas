@@ -13,16 +13,20 @@ export const theme = {
     MEDIUM: "#22D3EE",
     LOW: "#8B8B9E",
   },
-  /** Colours a label chip may take. Everything else in the UI is derived. */
+  /**
+   * Colours a label chip may take. Eight distinct hues at mid saturation, each
+   * one still legible once .label-chip mixes it down to an 18% fill on the dark
+   * background. Everything else in the UI is derived.
+   */
   labelPalette: [
-    "#7C5CFF",
-    "#FF4D8F",
-    "#22D3EE",
-    "#F5B544",
-    "#4ADE80",
-    "#FF4D6D",
-    "#A78BFA",
-    "#94A3B8",
+    "#E05561", // red
+    "#E08A45", // orange
+    "#D4B93C", // yellow
+    "#4CAF6D", // green
+    "#35B0AE", // teal
+    "#4A90D9", // blue
+    "#9B6DF3", // violet
+    "#DE5DA8", // pink
   ],
   motion: {
     duration: { fast: 0.15, base: 0.25, slow: 0.4 },

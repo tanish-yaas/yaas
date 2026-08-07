@@ -365,33 +365,33 @@ export function CalendarShell({
           navigate(view, istTodayKey());
         }
       }}
-      className="flex min-h-0 flex-1 flex-col outline-none"
+      className="panel flex min-h-0 flex-1 flex-col overflow-hidden outline-none"
     >
-      <header className="mb-4 flex flex-wrap items-center justify-between gap-3">
+      <header className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-[color-mix(in_oklab,white_7%,transparent)] px-4 py-3">
         <div className="min-w-0">
-          <h1 className="truncate font-display text-2xl font-semibold tracking-tight md:text-3xl">
+          <h1 className="truncate text-[26px] font-semibold tracking-tight">
             {heading}
           </h1>
-          <p className="mt-0.5 text-xs text-muted-foreground">
+          <p className="mt-0.5 text-[12px] text-faint">
             {visibleEvents.length} {visibleEvents.length === 1 ? "event" : "events"} ·{" "}
             {tasks.length} {tasks.length === 1 ? "deadline" : "deadlines"}
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-1.5">
           <div className="flex items-center gap-1">
             <button
               type="button"
               onClick={() => step(-1)}
               aria-label="Previous"
-              className="rounded-lg border border-border p-2 text-muted-foreground transition-colors hover:text-foreground"
+              className="icon-btn"
             >
               <ChevronLeft size={15} />
             </button>
             <button
               type="button"
               onClick={() => navigate(view, istTodayKey())}
-              className="rounded-lg border border-border px-3 py-2 text-xs text-muted-foreground transition-colors hover:text-foreground"
+              className="pill"
             >
               Today
             </button>
@@ -399,23 +399,24 @@ export function CalendarShell({
               type="button"
               onClick={() => step(1)}
               aria-label="Next"
-              className="rounded-lg border border-border p-2 text-muted-foreground transition-colors hover:text-foreground"
+              className="icon-btn"
             >
               <ChevronRight size={15} />
             </button>
           </div>
 
-          <div className="flex items-center rounded-lg border border-border p-0.5">
+          <div className="flex items-center gap-0.5 rounded-full border border-[color-mix(in_oklab,white_11%,transparent)] p-0.5">
             {CALENDAR_VIEWS.map((v) => (
               <button
                 key={v}
                 type="button"
+                data-on={v === view}
                 onClick={() => navigate(v, anchorKey)}
-                className={`rounded-md px-2.5 py-1.5 text-xs transition-colors ${
+                className={
                   v === view
-                    ? "bg-brand-violet/15 text-brand-violet"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
+                    ? "pill pill-sm"
+                    : "inline-flex h-7 items-center rounded-full px-2.5 text-[12px] text-faint transition-colors hover:text-foreground"
+                }
               >
                 {VIEW_LABEL[v]}
               </button>
@@ -425,13 +426,10 @@ export function CalendarShell({
           {(view === "week" || view === "day") && (
             <button
               type="button"
+              data-on={allHours}
               onClick={() => setAllHours((prev) => !prev)}
               title={allHours ? "Show working hours" : "Show all 24 hours"}
-              className={`inline-flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-2 text-xs transition-colors ${
-                allHours
-                  ? "text-brand-violet"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
+              className="pill"
             >
               <Clock3 size={14} />
               {allHours ? "24h" : `${startHour}–${endHour}`}
@@ -441,17 +439,14 @@ export function CalendarShell({
           {calendars.length > 0 && (
             <button
               type="button"
+              data-on={hiddenCalendars.size > 0}
               onClick={(e) =>
                 setCalendarPanel((current) =>
                   current ? null : e.currentTarget.getBoundingClientRect()
                 )
               }
               title="Calendars"
-              className={`inline-flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-2 text-xs transition-colors ${
-                hiddenCalendars.size > 0
-                  ? "text-brand-violet"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
+              className="pill"
             >
               <Layers size={14} />
               {hiddenCalendars.size > 0
@@ -464,7 +459,7 @@ export function CalendarShell({
             type="button"
             onClick={() => setFocus((prev) => !prev)}
             title={focus ? "Exit full screen (Esc)" : "Expand to full screen"}
-            className="rounded-lg border border-border p-2 text-muted-foreground transition-colors hover:text-foreground"
+            className="icon-btn"
           >
             {focus ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
           </button>
@@ -479,7 +474,7 @@ export function CalendarShell({
                   endMinutes: 10 * 60,
                 })
               }
-              className="inline-flex h-9 items-center gap-2 rounded-lg bg-primary px-3 text-xs font-medium text-primary-foreground transition-opacity hover:opacity-90"
+              className="inline-flex h-[34px] items-center gap-2 rounded-full bg-primary px-3.5 text-[13px] font-medium text-primary-foreground transition-opacity hover:opacity-90"
             >
               <CalendarPlus size={14} />
               New event
@@ -586,16 +581,16 @@ export function CalendarShell({
                   exit={{ opacity: 0, y: 8, scale: 0.98 }}
                   transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
                   onClick={(e) => e.stopPropagation()}
-                  className="w-full max-w-md rounded-xl border border-border bg-card px-4 py-4"
+                  className="overlay w-full max-w-md px-4 py-4"
                 >
                   <div className="mb-3 flex items-center justify-between">
-                    <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
+                    <p className="text-[11px] uppercase tracking-[0.12em] text-faint">
                       New event
                     </p>
                     <button
                       type="button"
                       onClick={() => setDraft(null)}
-                      className="rounded p-1 text-muted-foreground hover:text-foreground"
+                      className="rounded p-1 text-faint transition-colors hover:text-foreground"
                     >
                       <X size={14} />
                     </button>

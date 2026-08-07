@@ -12,21 +12,22 @@ export default async function PendingPage() {
       <div className="aurora-bg" aria-hidden />
 
       <main className="relative z-10 flex min-h-screen items-center justify-center px-6">
-        <div className="glass flex w-full max-w-md flex-col items-center gap-5 rounded-2xl px-10 py-12 text-center">
-          <div className="rounded-full bg-brand-violet/15 px-4 py-1.5 text-xs uppercase tracking-[0.2em] text-brand-violet">
+        <div className="panel w-full max-w-sm px-8 py-10 text-center backdrop-blur-xl">
+          <p className="text-[11px] uppercase tracking-[0.05em] text-primary">
             Awaiting approval
-          </div>
-          <h1 className="font-display text-3xl font-semibold tracking-tight">
+          </p>
+          <h1 className="mt-3 text-xl font-semibold tracking-tight">
             You&apos;re on the list
           </h1>
-          <p className="text-sm leading-relaxed text-muted-foreground">
+          <p className="mt-2 text-[13px] leading-relaxed text-muted-foreground">
             Your request to join{" "}
             <span className="text-foreground">
               {ctx.membership?.organization.name ?? "the workspace"}
             </span>{" "}
-            is with an admin. You&apos;ll get access as soon as they approve it.
+            is with an admin.
           </p>
           <form
+            className="mt-6"
             action={async () => {
               "use server";
               await signOut({ redirectTo: "/login" });
@@ -34,7 +35,7 @@ export default async function PendingPage() {
           >
             <button
               type="submit"
-              className="text-xs text-muted-foreground underline underline-offset-4 transition-colors hover:text-foreground"
+              className="text-[12px] text-faint transition-colors hover:text-foreground"
             >
               Sign out
             </button>

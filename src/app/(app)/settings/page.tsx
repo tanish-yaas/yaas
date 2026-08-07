@@ -102,13 +102,9 @@ export default async function SettingsPage() {
 
   return (
     <div className="mx-auto w-full max-w-2xl">
-      <header className="mb-6">
-        <h1 className="font-display text-3xl font-semibold tracking-tight">
-          Settings
-        </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {ctx.profile.displayName}
-        </p>
+      <header className="mb-7">
+        <h1 className="text-[26px] font-semibold tracking-tight">Settings</h1>
+        <p className="mt-1 text-[13px] text-faint">{ctx.profile.displayName}</p>
       </header>
 
       <div className="flex flex-col gap-4">

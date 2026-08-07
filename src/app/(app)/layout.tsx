@@ -5,7 +5,7 @@ import {
   getUnreadCount,
   getRecentNotifications,
 } from "@/server/services/notifications";
-import { Sidebar } from "@/components/layout/sidebar";
+import { AppShell } from "@/components/layout/app-shell";
 import { Topbar } from "@/components/layout/topbar";
 
 export default async function AppLayout({
@@ -35,13 +35,11 @@ export default async function AppLayout({
   ]);
 
   return (
-    <div className="aurora fixed inset-0 flex overflow-hidden">
-      <Sidebar
-        orgName={ctx.membership.organization.name}
-        canApprove={canApprove}
-        pendingCount={pendingCount}
-      />
-      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+    <AppShell
+      orgName={ctx.membership.organization.name}
+      canApprove={canApprove}
+      pendingCount={pendingCount}
+      topbar={
         <Topbar
           displayName={ctx.profile.displayName ?? "You"}
           roleName={ctx.membership.role.name}
@@ -49,12 +47,9 @@ export default async function AppLayout({
           unreadCount={unreadCount}
           notifications={notifications}
         />
-        <main className="min-h-0 min-w-0 flex-1 overflow-y-auto">
-          <div className="flex min-h-full flex-col px-4 py-6 md:px-8 md:py-8">
-            {children}
-          </div>
-        </main>
-      </div>
-    </div>
+      }
+    >
+      {children}
+    </AppShell>
   );
 }

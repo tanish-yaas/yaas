@@ -16,9 +16,6 @@ import type { ParsedTask } from "@/lib/ai/schemas";
 
 type Member = { userId: string; name: string };
 
-const field =
-  "w-full rounded-lg border border-border bg-secondary/50 px-3 py-2 text-sm outline-none transition-colors placeholder:text-muted-foreground focus:border-brand-violet";
-
 export function SmartComposer({
   members,
   currentUserId,
@@ -154,9 +151,9 @@ export function SmartComposer({
 
   if (!draft) {
     return (
-      <div className="glass rounded-xl px-4 py-4">
-        <div className="flex items-start gap-3">
-          <Sparkles size={16} className="mt-2.5 shrink-0 text-brand-violet" />
+      <div>
+        <div className="input-shell">
+          <Sparkles size={15} className="mt-2 shrink-0 text-brand-violet" />
           <textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
@@ -165,19 +162,22 @@ export function SmartComposer({
             }}
             rows={2}
             placeholder="Call Aman today at 1pm about the Q3 deck"
-            className="flex-1 resize-none bg-transparent py-2 text-sm outline-none placeholder:text-muted-foreground"
+            className="flex-1 resize-none bg-transparent py-1.5 text-[13px] outline-none placeholder:text-faint"
           />
           <button
             type="button"
             onClick={handleParse}
             disabled={pending || !input.trim()}
-            className="mt-1 shrink-0 rounded-lg bg-primary px-4 py-2 text-xs font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-40"
+            className="mt-0.5 shrink-0 rounded-lg bg-primary px-3.5 py-1.5 text-[12px] font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-40"
           >
             {pending ? "Reading…" : "Add"}
           </button>
         </div>
-        {error && <p className="mt-2 pl-7 text-xs text-destructive">{error}</p>}
-        <p className="mt-1 pl-7 text-[11px] text-muted-foreground/60">
+
+        {error && (
+          <p className="mt-2 px-1 text-[12px] text-destructive">{error}</p>
+        )}
+        <p className="mt-2 px-1 text-[11px] text-faint">
           Write it however you&apos;d say it — we&apos;ll sort out the details.
           ⌘/Ctrl + Enter to add.
         </p>
@@ -186,28 +186,28 @@ export function SmartComposer({
   }
 
   return (
-    <div className="glass rounded-xl px-4 py-4">
+    <div className="panel-ghost px-4 py-4">
       <div className="mb-4 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Sparkles size={14} className="text-brand-violet" />
-          <span className="text-sm">Check this looks right</span>
-          <span className="rounded-full bg-secondary px-2 py-0.5 text-[10px] text-muted-foreground">
+          <span className="text-[13px]">Check this looks right</span>
+          <span className="chip border-[color-mix(in_oklab,white_10%,transparent)] bg-[color-mix(in_oklab,white_5%,transparent)] text-faint">
             {Math.round(draft.parsed.confidence * 100)}% sure
           </span>
         </div>
         <button
           type="button"
           onClick={handleDiscard}
-          className="rounded p-1 text-muted-foreground hover:text-foreground"
+          className="rounded p-1 text-faint transition-colors hover:text-foreground"
         >
           <X size={14} />
         </button>
       </div>
 
       {draft.parsed.clarifyingQuestion && (
-        <div className="mb-4 flex items-start gap-2 rounded-lg border border-brand-violet/30 bg-brand-violet/10 px-3 py-2.5">
+        <div className="mb-4 flex items-start gap-2 rounded-lg border border-brand-violet/30 bg-brand-violet/[0.08] px-3 py-2.5">
           <HelpCircle size={14} className="mt-0.5 shrink-0 text-brand-violet" />
-          <p className="text-xs text-muted-foreground">
+          <p className="text-[12px] leading-relaxed text-muted-foreground">
             {draft.parsed.clarifyingQuestion}
           </p>
         </div>
@@ -215,36 +215,32 @@ export function SmartComposer({
 
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="sm:col-span-2">
-          <label className="mb-1.5 block text-xs text-muted-foreground">
-            Title
-          </label>
+          <label className="mb-1.5 block text-[11px] text-faint">Title</label>
           <input
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            className={field}
+            className="field"
           />
         </div>
 
         <div className="sm:col-span-2">
-          <label className="mb-1.5 block text-xs text-muted-foreground">
+          <label className="mb-1.5 block text-[11px] text-faint">
             Description
           </label>
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             rows={2}
-            className={field}
+            className="field resize-none"
           />
         </div>
 
         <div>
-          <label className="mb-1.5 block text-xs text-muted-foreground">
-            Priority
-          </label>
+          <label className="mb-1.5 block text-[11px] text-faint">Priority</label>
           <select
             value={priority}
             onChange={(e) => setPriority(e.target.value)}
-            className={field}
+            className="field"
           >
             <option value="LOW">Low</option>
             <option value="MEDIUM">Medium</option>
@@ -254,38 +250,36 @@ export function SmartComposer({
         </div>
 
         <div>
-          <label className="mb-1.5 block text-xs text-muted-foreground">
-            Due
-          </label>
+          <label className="mb-1.5 block text-[11px] text-faint">Due</label>
           <input
             type="datetime-local"
             value={dueAt}
             onChange={(e) => setDueAt(e.target.value)}
-            className={field}
+            className="field"
           />
         </div>
 
         <div>
-          <label className="mb-1.5 block text-xs text-muted-foreground">
+          <label className="mb-1.5 block text-[11px] text-faint">
             Estimate (minutes)
           </label>
           <input
             type="number"
             value={estimate}
             onChange={(e) => setEstimate(e.target.value)}
-            className={field}
+            className="field"
           />
         </div>
 
         <div>
-          <label className="mb-1.5 block text-xs text-muted-foreground">
+          <label className="mb-1.5 block text-[11px] text-faint">
             Assign to
           </label>
-          <div className="flex max-h-20 flex-col gap-1 overflow-y-auto rounded-lg border border-border bg-secondary/30 px-2 py-2">
+          <div className="flex max-h-20 flex-col gap-1 overflow-y-auto rounded-lg border border-[color-mix(in_oklab,white_10%,transparent)] bg-[color-mix(in_oklab,white_4%,transparent)] px-2.5 py-2">
             {members.map((m) => (
               <label
                 key={m.userId}
-                className="flex cursor-pointer items-center gap-2 text-xs"
+                className="flex cursor-pointer items-center gap-2 text-[12px]"
               >
                 <input
                   type="checkbox"
@@ -306,9 +300,7 @@ export function SmartComposer({
         </div>
 
         <div className="sm:col-span-2">
-          <label className="mb-1.5 block text-xs text-muted-foreground">
-            Labels
-          </label>
+          <label className="mb-1.5 block text-[11px] text-faint">Labels</label>
           <LabelPicker
             value={labelIds}
             options={labelOptions}
@@ -318,7 +310,7 @@ export function SmartComposer({
 
           {suggestedLabels.length > 0 && (
             <div className="mt-2 flex flex-wrap items-center gap-1.5">
-              <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+              <span className="text-[10px] uppercase tracking-[0.1em] text-faint">
                 Suggested
               </span>
               {suggestedLabels.map((name) => (
@@ -328,7 +320,7 @@ export function SmartComposer({
                   disabled={pending}
                   onClick={() => createSuggested(name)}
                   title="Create this label and attach it"
-                  className="rounded-full border border-dashed border-brand-violet/40 px-2 py-0.5 text-[10px] text-brand-violet transition-colors hover:bg-brand-violet/10 disabled:opacity-50"
+                  className="chip border-dashed border-brand-violet/45 bg-brand-violet/[0.08] text-brand-violet transition-colors hover:bg-brand-violet/[0.16] disabled:opacity-50"
                 >
                   + {name}
                 </button>
@@ -339,7 +331,7 @@ export function SmartComposer({
 
         {subtasks.length > 0 && (
           <div className="sm:col-span-2">
-            <label className="mb-1.5 block text-xs text-muted-foreground">
+            <label className="mb-1.5 block text-[11px] text-faint">
               Subtasks detected
             </label>
             <div className="flex flex-col gap-1.5">
@@ -352,14 +344,14 @@ export function SmartComposer({
                         prev.map((s, idx) => (idx === i ? e.target.value : s))
                       )
                     }
-                    className={field}
+                    className="field"
                   />
                   <button
                     type="button"
                     onClick={() =>
                       setSubtasks((prev) => prev.filter((_, idx) => idx !== i))
                     }
-                    className="shrink-0 rounded p-1 text-muted-foreground hover:text-destructive"
+                    className="shrink-0 rounded p-1 text-faint transition-colors hover:text-destructive"
                   >
                     <X size={13} />
                   </button>
@@ -370,14 +362,14 @@ export function SmartComposer({
         )}
       </div>
 
-      {error && <p className="mt-3 text-xs text-destructive">{error}</p>}
+      {error && <p className="mt-3 text-[12px] text-destructive">{error}</p>}
 
-      <div className="mt-4 flex items-center gap-2">
+      <div className="mt-4 flex items-center gap-3">
         <button
           type="button"
           onClick={handleApply}
           disabled={pending}
-          className="rounded-lg bg-primary px-4 py-2 text-xs font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
+          className="rounded-lg bg-primary px-4 py-2 text-[12px] font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
         >
           {pending ? "Adding…" : "Add task"}
         </button>
@@ -385,7 +377,7 @@ export function SmartComposer({
           type="button"
           onClick={handleDiscard}
           disabled={pending}
-          className="text-xs text-muted-foreground underline underline-offset-4 hover:text-foreground"
+          className="text-[12px] text-faint transition-colors hover:text-foreground"
         >
           Start over
         </button>

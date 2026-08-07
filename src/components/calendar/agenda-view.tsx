@@ -10,10 +10,10 @@ type Row =
   | { kind: "task"; sortAt: number; task: TaskItem };
 
 const PRIORITY_COLOR: Record<string, string> = {
-  URGENT: "#FF4D6D",
-  HIGH: "#F5B544",
-  MEDIUM: "#22D3EE",
-  LOW: "#8B8B9E",
+  URGENT: "var(--status-red)",
+  HIGH: "var(--status-amber)",
+  MEDIUM: "var(--status-blue)",
+  LOW: "var(--text-faint)",
 };
 
 export function AgendaView({
@@ -62,7 +62,7 @@ export function AgendaView({
 
   if (dayKeys.length === 0) {
     return (
-      <div className="glass flex min-h-0 flex-1 items-center justify-center rounded-xl py-16">
+      <div className="flex min-h-0 flex-1 items-center justify-center py-16">
         <EmptyState
           icon={CalendarDays}
           title="Nothing scheduled"
@@ -73,7 +73,7 @@ export function AgendaView({
   }
 
   return (
-    <div className="glass min-h-0 flex-1 overflow-y-auto rounded-xl px-4 py-4">
+    <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
       <div className="flex flex-col gap-5">
         {dayKeys.map((key) => {
           const rows = (byDay.get(key) ?? []).sort((a, b) => a.sortAt - b.sortAt);
@@ -85,16 +85,15 @@ export function AgendaView({
               <button
                 type="button"
                 onClick={() => onOpenDay(key)}
-                className="mb-2 flex items-baseline gap-2 transition-colors hover:text-foreground"
+                className="mb-2 flex items-baseline gap-2 px-0.5 transition-colors hover:text-foreground"
               >
                 <span
-                  className={`text-sm font-medium ${
-                    isToday ? "text-brand-violet" : ""
-                  }`}
+                  className="text-[13px] font-medium"
+                  style={isToday ? { color: "var(--primary)" } : undefined}
                 >
                   {isToday ? "Today" : formatIST(date, { weekday: "long" })}
                 </span>
-                <span className="text-xs text-muted-foreground">
+                <span className="text-[11px] uppercase tracking-[0.12em] text-faint">
                   {formatIST(date, {
                     day: "numeric",
                     month: "long",
@@ -103,7 +102,7 @@ export function AgendaView({
                 </span>
               </button>
 
-              <ul className="flex flex-col divide-y divide-border/50 overflow-hidden rounded-lg border border-border/50">
+              <ul className="list">
                 {rows.map((row, i) =>
                   row.kind === "event" ? (
                     <li key={`e-${row.event.id}-${i}`}>
@@ -115,13 +114,13 @@ export function AgendaView({
                             e.currentTarget.getBoundingClientRect()
                           )
                         }
-                        className="flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors hover:bg-secondary/40"
+                        className="flex w-full items-center gap-3 px-3.5 py-2.5 text-left transition-colors hover:bg-[color-mix(in_oklab,white_4%,transparent)]"
                       >
                         <span
                           className="h-8 w-0.5 shrink-0 rounded-full"
                           style={{ backgroundColor: row.event.color }}
                         />
-                        <span className="w-24 shrink-0 text-[11px] tabular-nums text-muted-foreground">
+                        <span className="w-24 shrink-0 text-[11px] tabular-nums text-faint">
                           {row.event.allDay
                             ? "All day"
                             : `${formatIST(new Date(row.event.startAt), {
@@ -133,11 +132,11 @@ export function AgendaView({
                               })}`}
                         </span>
                         <span className="min-w-0 flex-1">
-                          <span className="block truncate text-sm">
+                          <span className="block truncate text-[13px]">
                             {row.event.title}
                           </span>
                           {(row.event.location || !row.event.isOwnCalendar) && (
-                            <span className="block truncate text-[11px] text-muted-foreground">
+                            <span className="block truncate text-[11px] text-faint">
                               {[
                                 row.event.location,
                                 row.event.isOwnCalendar
@@ -156,47 +155,50 @@ export function AgendaView({
                       <button
                         type="button"
                         onClick={() => onOpenDay(row.task.dayKey)}
-                        className="flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors hover:bg-secondary/40"
+                        className="row w-full gap-3 text-left"
                       >
                         <span
-                          className="h-8 w-0.5 shrink-0 rounded-full border border-dashed"
+                          className="h-4 w-0.5 shrink-0 rounded-full"
                           style={{
-                            borderColor:
+                            backgroundColor:
                               PRIORITY_COLOR[row.task.row.priority] ??
                               PRIORITY_COLOR.LOW,
                           }}
                         />
-                        <span className="w-24 shrink-0 text-[11px] tabular-nums text-muted-foreground">
+                        <span className="w-24 shrink-0 text-[11px] tabular-nums text-faint">
                           Due{" "}
                           {formatIST(new Date(row.task.dueAt), {
                             hour: "2-digit",
                             minute: "2-digit",
                           })}
                         </span>
-                        <span className="min-w-0 flex-1">
-                          <span
-                            className={`block truncate text-sm ${
-                              row.task.row.status === "DONE"
-                                ? "text-muted-foreground line-through"
-                                : ""
-                            }`}
-                          >
-                            {row.task.row.title}
-                          </span>
+                        <span
+                          className={`min-w-0 flex-1 truncate text-[13px] ${
+                            row.task.row.status === "DONE"
+                              ? "text-faint line-through"
+                              : ""
+                          }`}
+                        >
+                          {row.task.row.title}
                         </span>
                         <span
-                          className="shrink-0 rounded-full px-2 py-0.5 text-[10px]"
+                          className="chip shrink-0"
                           style={{
-                            color:
+                            borderColor: `color-mix(in oklab, ${
                               PRIORITY_COLOR[row.task.row.priority] ??
-                              PRIORITY_COLOR.LOW,
+                              PRIORITY_COLOR.LOW
+                            } 45%, transparent)`,
                             backgroundColor: `color-mix(in oklab, ${
                               PRIORITY_COLOR[row.task.row.priority] ??
                               PRIORITY_COLOR.LOW
-                            } 15%, transparent)`,
+                            } 18%, transparent)`,
+                            color: `color-mix(in oklab, ${
+                              PRIORITY_COLOR[row.task.row.priority] ??
+                              PRIORITY_COLOR.LOW
+                            } 88%, white)`,
                           }}
                         >
-                          {row.task.row.priority}
+                          {row.task.row.priority.toLowerCase()}
                         </span>
                       </button>
                     </li>

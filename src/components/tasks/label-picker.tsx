@@ -21,11 +21,8 @@ export function LabelChip({
 }) {
   return (
     <span
-      className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px]"
-      style={{
-        color: label.color,
-        backgroundColor: `color-mix(in oklab, ${label.color} 18%, transparent)`,
-      }}
+      className="label-chip"
+      style={{ "--chip-color": label.color } as React.CSSProperties}
     >
       {label.name}
       {onRemove && (
@@ -141,14 +138,12 @@ export function LabelPicker({
       initial={{ opacity: 0, y: -4 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.14 }}
-      className="fixed z-[96] rounded-xl border border-border bg-popover p-2 shadow-[0_20px_48px_rgba(0,0,0,0.55)]"
+      className="overlay fixed z-[96] p-2"
       style={{ left: position.left, top: position.top, width: WIDTH }}
     >
       <div className="max-h-52 overflow-y-auto">
         {options.length === 0 && (
-          <p className="px-2 py-3 text-[11px] text-muted-foreground">
-            No labels yet.
-          </p>
+          <p className="px-2 py-3 text-[12px] text-faint">No labels yet.</p>
         )}
         {options.map((option) => {
           const on = value.includes(option.id);
@@ -157,23 +152,28 @@ export function LabelPicker({
               key={option.id}
               type="button"
               onClick={() => toggle(option.id)}
-              className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-secondary/60"
+              className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-[color-mix(in_oklab,white_5%,transparent)]"
             >
               <span
-                className="h-2.5 w-2.5 shrink-0 rounded-full"
-                style={{ backgroundColor: option.color }}
-              />
-              <span className="min-w-0 flex-1 truncate text-xs">
-                {option.name}
+                className="label-chip min-w-0 flex-1"
+                style={{ "--chip-color": option.color } as React.CSSProperties}
+              >
+                <span className="truncate">{option.name}</span>
               </span>
-              {on && <Check size={12} className="shrink-0 text-brand-violet" />}
+              {on && (
+                <Check
+                  size={12}
+                  className="shrink-0"
+                  style={{ color: "var(--primary)" }}
+                />
+              )}
             </button>
           );
         })}
       </div>
 
       {allowCreate && (
-        <div className="mt-1 border-t border-border/60 pt-2">
+        <div className="mt-1 border-t border-[color-mix(in_oklab,white_7%,transparent)] pt-2">
           <input
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
@@ -184,7 +184,7 @@ export function LabelPicker({
               }
             }}
             placeholder="New label…"
-            className="w-full rounded-lg border border-border bg-secondary/50 px-2 py-1.5 text-xs outline-none focus:border-brand-violet"
+            className="field"
           />
         </div>
       )}
@@ -206,7 +206,7 @@ export function LabelPicker({
           ref={buttonRef}
           type="button"
           onClick={() => setOpen((prev) => !prev)}
-          className="inline-flex items-center gap-1 rounded-full border border-dashed border-border px-2 py-0.5 text-[10px] text-muted-foreground transition-colors hover:border-brand-violet hover:text-foreground"
+          className="inline-flex h-5 items-center gap-1 rounded-full border border-dashed border-[color-mix(in_oklab,white_16%,transparent)] px-2 text-[11px] text-faint transition-colors hover:border-[var(--primary)] hover:text-foreground"
         >
           {selected.length === 0 ? <Tag size={10} /> : <Plus size={10} />}
           {selected.length === 0 ? "Add label" : "Add"}
