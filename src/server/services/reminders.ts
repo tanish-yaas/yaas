@@ -2,6 +2,13 @@ import { prisma } from "@/lib/prisma";
 import { getWhatsAppProvider } from "@/lib/whatsapp/provider";
 import { sendSlackToEmail } from "@/lib/slack/provider";
 import { getScoreTrend } from "@/server/services/snapshots";
+import {
+  addDaysToKey,
+  daysBetweenKeys,
+  istDayKey,
+  istKeyToDate,
+  istTodayKey,
+} from "@/lib/dates";
 
 const WINDOW_MS = 24 * 60 * 60 * 1000;
 
@@ -111,6 +118,24 @@ async function isServiceWindowOpen(whatsappNumber: string): Promise<boolean> {
 
 type DigestKind = "MORNING_DIGEST" | "EVENING_REVIEW" | "WEEKLY_REVIEW";
 
+/** Only the sharp end gets called out — MEDIUM and LOW would be noise. */
+const PRIORITY_TAG: Record<string, string> = {
+  URGENT: " — urgent",
+  HIGH: " — high",
+};
+
+type DigestTask = {
+  title: string;
+  dueAt: Date | null;
+  priority: string;
+};
+
+/** "• 14:00 · Call Mukesh — high", or "• Anytime · …" when the task has no due time. */
+function taskLine(task: DigestTask, timeFmt: Intl.DateTimeFormat): string {
+  const when = task.dueAt ? timeFmt.format(task.dueAt) : "Anytime";
+  return `• ${when} · ${task.title}${PRIORITY_TAG[task.priority] ?? ""}`;
+}
+
 async function buildDigest(
   kind: DigestKind,
   orgId: string,
@@ -119,10 +144,13 @@ async function buildDigest(
   displayName: string
 ): Promise<{ title: string; body: string } | null> {
   const now = new Date();
-  const startOfDay = new Date(now);
-  startOfDay.setHours(0, 0, 0, 0);
-  const endOfDay = new Date(startOfDay);
-  endOfDay.setDate(endOfDay.getDate() + 1);
+
+  // Day boundaries have to be IST wall-clock, not the server's. The server runs
+  // in UTC, so setHours(0,0,0,0) would put "today" at 05:30–05:30 IST.
+  const todayKey = istTodayKey();
+  const startOfDay = istKeyToDate(todayKey);
+  const endOfDay = istKeyToDate(addDaysToKey(todayKey, 1));
+  const endOfTomorrow = istKeyToDate(addDaysToKey(todayKey, 2));
 
   const mine = {
     organizationId: orgId,
@@ -139,98 +167,156 @@ async function buildDigest(
   const firstName = displayName.split(" ")[0];
 
   if (kind === "MORNING_DIGEST") {
-    const [dueToday, overdue, events] = await Promise.all([
-      prisma.task.findMany({
-        where: {
-          ...mine,
-          dueAt: { gte: startOfDay, lt: endOfDay },
-          status: { notIn: ["DONE", "CANCELLED"] },
-        },
-        orderBy: { priorityScore: "desc" },
-        take: 6,
-      }),
-      prisma.task.count({
-        where: {
-          ...mine,
-          dueAt: { lt: startOfDay },
-          status: { notIn: ["DONE", "CANCELLED"] },
-        },
-      }),
-      prisma.calendarEvent.findMany({
-        where: {
-          organizationId: orgId,
-          deletedAt: null,
-          startAt: { gte: now, lt: endOfDay },
-          calendar: { ownerId: userId },
-        },
-        orderBy: { startAt: "asc" },
-        take: 4,
-      }),
-    ]);
+    const [dueToday, dueCount, overdue, overdueCount, events] =
+      await Promise.all([
+        prisma.task.findMany({
+          where: {
+            ...mine,
+            dueAt: { gte: startOfDay, lt: endOfDay },
+            status: { notIn: ["DONE", "CANCELLED"] },
+          },
+          orderBy: { dueAt: "asc" },
+          take: 10,
+          select: { title: true, dueAt: true, priority: true },
+        }),
+        prisma.task.count({
+          where: {
+            ...mine,
+            dueAt: { gte: startOfDay, lt: endOfDay },
+            status: { notIn: ["DONE", "CANCELLED"] },
+          },
+        }),
+        prisma.task.findMany({
+          where: {
+            ...mine,
+            dueAt: { lt: startOfDay },
+            status: { notIn: ["DONE", "CANCELLED"] },
+          },
+          orderBy: { dueAt: "asc" },
+          take: 5,
+          select: { title: true, dueAt: true, priority: true },
+        }),
+        prisma.task.count({
+          where: {
+            ...mine,
+            dueAt: { lt: startOfDay },
+            status: { notIn: ["DONE", "CANCELLED"] },
+          },
+        }),
+        prisma.calendarEvent.findMany({
+          where: {
+            organizationId: orgId,
+            deletedAt: null,
+            startAt: { gte: now, lt: endOfDay },
+            calendar: { ownerId: userId },
+          },
+          orderBy: { startAt: "asc" },
+          take: 5,
+        }),
+      ]);
 
-    if (dueToday.length === 0 && overdue === 0 && events.length === 0) {
+    if (dueCount === 0 && overdueCount === 0 && events.length === 0) {
       return {
         title: "Nothing scheduled today",
         body: `Morning ${firstName}. Clear calendar, nothing due. Good day to get ahead.`,
       };
     }
 
-    const lines = [`Morning ${firstName}.`, ""];
+    const lines = [
+      `Morning ${firstName}. ${
+        dueCount === 0
+          ? "Nothing due today."
+          : `${dueCount} ${dueCount === 1 ? "task" : "tasks"} due today.`
+      }`,
+      "",
+    ];
 
     if (dueToday.length > 0) {
-      lines.push(`*Due today (${dueToday.length})*`);
-      dueToday.forEach((t) => lines.push(`• ${t.title}`));
+      lines.push(`*Due today (${dueCount})*`);
+      dueToday.forEach((t) => lines.push(taskLine(t, timeFmt)));
+      if (dueCount > dueToday.length) {
+        lines.push(`• …and ${dueCount - dueToday.length} more`);
+      }
+      lines.push("");
+    }
+
+    if (overdue.length > 0) {
+      lines.push(`*Overdue (${overdueCount})*`);
+      overdue.forEach((t) => {
+        const late = t.dueAt
+          ? daysBetweenKeys(istDayKey(t.dueAt), todayKey)
+          : 0;
+        const age =
+          late <= 0 ? "just missed" : `${late} ${late === 1 ? "day" : "days"} late`;
+        lines.push(`• ${age} · ${t.title}${PRIORITY_TAG[t.priority] ?? ""}`);
+      });
+      if (overdueCount > overdue.length) {
+        lines.push(`• …and ${overdueCount - overdue.length} more`);
+      }
       lines.push("");
     }
 
     if (events.length > 0) {
       lines.push("*Calendar*");
       events.forEach((e) =>
-        lines.push(`• ${timeFmt.format(e.startAt)} ${e.title}`)
-      );
-      lines.push("");
-    }
-
-    if (overdue > 0) {
-      lines.push(
-        `${overdue} overdue ${overdue === 1 ? "task" : "tasks"} still open.`
+        lines.push(`• ${timeFmt.format(e.startAt)} · ${e.title}`)
       );
     }
 
     return {
-      title: `${dueToday.length} due today`,
+      title:
+        dueCount > 0
+          ? `${dueCount} due today`
+          : `${overdueCount} overdue, nothing due today`,
       body: lines.join("\n").trim(),
     };
   }
 
   if (kind === "EVENING_REVIEW") {
-    const [completed, stillOpen, tomorrow] = await Promise.all([
-      prisma.task.count({
-        where: { ...mine, status: "DONE", completedAt: { gte: startOfDay } },
-      }),
-      prisma.task.count({
-        where: {
-          ...mine,
-          dueAt: { gte: startOfDay, lt: endOfDay },
-          status: { notIn: ["DONE", "CANCELLED"] },
-        },
-      }),
-      prisma.task.count({
-        where: {
-          ...mine,
-          dueAt: {
-            gte: endOfDay,
-            lt: new Date(endOfDay.getTime() + 86_400_000),
+    const [completed, stillOpen, tomorrowCount, tomorrowTasks] =
+      await Promise.all([
+        prisma.task.count({
+          where: { ...mine, status: "DONE", completedAt: { gte: startOfDay } },
+        }),
+        prisma.task.count({
+          where: {
+            ...mine,
+            dueAt: { gte: startOfDay, lt: endOfDay },
+            status: { notIn: ["DONE", "CANCELLED"] },
           },
-          status: { notIn: ["DONE", "CANCELLED"] },
-        },
-      }),
-    ]);
+        }),
+        prisma.task.count({
+          where: {
+            ...mine,
+            dueAt: { gte: endOfDay, lt: endOfTomorrow },
+            status: { notIn: ["DONE", "CANCELLED"] },
+          },
+        }),
+        prisma.task.findMany({
+          where: {
+            ...mine,
+            dueAt: { gte: endOfDay, lt: endOfTomorrow },
+            status: { notIn: ["DONE", "CANCELLED"] },
+          },
+          orderBy: { dueAt: "asc" },
+          take: 5,
+          select: { title: true, dueAt: true, priority: true },
+        }),
+      ]);
 
     const lines = [`Evening ${firstName}.`, "", `Closed today: ${completed}`];
 
     if (stillOpen > 0) lines.push(`Still open from today: ${stillOpen}`);
-    if (tomorrow > 0) lines.push(`Due tomorrow: ${tomorrow}`);
+
+    if (tomorrowCount > 0) {
+      lines.push("", `*Tomorrow (${tomorrowCount})*`);
+      tomorrowTasks.forEach((t) => lines.push(taskLine(t, timeFmt)));
+      if (tomorrowCount > tomorrowTasks.length) {
+        lines.push(`• …and ${tomorrowCount - tomorrowTasks.length} more`);
+      }
+    } else {
+      lines.push("", "Nothing due tomorrow.");
+    }
 
     return { title: `${completed} completed today`, body: lines.join("\n") };
   }
