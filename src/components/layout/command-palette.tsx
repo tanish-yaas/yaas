@@ -208,6 +208,8 @@ export function CommandPalette() {
           ⌘K
         </kbd>
       </button>
+
+      {mounted && open && createPortal(panel, document.body)}
     </>
   );
 }
