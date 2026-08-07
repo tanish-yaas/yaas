@@ -381,6 +381,7 @@ export async function processDueReminders(limit = 50) {
 
   let sent = 0;
   let skipped = 0;
+  let failed = 0;
 
   for (const schedule of due) {
     const profile = schedule.user.profile;
@@ -389,15 +390,67 @@ export async function processDueReminders(limit = 50) {
       continue;
     }
 
-    const digest = await buildDigest(
-      schedule.type as DigestKind,
-      schedule.organizationId,
-      schedule.userId,
-      profile.timezone,
-      profile.displayName ?? "there"
+    // One bad schedule used to take the whole batch down with it, and because
+    // nextSendAt is only advanced at the end of the loop body, the same row
+    // would fail again on every run — everyone's reminders stop until someone
+    // notices. Isolate each one and let the rest through.
+    try {
+      if (await sendOne(schedule, profile, now)) sent += 1;
+    } catch (err) {
+      console.error("[reminders] schedule", schedule.id, err);
+      failed += 1;
+    }
+
+    const next = computeNextSendAt(
+      schedule.timeOfDay,
+      schedule.timezone,
+      schedule.daysOfWeek,
+      now
     );
 
-    if (digest) {
+    await prisma.reminderSchedule.update({
+      where: { id: schedule.id },
+      data: { lastSentAt: now, nextSendAt: next },
+    });
+  }
+
+  return { processed: due.length, sent, skipped, failed };
+}
+
+/** Only the fields the send path actually reads. */
+type DueSchedule = {
+  id: string;
+  type: string;
+  channel: string;
+  organizationId: string;
+  userId: string;
+  user: { email: string | null };
+};
+
+type DueProfile = {
+  timezone: string;
+  displayName: string | null;
+  whatsappVerified: boolean;
+  whatsappOptIn: boolean;
+  whatsappNumber: string | null;
+};
+
+async function sendOne(
+  schedule: DueSchedule,
+  profile: DueProfile,
+  now: Date
+): Promise<boolean> {
+  const digest = await buildDigest(
+    schedule.type as DigestKind,
+    schedule.organizationId,
+    schedule.userId,
+    profile.timezone,
+    profile.displayName ?? "there"
+  );
+
+  if (!digest) return false;
+
+  {
       const notification = await prisma.notification.create({
         data: {
           organizationId: schedule.organizationId,
@@ -490,23 +543,9 @@ export async function processDueReminders(limit = 50) {
         }
       }
 
-      sent += 1;
-    }
-
-    const next = computeNextSendAt(
-      schedule.timeOfDay,
-      schedule.timezone,
-      schedule.daysOfWeek,
-      now
-    );
-
-    await prisma.reminderSchedule.update({
-      where: { id: schedule.id },
-      data: { lastSentAt: now, nextSendAt: next },
-    });
   }
 
-  return { processed: due.length, sent, skipped };
+  return true;
 }
 
 export async function backfillNextSendAt() {
