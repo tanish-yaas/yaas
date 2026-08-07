@@ -36,14 +36,14 @@ const KIND_ICON: Record<string, React.ReactNode> = {
 
 export function CommandPalette() {
   const [open, setOpen] = useState(false);
-  const [mounted, setMounted] = useState(false);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [active, setActive] = useState(0);
   const router = useRouter();
 
-  useEffect(() => setMounted(true), []);
+  // No mounted guard needed: the portal only renders once `open` is true, and
+  // that can only come from a keypress or a click — never on the server.
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -209,7 +209,7 @@ export function CommandPalette() {
         </kbd>
       </button>
 
-      {mounted && open && createPortal(panel, document.body)}
+      {open && createPortal(panel, document.body)}
     </>
   );
 }

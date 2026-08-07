@@ -25,11 +25,11 @@ export function NotificationBell({
   notifications: NotificationRow[];
 }) {
   const [open, setOpen] = useState(false);
-  const [mounted, setMounted] = useState(false);
   const [pending, startTransition] = useTransition();
   const router = useRouter();
 
-  useEffect(() => setMounted(true), []);
+  // No mounted guard needed: the portal only renders once `open` is true, and
+  // that can only come from a click, which only ever happens on the client.
 
   useEffect(() => {
     if (!open) return;
@@ -152,6 +152,8 @@ export function NotificationBell({
           <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-primary" />
         )}
       </button>
+
+      {open && createPortal(panel, document.body)}
     </>
   );
 }
