@@ -3,7 +3,9 @@
 import { useState, useTransition } from "react";
 import { Check, Trash2, Pencil } from "lucide-react";
 import { setTaskStatus, deleteTask, updateTask } from "@/server/actions/tasks";
+import { setTaskLabels } from "@/server/actions/labels";
 import { useToast } from "@/components/ui/toast";
+import { LabelPicker, type LabelOption } from "./label-picker";
 
 const PRIORITY_COLOR: Record<string, string> = {
   URGENT: "var(--status-red)",
@@ -32,9 +34,17 @@ export type TaskRowData = {
   estimatedMinutes: string;
   assignees: string[];
   overdue: boolean;
+  labels: LabelOption[];
 };
 
-export function TaskRow({ task }: { task: TaskRowData }) {
+export function TaskRow({
+  task,
+  allLabels = [],
+}: {
+  task: TaskRowData;
+  /** Every label in the workspace, for the picker while editing. */
+  allLabels?: LabelOption[];
+}) {
   const [pending, startTransition] = useTransition();
   const [confirming, setConfirming] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -46,6 +56,14 @@ export function TaskRow({ task }: { task: TaskRowData }) {
   const [status, setStatus] = useState(task.status);
   const [dueAt, setDueAt] = useState(task.dueAtInput);
   const [estimate, setEstimate] = useState(task.estimatedMinutes);
+  const [labelIds, setLabelIds] = useState(task.labels.map((l) => l.id));
+  const [labelOptions, setLabelOptions] = useState<LabelOption[]>(() => {
+    // The picker needs every option to render a chip for what is already on
+    // the task, even if the caller didn't hand us the full workspace list.
+    const merged = new Map(allLabels.map((l) => [l.id, l]));
+    for (const l of task.labels) merged.set(l.id, l);
+    return [...merged.values()];
+  });
 
   const done = task.status === "DONE";
 
@@ -68,6 +86,10 @@ export function TaskRow({ task }: { task: TaskRowData }) {
     });
   }
 
+  const labelsChanged =
+    labelIds.length !== task.labels.length ||
+    labelIds.some((id) => !task.labels.some((l) => l.id === id));
+
   function save() {
     startTransition(async () => {
       const result = await updateTask(task.id, {
@@ -82,6 +104,17 @@ export function TaskRow({ task }: { task: TaskRowData }) {
         push(result.error, "error");
         return;
       }
+
+      // Labels live on their own join table, so they save separately — and
+      // only when they actually changed.
+      if (labelsChanged) {
+        const labelResult = await setTaskLabels(task.id, labelIds);
+        if (!labelResult.ok) {
+          push(labelResult.error, "error");
+          return;
+        }
+      }
+
       setEditing(false);
       push("Saved");
     });
@@ -94,6 +127,7 @@ export function TaskRow({ task }: { task: TaskRowData }) {
     setStatus(task.status);
     setDueAt(task.dueAtInput);
     setEstimate(task.estimatedMinutes);
+    setLabelIds(task.labels.map((l) => l.id));
     setEditing(false);
   }
 
@@ -150,6 +184,19 @@ export function TaskRow({ task }: { task: TaskRowData }) {
               className="field text-[12px]"
             />
           </div>
+
+          <div>
+            <span className="mb-1.5 block text-[11px] text-faint">Labels</span>
+            <LabelPicker
+              value={labelIds}
+              options={labelOptions}
+              onChange={setLabelIds}
+              onCreated={(label) =>
+                setLabelOptions((prev) => [...prev, label])
+              }
+            />
+          </div>
+
           <div className="flex items-center gap-3">
             <button
               type="button"
@@ -209,6 +256,20 @@ export function TaskRow({ task }: { task: TaskRowData }) {
           </span>
         )}
       </button>
+
+      {task.labels.length > 0 && (
+        <span className="hidden shrink-0 items-center gap-1 sm:flex">
+          {task.labels.slice(0, 3).map((label) => (
+            <span
+              key={label.id}
+              className="label-chip"
+              style={{ "--chip-color": label.color } as React.CSSProperties}
+            >
+              {label.name}
+            </span>
+          ))}
+        </span>
+      )}
 
       {task.dueAtLabel && (
         <span

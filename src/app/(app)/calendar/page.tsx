@@ -87,6 +87,11 @@ export default async function CalendarPage({
       orderBy: { dueAt: "asc" },
       include: {
         assignments: { include: { user: { select: { name: true } } } },
+        labels: {
+          include: {
+            label: { select: { id: true, name: true, color: true } },
+          },
+        },
       },
     }),
     prisma.task.findMany({
@@ -192,8 +197,15 @@ export default async function CalendarPage({
         estimatedMinutes: t.estimatedMinutes ? String(t.estimatedMinutes) : "",
         overdue: t.dueAt! < now,
         assignees: t.assignments.map((a) => a.user.name ?? "").filter(Boolean),
+        labels: t.labels.map((tl) => tl.label),
       },
     }));
+
+  const labelRows = await prisma.label.findMany({
+    where: { organizationId: orgId },
+    orderBy: { name: "asc" },
+    select: { id: true, name: true, color: true },
+  });
 
   return (
     <CalendarShell
@@ -212,6 +224,7 @@ export default async function CalendarPage({
         shares: sharesByCalendar.get(c.id) ?? [],
       }))}
       openTasks={openTasks}
+      allLabels={labelRows}
       members={memberRows.map((m) => ({
         userId: m.userId,
         name: m.user.name ?? m.user.email ?? "Member",

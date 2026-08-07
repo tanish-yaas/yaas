@@ -6,7 +6,15 @@ import { TaskComposer } from "@/components/tasks/task-composer";
 import { SmartComposer } from "@/components/tasks/smart-composer";
 import { TaskRow, type TaskRowData } from "@/components/tasks/task-row";
 
-function Section({ title, tasks }: { title: string; tasks: TaskRowData[] }) {
+function Section({
+  title,
+  tasks,
+  allLabels,
+}: {
+  title: string;
+  tasks: TaskRowData[];
+  allLabels: { id: string; name: string; color: string }[];
+}) {
   if (tasks.length === 0) return null;
   return (
     <section className="mt-7">
@@ -16,7 +24,7 @@ function Section({ title, tasks }: { title: string; tasks: TaskRowData[] }) {
       </h2>
       <div className="border-t border-border">
         {tasks.map((t) => (
-          <TaskRow key={t.id} task={t} />
+          <TaskRow key={t.id} task={t} allLabels={allLabels} />
         ))}
       </div>
     </section>
@@ -42,6 +50,11 @@ export default async function TasksPage() {
       take: 200,
       include: {
         assignments: { include: { user: { select: { name: true } } } },
+        labels: {
+          include: {
+            label: { select: { id: true, name: true, color: true } },
+          },
+        },
       },
     }),
     prisma.organizationMember.findMany({
@@ -82,6 +95,7 @@ export default async function TasksPage() {
     estimatedMinutes: t.estimatedMinutes ? String(t.estimatedMinutes) : "",
     overdue: !!t.dueAt && t.dueAt < now,
     assignees: t.assignments.map((a) => a.user.name ?? "").filter(Boolean),
+    labels: t.labels.map((tl) => tl.label),
   }));
 
   const open = rows.filter(
@@ -144,11 +158,11 @@ export default async function TasksPage() {
         </p>
       )}
 
-      <Section title="Overdue" tasks={overdue} />
-      <Section title="Today" tasks={today} />
-      <Section title="Upcoming" tasks={later} />
-      <Section title="No date" tasks={undated} />
-      <Section title="Done" tasks={done} />
+      <Section title="Overdue" tasks={overdue} allLabels={labelRows} />
+      <Section title="Today" tasks={today} allLabels={labelRows} />
+      <Section title="Upcoming" tasks={later} allLabels={labelRows} />
+      <Section title="No date" tasks={undated} allLabels={labelRows} />
+      <Section title="Done" tasks={done} allLabels={labelRows} />
     </div>
   );
 }

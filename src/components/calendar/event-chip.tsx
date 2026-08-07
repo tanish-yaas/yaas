@@ -54,7 +54,13 @@ export function TaskChip({
   onSelect: (dayKey: string) => void;
 }) {
   const done = task.row.status === "DONE" || task.row.status === "CANCELLED";
-  const color = PRIORITY_COLOR[task.row.priority] ?? PRIORITY_COLOR.LOW;
+
+  // A label is the thing the user chose a colour for, so it wins. Priority is
+  // the fallback for tasks nobody has labelled yet.
+  const color =
+    task.row.labels[0]?.color ??
+    PRIORITY_COLOR[task.row.priority] ??
+    PRIORITY_COLOR.LOW;
 
   return (
     <button

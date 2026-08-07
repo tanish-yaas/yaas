@@ -35,6 +35,7 @@ export function DayPanel({
   tasks,
   calendars,
   openTasks,
+  allLabels,
   canCreate,
   onClose,
   onCreate,
@@ -46,6 +47,7 @@ export function DayPanel({
   tasks: TaskItem[];
   calendars: CalendarOption[];
   openTasks: { id: string; title: string }[];
+  allLabels: { id: string; name: string; color: string }[];
   canCreate: boolean;
   onClose: () => void;
   onCreate: (values: EventFormValues) => Promise<string | null>;
@@ -328,7 +330,11 @@ export function DayPanel({
                         of the hairlines TaskRow already draws. */}
                     <div className="px-1.5">
                       {dayTasks.map((task) => (
-                        <TaskRow key={task.id} task={task.row} />
+                        <TaskRow
+                          key={task.id}
+                          task={task.row}
+                          allLabels={allLabels}
+                        />
                       ))}
                     </div>
                   </div>
