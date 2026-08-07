@@ -161,7 +161,7 @@ export function SmartComposer({
               if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) handleParse();
             }}
             rows={2}
-            placeholder="Call Aman today at 1pm about the Q3 deck"
+            placeholder="Write it however you'd say it — we'll sort out the details. ⌘/Ctrl + Enter to add."
             className="flex-1 resize-none bg-transparent py-1.5 text-[13px] outline-none placeholder:text-faint"
           />
           <button
@@ -177,10 +177,6 @@ export function SmartComposer({
         {error && (
           <p className="mt-2 px-1 text-[12px] text-destructive">{error}</p>
         )}
-        <p className="mt-2 px-1 text-[11px] text-faint">
-          Write it however you&apos;d say it — we&apos;ll sort out the details.
-          ⌘/Ctrl + Enter to add.
-        </p>
       </div>
     );
   }
