@@ -1,3 +1,6 @@
+import { generateObject } from "ai";
+import { google } from "@ai-sdk/google";
+import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { postSlackMessage, getSlackUserEmail } from "@/lib/slack/provider";
 import { parseTaskInput } from "@/server/services/ai-parser";
@@ -5,6 +8,7 @@ import { runChat } from "@/server/services/ai-chat";
 import { computePriorityScore } from "@/server/services/tasks";
 import { SLACK_HELP } from "@/config/slack";
 import { APP_CONFIG } from "@/config/app";
+import { AI_CONFIG } from "@/config/ai";
 
 export type InboundSlackMessage = {
   eventId: string;
@@ -24,21 +28,72 @@ type Sender = {
   permissions: Set<string>;
 };
 
+/** "add the deck", "remind me to call Priya" — an explicit instruction to capture. */
+const CAPTURE_OPENERS = /^(add|task|todo|new task|remind me to)\b/i;
+
 /**
- * A question gets answered; anything else gets captured as a task. Slack is a
- * conversation, so the split has to be predictable — a heuristic that guesses
- * wrong silently loses the user's note. An explicit leading verb wins over the
- * question mark for the cases where someone types "remind me to ask Priya?".
+ * Question shapes people actually type. Deliberately "show me"/"give me"
+ * rather than bare "show"/"give", so "give Aniket a call" is not mistaken for
+ * a request for information.
  */
-export function classify(text: string): "chat" | "task" {
+const QUESTION_OPENERS =
+  /^(what|whats|when|where|who|whose|which|why|how|is|are|am|do|does|did|can|could|should|shall|will|would|have|has|any|anything|list|find|search|summarise|summarize|catch me up|show me|tell me|give me|remind me what)\b/i;
+
+/**
+ * Cheap pass first. Returns "unsure" rather than guessing, so the caller can
+ * spend a model call only on the genuinely ambiguous ones.
+ */
+export function classifyFast(text: string): "chat" | "task" | "unsure" {
   const trimmed = text.trim();
   const lower = trimmed.toLowerCase();
 
-  if (/^(add|task|todo|remind me)\b/.test(lower)) return "task";
+  if (CAPTURE_OPENERS.test(lower)) return "task";
   if (/^(\?|ask\b)/.test(lower)) return "chat";
   if (trimmed.endsWith("?")) return "chat";
+  if (QUESTION_OPENERS.test(lower)) return "chat";
 
-  return "task";
+  return "unsure";
+}
+
+/**
+ * A question gets answered; anything else gets captured as a task.
+ *
+ * Keyword matching alone was too blunt — "give me the tasks for tomorrow" has
+ * no question mark and filed itself as a task. Explicit phrasing still decides
+ * without a round trip; only the ambiguous remainder costs a model call.
+ *
+ * Falls back to "task" whenever the model is unavailable or unsure. Filing a
+ * junk task is visible and reversible; answering a note as if it were a
+ * question throws the note away.
+ */
+export async function classify(text: string): Promise<"chat" | "task"> {
+  const fast = classifyFast(text);
+  if (fast !== "unsure") return fast;
+
+  try {
+    const result = await generateObject({
+      model: google(AI_CONFIG.fallbackModel),
+      schema: z.object({
+        intent: z
+          .enum(["question", "capture"])
+          .describe(
+            "question = asking about existing work. capture = something to be done."
+          ),
+      }),
+      system:
+        "Classify one message sent to a task assistant. " +
+        '"question" means the sender wants information about work that already exists. ' +
+        '"capture" means the sender is describing something that needs doing. ' +
+        "Reply with the label only.",
+      prompt: text.trim().slice(0, 500),
+      temperature: 0,
+    });
+
+    return result.object.intent === "question" ? "chat" : "task";
+  } catch (err) {
+    console.error("[slack:classify]", err);
+    return "task";
+  }
 }
 
 /** Strip the "add "/"task " prefix and any @-mention of the bot. */
@@ -238,7 +293,7 @@ export async function handleSlackInbound(message: InboundSlackMessage) {
     return;
   }
 
-  if (classify(message.text) === "chat") {
+  if ((await classify(message.text)) === "chat") {
     await answer(message, sender);
     return;
   }
