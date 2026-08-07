@@ -6,6 +6,7 @@ import {
   TeamManager,
   type TeamRow,
 } from "@/components/teams/team-manager";
+import { RoleSelect } from "@/components/members/role-select";
 
 function SectionPanel({
   title,
@@ -46,6 +47,7 @@ export default async function MembersPage() {
   if (!ctx.permissions.has("member.approve")) redirect("/");
 
   const canDeactivate = ctx.permissions.has("member.deactivate");
+  const canAssignRole = ctx.permissions.has("member.assign_role");
   const orgId = ctx.membership.organizationId;
 
   const [members, teams] = await Promise.all([
@@ -139,7 +141,13 @@ export default async function MembersPage() {
                 <span className="min-w-0 flex-1 truncate text-[12px] text-faint">
                   {m.user.email}
                 </span>
-                <span className="chip chip-accent shrink-0">{m.role.name}</span>
+                {canAssignRole && m.userId !== ctx.session.user.id ? (
+                  <RoleSelect memberId={m.id} roleKey={m.role.key} />
+                ) : (
+                  <span className="chip chip-accent shrink-0">
+                    {m.role.name}
+                  </span>
+                )}
                 {canDeactivate && m.userId !== ctx.session.user.id && (
                   <form action={deactivateMember} className="shrink-0">
                     <input type="hidden" name="memberId" value={m.id} />
