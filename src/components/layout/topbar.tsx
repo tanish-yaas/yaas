@@ -2,6 +2,10 @@ import { signOut } from "@/auth";
 import { LogOut } from "lucide-react";
 import { NotificationBell } from "./notification-bell";
 import { CommandPalette } from "./command-palette";
+import {
+  SuggestionHint,
+  type SuggestionHintRow,
+} from "./suggestion-hint";
 import type { NotificationRow } from "@/server/services/notifications";
 
 export function Topbar({
@@ -10,18 +14,22 @@ export function Topbar({
   image,
   unreadCount,
   notifications,
+  suggestions,
 }: {
   displayName: string;
   roleName: string;
   image?: string | null;
   unreadCount: number;
   notifications: NotificationRow[];
+  suggestions: SuggestionHintRow[];
 }) {
   const initial = displayName.charAt(0).toUpperCase();
 
   return (
     <>
       <CommandPalette />
+
+      <SuggestionHint suggestions={suggestions} />
 
       <div className="ml-auto flex items-center gap-2">
         <NotificationBell

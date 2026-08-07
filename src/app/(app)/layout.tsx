@@ -7,6 +7,8 @@ import {
 } from "@/server/services/notifications";
 import { AppShell } from "@/components/layout/app-shell";
 import { Topbar } from "@/components/layout/topbar";
+import type { SuggestionHintRow } from "@/components/layout/suggestion-hint";
+import type { SuggestionPayload } from "@/server/services/intelligence";
 
 export default async function AppLayout({
   children,
@@ -24,15 +26,36 @@ export default async function AppLayout({
   const userId = ctx.session.user.id;
   const canApprove = ctx.permissions.has("member.approve");
 
-  const [pendingCount, unreadCount, notifications] = await Promise.all([
-    canApprove
-      ? prisma.organizationMember.count({
-          where: { organizationId: orgId, status: "PENDING" },
-        })
-      : Promise.resolve(0),
-    getUnreadCount(orgId, userId),
-    getRecentNotifications(orgId, userId, 15),
-  ]);
+  const now = new Date();
+
+  const [pendingCount, unreadCount, notifications, suggestionRows] =
+    await Promise.all([
+      canApprove
+        ? prisma.organizationMember.count({
+            where: { organizationId: orgId, status: "PENDING" },
+          })
+        : Promise.resolve(0),
+      getUnreadCount(orgId, userId),
+      getRecentNotifications(orgId, userId, 15),
+      prisma.aISuggestion.findMany({
+        where: {
+          organizationId: orgId,
+          userId,
+          status: "PENDING",
+          OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
+        },
+        orderBy: [{ confidence: "desc" }, { createdAt: "desc" }],
+        take: 5,
+        select: { id: true, type: true, reason: true, payload: true },
+      }),
+    ]);
+
+  const suggestions: SuggestionHintRow[] = suggestionRows.map((s) => ({
+    id: s.id,
+    type: s.type,
+    reason: s.reason ?? "",
+    actionable: !!(s.payload as SuggestionPayload | null)?.apply,
+  }));
 
   return (
     <AppShell
@@ -46,6 +69,7 @@ export default async function AppLayout({
           image={ctx.session.user.image}
           unreadCount={unreadCount}
           notifications={notifications}
+          suggestions={suggestions}
         />
       }
     >
