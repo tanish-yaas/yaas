@@ -1,0 +1,43 @@
+# Drives /api/cron/reminders.
+#
+# This lives here rather than in vercel.json because reminder times are
+# per-user and land on arbitrary minutes, so the poll has to run far more
+# often than once a day -- and sub-daily cron schedules are a paid Vercel
+# feature. The three daily crons stay in vercel.json; only this one moved.
+#
+# Requires one repo secret, CRON_SECRET, matching the Vercel env var the
+# route checks. Optionally set an APP_URL repo variable if the domain moves.
+
+name: reminders cron
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+# A late run must never stack on top of the one still in flight.
+concurrency:
+  group: reminders-cron
+  cancel-in-progress: false
+
+jobs:
+  poll:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger reminder digests
+        env:
+          APP_URL: ${{ vars.APP_URL || 'https://yaas-ten.vercel.app' }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          if [ -z "$CRON_SECRET" ]; then
+            echo "::error::CRON_SECRET is not set on this repository."
+            exit 1
+          fi
+
+          # --fail-with-body so a 401/500 fails the job but still shows why.
+          # --max-time tracks the route's maxDuration of 60s.
+          curl --fail-with-body -sS \
+            --max-time 90 \
+            --retry 2 --retry-delay 5 --retry-connrefused \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            "$APP_URL/api/cron/reminders"

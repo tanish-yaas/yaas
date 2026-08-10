@@ -2,10 +2,6 @@
   "regions": ["bom1"],
   "crons": [
     {
-      "path": "/api/cron/reminders",
-      "schedule": "*/5 * * * *"
-    },
-    {
       "path": "/api/cron/intelligence",
       "schedule": "0 2 * * *"
     },
