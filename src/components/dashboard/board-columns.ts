@@ -1,13 +1,10 @@
 /**
  * The board shows three columns for seven statuses.
  *
- * In progress and In review were dropped because nothing in the org has ever
- * been in them — every task is TODO or DONE. Their statuses still exist and the
- * API still writes them, so they fold into To do rather than being hidden: a
- * task that reaches IN_PROGRESS, BLOCKED or IN_REVIEW some other way stays
- * visible on the board instead of silently vanishing from it.
- *
- * BLOCKED is called out with a flag on the card. CANCELLED is off the board.
+ * Every status has a home, so nothing can drop off the board: BACKLOG sits with
+ * TODO, and the three middle states share In progress. BLOCKED is called out
+ * with a flag on the card rather than taking a column — it is a state a task is
+ * stuck in, not a stage it moves through. CANCELLED is deliberately off.
  *
  * `writes` is the status a drop into that column sets, and it is only applied
  * when the card changes column — so a folded card keeps its real status until
@@ -28,22 +25,22 @@ export type BoardColumn = {
 
 export const BOARD_COLUMNS: BoardColumn[] = [
   {
-    key: "backlog",
-    label: "Backlog",
-    color: "#8b8b94",
-    writes: "BACKLOG",
-    accepts: ["BACKLOG"],
-  },
-  {
     key: "todo",
     label: "To do",
     color: "var(--status-purple)",
     writes: "TODO",
-    accepts: ["TODO", "IN_PROGRESS", "BLOCKED", "IN_REVIEW"],
+    accepts: ["BACKLOG", "TODO"],
   },
   {
-    key: "done",
-    label: "Done",
+    key: "doing",
+    label: "In progress",
+    color: "var(--status-blue)",
+    writes: "IN_PROGRESS",
+    accepts: ["IN_PROGRESS", "BLOCKED", "IN_REVIEW"],
+  },
+  {
+    key: "completed",
+    label: "Completed",
     color: "var(--status-green)",
     writes: "DONE",
     accepts: ["DONE"],

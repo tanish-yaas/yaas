@@ -461,11 +461,14 @@ export function CalendarShell({
             <button
               type="button"
               data-on={hiddenCalendars.size > 0}
-              onClick={(e) =>
-                setCalendarPanel((current) =>
-                  current ? null : e.currentTarget.getBoundingClientRect()
-                )
-              }
+              // Measured here, not inside the updater. React nulls
+              // currentTarget once the handler returns, and an updater runs
+              // later during render — reading it there threw
+              // "Cannot read properties of null" and took the page down.
+              onClick={(e) => {
+                const rect = e.currentTarget.getBoundingClientRect();
+                setCalendarPanel((current) => (current ? null : rect));
+              }}
               title="Calendars"
               className="pill"
             >

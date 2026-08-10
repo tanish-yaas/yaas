@@ -44,25 +44,37 @@ export function PeopleFilter({
 }) {
   const [anchor, setAnchor] = useState<DOMRect | null>(null);
 
+  // "Just me" is the default, so it needs no badge and no highlight.
+  const isDefault = selected.size === 1 && selected.has(selfId);
+
   return (
     <>
+      {/* Icon only. The label used to spell out the selection, which cost a
+          whole row above the columns for something glanced at rarely — the
+          count badge carries the same information. */}
       <button
         type="button"
-        data-on={selected.size !== 1 || !selected.has(selfId)}
-        onClick={(e) =>
-          setAnchor((current) =>
-            current ? null : e.currentTarget.getBoundingClientRect()
-          )
+        data-on={!isDefault}
+        // Measured before setState — see the same note in calendar-shell.
+        // currentTarget is null by the time an updater runs.
+        onClick={(e) => {
+          const rect = e.currentTarget.getBoundingClientRect();
+          setAnchor((current) => (current ? null : rect));
+        }}
+        title={
+          isDefault
+            ? "Showing your tasks · pick whose to show"
+            : `Showing ${selected.size} of ${members.length}`
         }
-        title="Whose tasks to show"
-        className="pill"
+        aria-label="Whose tasks to show"
+        className="icon-btn relative"
       >
-        <Users size={13} />
-        {selected.size === members.length
-          ? "Everyone"
-          : selected.size === 1 && selected.has(selfId)
-            ? "My tasks"
-            : `${selected.size}/${members.length}`}
+        <Users size={14} />
+        {!isDefault && (
+          <span className="absolute -right-0.5 -top-0.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-[var(--primary)] px-1 text-[9px] font-medium tabular-nums text-white">
+            {selected.size}
+          </span>
+        )}
       </button>
 
       {anchor && (

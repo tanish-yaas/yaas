@@ -150,7 +150,7 @@ export function TaskBoard({
   return (
     <>
     {members.length > 0 && (
-      <div className="mb-2.5 flex items-center gap-2">
+      <div className="mb-1.5 flex justify-end">
         <PeopleFilter
           members={members}
           selected={people}
