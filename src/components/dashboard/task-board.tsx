@@ -1,11 +1,18 @@
 "use client";
 
-import { useMemo, useOptimistic, useState, useTransition } from "react";
+import { useEffect, useMemo, useOptimistic, useState, useTransition } from "react";
 import Link from "next/link";
 import { Flag, Plus } from "lucide-react";
 import dynamic from "next/dynamic";
 import { useToast } from "@/components/ui/toast";
 import { setTaskStatus } from "@/server/actions/tasks";
+import {
+  PeopleFilter,
+  UNASSIGNED_ID,
+  type BoardMember,
+} from "./people-filter";
+
+const PEOPLE_KEY = "yaas.board.people";
 
 // Deferred: the sheet is the largest component in the app and the dashboard is
 // the first page after login, so its JS should not be in that payload. It only
@@ -31,9 +38,52 @@ import {
  * Dates arrive pre-formatted from the server. The app is pinned to IST and the
  * browser is not, so formatting here would both drift and mismatch on hydration.
  */
-export function TaskBoard({ tasks }: { tasks: BoardTask[] }) {
+export function TaskBoard({
+  tasks,
+  members = [],
+  selfId,
+}: {
+  tasks: BoardTask[];
+  /** Empty unless the viewer's scope reaches other people's tasks. */
+  members?: BoardMember[];
+  selfId: string;
+}) {
   const { push } = useToast();
   const [, startTransition] = useTransition();
+
+  // Defaults to just you, so the board opens the same as it did before the
+  // filter existed. Persisted per viewer, like the calendar's hidden set.
+  const [people, setPeople] = useState<Set<string>>(() => new Set([selfId]));
+
+  useEffect(() => {
+    try {
+      const stored = window.localStorage.getItem(PEOPLE_KEY);
+      if (stored) {
+        const ids = JSON.parse(stored) as string[];
+        if (Array.isArray(ids) && ids.length > 0) setPeople(new Set(ids));
+      }
+    } catch {
+      // A corrupt store just means the default selection stands.
+    }
+  }, []);
+
+  function persist(next: Set<string>) {
+    setPeople(next);
+    try {
+      window.localStorage.setItem(PEOPLE_KEY, JSON.stringify([...next]));
+    } catch {
+      // Non-fatal — the selection still applies for this session.
+    }
+  }
+
+  function togglePerson(userId: string) {
+    const next = new Set(people);
+    if (next.has(userId)) next.delete(userId);
+    else next.add(userId);
+    // Never leave the board with nothing selected and no way to tell why.
+    if (next.size === 0) next.add(userId);
+    persist(next);
+  }
 
   // Optimistic so a drop lands instantly. revalidatePath inside the action
   // refreshes the server copy underneath, and this unwinds onto it.
@@ -53,12 +103,26 @@ export function TaskBoard({ tasks }: { tasks: BoardTask[] }) {
     const map = new Map<string, BoardTask[]>(
       BOARD_COLUMNS.map((c) => [c.key, []])
     );
+
     for (const task of optimistic) {
+      // No filter for viewers without one. With it on, a task shows if any of
+      // its assignees is selected — a shared task belongs on both boards — and
+      // an unassigned one rides under its own entry rather than matching
+      // nobody and vanishing.
+      if (members.length > 0) {
+        const shown =
+          task.assigneeIds.length === 0
+            ? people.has(UNASSIGNED_ID)
+            : task.assigneeIds.some((id) => people.has(id));
+        if (!shown) continue;
+      }
+
       const column = columnForStatus(task.status);
       if (column) map.get(column)!.push(task);
     }
+
     return map;
-  }, [optimistic]);
+  }, [optimistic, members.length, people]);
 
   function drop(columnKey: string) {
     const id = draggingId;
@@ -85,6 +149,18 @@ export function TaskBoard({ tasks }: { tasks: BoardTask[] }) {
 
   return (
     <>
+    {members.length > 0 && (
+      <div className="mb-2.5 flex items-center gap-2">
+        <PeopleFilter
+          members={members}
+          selected={people}
+          selfId={selfId}
+          onToggle={togglePerson}
+          onOnly={(userId) => persist(new Set([userId]))}
+        />
+      </div>
+    )}
+
     {/* items-start so each column is as tall as its own cards. Stretching them
         to a common height is what left the dead space under the board. */}
     <div className="-mx-1 flex items-start gap-2.5 overflow-x-auto px-1 pb-1">

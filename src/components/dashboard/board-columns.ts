@@ -85,6 +85,8 @@ export type BoardTask = {
   status: string;
   priority: string;
   blocked: boolean;
+  /** Drives the people filter. Empty for an unassigned task. */
+  assigneeIds: string[];
   /** Pre-formatted in IST by the server — see TaskBoard. */
   dueLabel: string | null;
   overdue: boolean;

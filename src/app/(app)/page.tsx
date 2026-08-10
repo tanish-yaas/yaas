@@ -3,6 +3,7 @@ import { getCurrentContext } from "@/server/auth/session";
 import { SuggestionCard } from "@/components/dashboard/suggestion-card";
 import { InsightRow } from "@/components/dashboard/insight-row";
 import { getDashboardInsights } from "@/server/services/insights";
+import { buildTaskScope } from "@/server/services/tasks";
 import { TaskBoard } from "@/components/dashboard/task-board";
 import {
   columnForStatus,
@@ -125,9 +126,19 @@ export default async function DashboardPage() {
 
   const totalWeek = dueThisWeek + completed;
 
-  const [boardRows, suggestions, insights] = await Promise.all([
+  // Viewers who can see past their own rows get the whole scope plus a people
+  // filter; everyone else keeps the board they had. buildTaskScope is the
+  // authority on what is visible — the filter only narrows what it returns.
+  const canSeeOthers =
+    ctx.permissions.has("task.view_any") || ctx.permissions.has("task.view_team");
+
+  const boardScope = canSeeOthers
+    ? await buildTaskScope(orgId, userId, ctx.permissions)
+    : mine;
+
+  const [boardRows, suggestions, insights, boardMembers] = await Promise.all([
     prisma.task.findMany({
-      where: { ...mine, status: { not: "CANCELLED" } },
+      where: { ...boardScope, status: { not: "CANCELLED" } },
       orderBy: [{ dueAt: { sort: "asc", nulls: "last" } }, { createdAt: "desc" }],
       take: 120,
       select: {
@@ -136,7 +147,9 @@ export default async function DashboardPage() {
         status: true,
         priority: true,
         dueAt: true,
-        assignments: { select: { user: { select: { name: true } } } },
+        assignments: {
+          select: { userId: true, user: { select: { name: true } } },
+        },
         labels: {
           select: { label: { select: { id: true, name: true, color: true } } },
         },
@@ -153,6 +166,23 @@ export default async function DashboardPage() {
       take: 4,
     }),
     getDashboardInsights(orgId, userId),
+    canSeeOthers
+      ? prisma.organizationMember.findMany({
+          where: { organizationId: orgId, status: "ACTIVE" },
+          select: {
+            userId: true,
+            user: {
+              select: {
+                name: true,
+                email: true,
+                image: true,
+                profile: { select: { displayName: true, avatarUrl: true } },
+              },
+            },
+          },
+          orderBy: { createdAt: "asc" },
+        })
+      : Promise.resolve([]),
   ]);
 
   // Formatted here rather than in the client board: the app is pinned to IST
@@ -187,11 +217,31 @@ export default async function DashboardPage() {
         dueLabel,
         overdue: daysLate !== null && daysLate > 0 && t.status !== "DONE",
         labels: t.labels.map((tl) => tl.label),
+        assigneeIds: t.assignments.map((a) => a.userId),
         assignees: t.assignments
           .map((a) => a.user.name?.split(" ")[0] ?? "")
           .filter(Boolean),
       };
     });
+
+  // Built from whose tasks are actually in view, not from the whole roster.
+  // A viewer whose scope is team-level would otherwise get a checkbox for
+  // every member in the org, most of them selecting nothing.
+  const presentIds = new Set(boardTasks.flatMap((t) => t.assigneeIds));
+  const hasUnassigned = boardTasks.some((t) => t.assigneeIds.length === 0);
+
+  const filterMembers = boardMembers
+    .filter((m) => presentIds.has(m.userId))
+    .map((m) => ({
+      userId: m.userId,
+      name:
+        m.user.profile?.displayName ?? m.user.name ?? m.user.email ?? "Member",
+      avatarUrl: m.user.profile?.avatarUrl ?? null,
+      image: m.user.image ?? null,
+    }));
+
+  // Nothing to filter when it is all one person's work and nothing is loose.
+  const showFilter = filterMembers.length > 1 || hasUnassigned;
 
   return (
     <div className="w-full">
@@ -249,7 +299,11 @@ export default async function DashboardPage() {
           </div>
 
           <div className="p-3">
-            <TaskBoard tasks={boardTasks} />
+            <TaskBoard
+              tasks={boardTasks}
+              selfId={userId}
+              members={showFilter ? filterMembers : []}
+            />
           </div>
         </section>
 

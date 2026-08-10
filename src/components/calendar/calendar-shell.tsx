@@ -123,18 +123,19 @@ export function CalendarShell({
   }, []);
 
   function toggleCalendar(calendarId: string) {
-    setHiddenCalendars((prev) => {
-      const next = new Set(prev);
-      if (next.has(calendarId)) next.delete(calendarId);
-      else next.add(calendarId);
+    // Computed outside the updater. React may call an updater more than once
+    // for the same click, so writing to storage inside one is not safe.
+    const next = new Set(hiddenCalendars);
+    if (next.has(calendarId)) next.delete(calendarId);
+    else next.add(calendarId);
 
-      try {
-        window.localStorage.setItem(HIDDEN_KEY, JSON.stringify([...next]));
-      } catch {
-        // Non-fatal — the toggle still applies for this session.
-      }
-      return next;
-    });
+    setHiddenCalendars(next);
+
+    try {
+      window.localStorage.setItem(HIDDEN_KEY, JSON.stringify([...next]));
+    } catch {
+      // Non-fatal — the toggle still applies for this session.
+    }
   }
 
   useEffect(() => {

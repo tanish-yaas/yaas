@@ -24,10 +24,20 @@ export default function AppError({
         <p className="mt-1 text-xs leading-relaxed text-muted-foreground/70">
           This page failed to load. Trying again usually fixes it.
         </p>
-        {error.digest && (
+        {/* Show what actually broke. A server error arrives here with its
+            message replaced and a digest attached; a client error keeps its
+            real message and has no digest. So the two are told apart by which
+            of these appears, which is the first thing worth knowing. */}
+        {error.digest ? (
           <p className="mt-2 font-mono text-[10px] text-muted-foreground/40">
-            {error.digest}
+            server · {error.digest}
           </p>
+        ) : (
+          error.message && (
+            <p className="mt-2 max-h-24 overflow-y-auto whitespace-pre-wrap break-words font-mono text-[10px] text-muted-foreground/50">
+              client · {error.message}
+            </p>
+          )
         )}
       </div>
       <button
