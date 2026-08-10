@@ -1,14 +1,12 @@
+import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getCurrentContext } from "@/server/auth/session";
-import {
-  getUnreadCount,
-  getRecentNotifications,
-} from "@/server/services/notifications";
 import { AppShell } from "@/components/layout/app-shell";
-import { Topbar } from "@/components/layout/topbar";
-import type { SuggestionHintRow } from "@/components/layout/suggestion-hint";
-import type { SuggestionPayload } from "@/server/services/intelligence";
+import {
+  TopbarData,
+  TopbarFallback,
+} from "@/components/layout/topbar-data";
 
 export default async function AppLayout({
   children,
@@ -26,36 +24,14 @@ export default async function AppLayout({
   const userId = ctx.session.user.id;
   const canApprove = ctx.permissions.has("member.approve");
 
-  const now = new Date();
-
-  const [pendingCount, unreadCount, notifications, suggestionRows] =
-    await Promise.all([
-      canApprove
-        ? prisma.organizationMember.count({
-            where: { organizationId: orgId, status: "PENDING" },
-          })
-        : Promise.resolve(0),
-      getUnreadCount(orgId, userId),
-      getRecentNotifications(orgId, userId, 15),
-      prisma.aISuggestion.findMany({
-        where: {
-          organizationId: orgId,
-          userId,
-          status: "PENDING",
-          OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
-        },
-        orderBy: [{ confidence: "desc" }, { createdAt: "desc" }],
-        take: 5,
-        select: { id: true, type: true, reason: true, payload: true },
-      }),
-    ]);
-
-  const suggestions: SuggestionHintRow[] = suggestionRows.map((s) => ({
-    id: s.id,
-    type: s.type,
-    reason: s.reason ?? "",
-    actionable: !!(s.payload as SuggestionPayload | null)?.apply,
-  }));
+  // Only the sidebar's pending badge is awaited here — it is one count, and it
+  // decides what the nav renders. Everything the topbar needs streams in behind
+  // Suspense so the shell and the route's loading.tsx paint immediately.
+  const pendingCount = canApprove
+    ? await prisma.organizationMember.count({
+        where: { organizationId: orgId, status: "PENDING" },
+      })
+    : 0;
 
   return (
     <AppShell
@@ -63,14 +39,15 @@ export default async function AppLayout({
       canApprove={canApprove}
       pendingCount={pendingCount}
       topbar={
-        <Topbar
-          displayName={ctx.profile.displayName ?? "You"}
-          roleName={ctx.membership.role.name}
-          image={ctx.session.user.image}
-          unreadCount={unreadCount}
-          notifications={notifications}
-          suggestions={suggestions}
-        />
+        <Suspense fallback={<TopbarFallback />}>
+          <TopbarData
+            orgId={orgId}
+            userId={userId}
+            displayName={ctx.profile.displayName ?? "You"}
+            roleName={ctx.membership.role.name}
+            image={ctx.session.user.image}
+          />
+        </Suspense>
       }
     >
       {children}
