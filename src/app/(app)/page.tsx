@@ -194,10 +194,8 @@ export default async function DashboardPage() {
     });
 
   return (
-    // min-h-0 all the way down so the board can own the leftover height and
-    // scroll its own columns, rather than growing the page.
-    <div className="flex min-h-0 w-full flex-1 flex-col">
-      <header className="mb-4 shrink-0">
+    <div className="w-full">
+      <header className="mb-4">
         <h1 className="text-[22px] font-semibold tracking-tight">
           {greeting(tz)}, {ctx.profile.displayName?.split(" ")[0]}
         </h1>
@@ -213,7 +211,7 @@ export default async function DashboardPage() {
 
       {/* Tiles keep their own row across the top. Below them the board takes
           the width and the height that is left, with suggestions in a rail. */}
-      <div className="mb-3 grid shrink-0 grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="mb-3 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Stat label="Due today" value={dueToday} total={totalOpen || 1} />
         <Stat
           label="This week"
@@ -235,9 +233,11 @@ export default async function DashboardPage() {
         />
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col gap-3 xl:flex-row">
-        <section className="panel flex min-h-[380px] flex-1 flex-col overflow-hidden xl:min-h-0">
-          <div className="flex shrink-0 items-center justify-between border-b border-[color-mix(in_oklab,white_7%,transparent)] px-4 py-2.5">
+      {/* items-start so the board and the rail each end where their content
+          does, instead of both stretching to the taller one's height. */}
+      <div className="flex flex-col gap-3 xl:flex-row xl:items-start">
+        <section className="panel flex min-w-0 flex-1 flex-col overflow-hidden">
+          <div className="flex items-center justify-between border-b border-[color-mix(in_oklab,white_7%,transparent)] px-4 py-2.5">
             <h2 className="text-[11px] uppercase tracking-[0.12em] text-faint">
               Board
             </h2>
@@ -248,13 +248,13 @@ export default async function DashboardPage() {
             </span>
           </div>
 
-          <div className="min-h-0 flex-1 p-3">
+          <div className="p-3">
             <TaskBoard tasks={boardTasks} />
           </div>
         </section>
 
         <aside className="panel flex w-full shrink-0 flex-col overflow-hidden xl:w-[320px]">
-          <div className="shrink-0 border-b border-[color-mix(in_oklab,white_7%,transparent)] px-4 py-2.5">
+          <div className="border-b border-[color-mix(in_oklab,white_7%,transparent)] px-4 py-2.5">
             <h2 className="text-[11px] uppercase tracking-[0.12em] text-faint">
               Suggestions
             </h2>
@@ -264,7 +264,7 @@ export default async function DashboardPage() {
               Without the fallback this panel sits empty most of the time — the
               nightly run is the only thing that fills it, and accepting or
               dismissing a row takes it straight back out. */}
-          <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto p-3">
+          <div className="flex flex-col gap-2 p-3">
             {suggestions.length > 0
               ? suggestions.map((s) => {
                   const payload = s.payload as SuggestionPayload | null;

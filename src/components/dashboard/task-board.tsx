@@ -85,7 +85,9 @@ export function TaskBoard({ tasks }: { tasks: BoardTask[] }) {
 
   return (
     <>
-    <div className="-mx-1 flex h-full min-h-0 gap-2.5 overflow-x-auto px-1 pb-1">
+    {/* items-start so each column is as tall as its own cards. Stretching them
+        to a common height is what left the dead space under the board. */}
+    <div className="-mx-1 flex items-start gap-2.5 overflow-x-auto px-1 pb-1">
       {BOARD_COLUMNS.map((column) => {
         const items = byColumn.get(column.key) ?? [];
         const active = overColumn === column.key;
@@ -105,7 +107,7 @@ export function TaskBoard({ tasks }: { tasks: BoardTask[] }) {
               e.preventDefault();
               drop(column.key);
             }}
-            className={`flex h-full min-h-0 w-[260px] shrink-0 flex-col rounded-xl border p-2 transition-colors ${
+            className={`flex w-[260px] shrink-0 flex-col rounded-xl border p-2 transition-colors ${
               active
                 ? "border-[color-mix(in_oklab,var(--primary)_45%,transparent)] bg-[color-mix(in_oklab,var(--primary)_7%,transparent)]"
                 : "border-[color-mix(in_oklab,white_7%,transparent)] bg-[color-mix(in_oklab,white_2%,transparent)]"
@@ -127,7 +129,8 @@ export function TaskBoard({ tasks }: { tasks: BoardTask[] }) {
               </span>
             </header>
 
-            <div className="flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto">
+            {/* min-h keeps an empty column a big enough drop target to aim at. */}
+            <div className="flex min-h-[52px] flex-col gap-1.5">
               {items.map((task) => (
                 <Card
                   key={task.id}
