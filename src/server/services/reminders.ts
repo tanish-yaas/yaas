@@ -382,11 +382,37 @@ export async function processDueReminders(limit = 50) {
   let sent = 0;
   let skipped = 0;
   let failed = 0;
+  let raced = 0;
 
   for (const schedule of due) {
     const profile = schedule.user.profile;
     if (!profile) {
       skipped += 1;
+      continue;
+    }
+
+    const next = computeNextSendAt(
+      schedule.timeOfDay,
+      schedule.timezone,
+      schedule.daysOfWeek,
+      now
+    );
+
+    // Claim the row before sending rather than after. Two schedulers drive this
+    // endpoint on the same five-minute beat, so overlapping runs are routine and
+    // the findMany above will hand the same row to both. Advancing nextSendAt in
+    // one conditional UPDATE lets exactly one run win — the loser matches zero
+    // rows and moves on, instead of sending a second copy of the digest.
+    //
+    // Retry semantics are unchanged: the previous version also advanced
+    // nextSendAt after a throw, so a failed send has never been retried.
+    const claim = await prisma.reminderSchedule.updateMany({
+      where: { id: schedule.id, nextSendAt: schedule.nextSendAt },
+      data: { lastSentAt: now, nextSendAt: next },
+    });
+
+    if (claim.count === 0) {
+      raced += 1;
       continue;
     }
 
@@ -400,21 +426,9 @@ export async function processDueReminders(limit = 50) {
       console.error("[reminders] schedule", schedule.id, err);
       failed += 1;
     }
-
-    const next = computeNextSendAt(
-      schedule.timeOfDay,
-      schedule.timezone,
-      schedule.daysOfWeek,
-      now
-    );
-
-    await prisma.reminderSchedule.update({
-      where: { id: schedule.id },
-      data: { lastSentAt: now, nextSendAt: next },
-    });
   }
 
-  return { processed: due.length, sent, skipped, failed };
+  return { processed: due.length, sent, skipped, failed, raced };
 }
 
 /** Only the fields the send path actually reads. */
@@ -553,13 +567,21 @@ export async function backfillNextSendAt() {
     where: { isActive: true, nextSendAt: null },
   });
 
+  let filled = 0;
+
   for (const s of schedules) {
     const next = computeNextSendAt(s.timeOfDay, s.timezone, s.daysOfWeek);
-    await prisma.reminderSchedule.update({
-      where: { id: s.id },
+
+    // Same concurrency guard as above, for the same reason. Both runs would
+    // compute an identical nextSendAt so a double-write is harmless, but
+    // whoever loses should not report having done the work.
+    const { count } = await prisma.reminderSchedule.updateMany({
+      where: { id: s.id, nextSendAt: null },
       data: { nextSendAt: next },
     });
+
+    filled += count;
   }
 
-  return schedules.length;
+  return filled;
 }

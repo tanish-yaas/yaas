@@ -26,7 +26,10 @@ jobs:
     steps:
       - name: Trigger reminder digests
         env:
-          APP_URL: ${{ vars.APP_URL || 'https://yaas-ten.vercel.app' }}
+          # Note this is NOT the URL in the repo's About panel
+          # (yaas-ten.vercel.app), which is dead. Override with an APP_URL repo
+          # variable if the domain moves.
+          APP_URL: ${{ vars.APP_URL || 'https://nova-yaas.vercel.app' }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
           if [ -z "$CRON_SECRET" ]; then
