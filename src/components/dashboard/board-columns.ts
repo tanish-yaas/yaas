@@ -69,10 +69,31 @@ export function columnForStatus(status: string): string | null {
   return COLUMN_BY_STATUS.get(status) ?? null;
 }
 
+/**
+ * Cards are keyed to their label's colour, falling back to priority so a card
+ * is never colourless. Same hue can therefore mean two things depending on
+ * whether the task is tagged — the label chip below the title is what
+ * disambiguates.
+ */
+export const PRIORITY_COLOR: Record<string, string> = {
+  URGENT: "var(--status-red)",
+  HIGH: "var(--status-amber)",
+  MEDIUM: "var(--status-blue)",
+  LOW: "#8b8b94",
+};
+
+export function accentFor(task: {
+  labels: { color: string }[];
+  priority: string;
+}): string {
+  return task.labels[0]?.color ?? PRIORITY_COLOR[task.priority] ?? "#8b8b94";
+}
+
 export type BoardTask = {
   id: string;
   title: string;
   status: string;
+  priority: string;
   blocked: boolean;
   /** Pre-formatted in IST by the server — see TaskBoard. */
   dueLabel: string | null;

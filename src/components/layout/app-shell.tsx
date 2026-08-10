@@ -73,7 +73,12 @@ export function AppShell({
           </div>
 
           <main className="relative z-10 min-h-0 min-w-0 flex-1 overflow-y-auto">
-            <div className="mx-auto flex min-h-full w-full max-w-4xl flex-col px-6 py-10 md:px-10">
+            {/* Was max-w-4xl, which left most of a wide screen empty once the
+                sidebar collapsed. Pages that want a reading measure set their
+                own — settings, assistant and notifications all cap themselves —
+                so the wide default only affects the board, tasks and members,
+                which all want the room. */}
+            <div className="mx-auto flex min-h-full w-full max-w-[1600px] flex-col px-6 py-7 md:px-8">
               {children}
             </div>
           </main>

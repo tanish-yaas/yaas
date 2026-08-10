@@ -6,6 +6,7 @@ import { Flag, Plus } from "lucide-react";
 import { useToast } from "@/components/ui/toast";
 import { setTaskStatus } from "@/server/actions/tasks";
 import {
+  accentFor,
   BOARD_COLUMNS,
   columnForStatus,
   type BoardTask,
@@ -70,7 +71,7 @@ export function TaskBoard({ tasks }: { tasks: BoardTask[] }) {
   }
 
   return (
-    <div className="-mx-1 flex gap-2.5 overflow-x-auto px-1 pb-2">
+    <div className="-mx-1 flex h-full min-h-0 gap-2.5 overflow-x-auto px-1 pb-1">
       {BOARD_COLUMNS.map((column) => {
         const items = byColumn.get(column.key) ?? [];
         const active = overColumn === column.key;
@@ -90,7 +91,7 @@ export function TaskBoard({ tasks }: { tasks: BoardTask[] }) {
               e.preventDefault();
               drop(column.key);
             }}
-            className={`flex w-[248px] shrink-0 flex-col rounded-xl border p-2 transition-colors ${
+            className={`flex h-full min-h-0 w-[260px] shrink-0 flex-col rounded-xl border p-2 transition-colors ${
               active
                 ? "border-[color-mix(in_oklab,var(--primary)_45%,transparent)] bg-[color-mix(in_oklab,var(--primary)_7%,transparent)]"
                 : "border-[color-mix(in_oklab,white_7%,transparent)] bg-[color-mix(in_oklab,white_2%,transparent)]"
@@ -112,7 +113,7 @@ export function TaskBoard({ tasks }: { tasks: BoardTask[] }) {
               </span>
             </header>
 
-            <div className="flex flex-col gap-1.5">
+            <div className="flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto">
               {items.map((task) => (
                 <Card
                   key={task.id}
@@ -158,6 +159,8 @@ function Card({
   onDragStart: () => void;
   onDragEnd: () => void;
 }) {
+  const accent = accentFor(task);
+
   return (
     <article
       draggable
@@ -168,16 +171,28 @@ function Card({
         onDragStart();
       }}
       onDragEnd={onDragEnd}
-      className={`cursor-grab rounded-lg border border-[color-mix(in_oklab,white_8%,transparent)] bg-[color-mix(in_oklab,var(--card)_78%,transparent)] px-2.5 py-2 transition-opacity active:cursor-grabbing ${
+      // The accent is carried by a left stripe and a dot rather than a tinted
+      // background: at this card size a wash flattens the text contrast, and
+      // the stripe still reads when several cards stack up.
+      style={{
+        borderLeftColor: accent,
+        backgroundColor: `color-mix(in oklab, ${accent} 7%, color-mix(in oklab, var(--card) 78%, transparent))`,
+      }}
+      className={`cursor-grab rounded-lg border border-l-[3px] border-[color-mix(in_oklab,white_8%,transparent)] px-2.5 py-2 transition-opacity active:cursor-grabbing ${
         dragging ? "opacity-40" : ""
       }`}
     >
       <div className="flex items-start gap-1.5">
-        {task.blocked && (
+        {task.blocked ? (
           <Flag
             size={11}
             className="mt-[3px] shrink-0 text-[var(--status-red)]"
             aria-label="Blocked"
+          />
+        ) : (
+          <span
+            className="mt-[5px] h-2 w-2 shrink-0 rounded-full"
+            style={{ backgroundColor: accent }}
           />
         )}
         <p className="min-w-0 flex-1 text-[13px] leading-snug">{task.title}</p>
