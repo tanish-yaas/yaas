@@ -53,6 +53,9 @@ import {
 
 const HIDDEN_KEY = "yaas.calendar.hidden";
 
+/** Pseudo-calendar id for the task chips, stored in the same hidden set. */
+const TASKS_ID = "__tasks__";
+
 const VIEW_LABEL: Record<CalendarView, string> = {
   month: "Month",
   week: "Week",
@@ -219,6 +222,21 @@ export function CalendarShell({
         : events.filter((e) => !hiddenCalendars.has(e.calendarId)),
     [events, hiddenCalendars]
   );
+
+  // Task chips are not events and belong to no calendar, so unchecking every
+  // calendar used to leave them sitting there and the toggle read as broken.
+  // They get their own entry in the panel, stored in the same hidden set.
+  const showTasks = !hiddenCalendars.has(TASKS_ID);
+  const visibleTasks = useMemo(
+    () => (showTasks ? tasks : []),
+    [showTasks, tasks]
+  );
+
+  // Counted off the real calendars, not the set size — TASKS_ID lives in there
+  // too and would otherwise show up as a hidden calendar in the pill.
+  const hiddenCalendarCount = calendars.filter((c) =>
+    hiddenCalendars.has(c.id)
+  ).length;
 
   const popoverEvent = popover
     ? events.find((e) => e.id === popover.id) ?? null
@@ -451,8 +469,8 @@ export function CalendarShell({
               className="pill"
             >
               <Layers size={14} />
-              {hiddenCalendars.size > 0
-                ? `${calendars.length - hiddenCalendars.size}/${calendars.length}`
+              {hiddenCalendarCount > 0
+                ? `${calendars.length - hiddenCalendarCount}/${calendars.length}`
                 : "Calendars"}
             </button>
           )}
@@ -489,7 +507,7 @@ export function CalendarShell({
         <MonthView
           anchorKey={anchorKey}
           events={visibleEvents}
-          tasks={tasks}
+          tasks={visibleTasks}
           todayKey={todayKey}
           onOpenDay={setPanelKey}
           onSelectEvent={selectEvent}
@@ -500,7 +518,7 @@ export function CalendarShell({
         <TimeGrid
           dayKeys={dayKeys}
           events={visibleEvents}
-          tasks={tasks}
+          tasks={visibleTasks}
           todayKey={todayKey}
           startHour={startHour}
           endHour={endHour}
@@ -518,7 +536,7 @@ export function CalendarShell({
           startKey={anchorKey}
           days={30}
           events={visibleEvents}
-          tasks={tasks}
+          tasks={visibleTasks}
           todayKey={todayKey}
           onSelectEvent={selectEvent}
           onOpenDay={setPanelKey}
@@ -536,6 +554,9 @@ export function CalendarShell({
           hidden={hiddenCalendars}
           members={members}
           canShare={canShare}
+          showTasks={showTasks}
+          taskCount={tasks.length}
+          onToggleTasks={() => toggleCalendar(TASKS_ID)}
           onToggle={toggleCalendar}
           onClose={() => setCalendarPanel(null)}
         />
@@ -544,7 +565,7 @@ export function CalendarShell({
       <DayPanel
         dayKey={panelKey}
         events={panelKey ? eventsOnDay(visibleEvents, panelKey) : []}
-        tasks={panelKey ? tasks.filter((t) => t.dayKey === panelKey) : []}
+        tasks={panelKey ? visibleTasks.filter((t) => t.dayKey === panelKey) : []}
         calendars={calendars}
         openTasks={openTasks}
         allLabels={allLabels}

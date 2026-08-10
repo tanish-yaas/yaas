@@ -28,6 +28,9 @@ export function CalendarPanel({
   hidden,
   members,
   canShare,
+  showTasks,
+  taskCount,
+  onToggleTasks,
   onToggle,
   onClose,
 }: {
@@ -36,6 +39,9 @@ export function CalendarPanel({
   hidden: Set<string>;
   members: { userId: string; name: string }[];
   canShare: boolean;
+  showTasks: boolean;
+  taskCount: number;
+  onToggleTasks: () => void;
   onToggle: (calendarId: string) => void;
   onClose: () => void;
 }) {
@@ -262,6 +268,41 @@ export function CalendarPanel({
             </div>
           );
         })}
+      </div>
+
+      {/* Tasks are drawn on the calendar but live on no calendar, so they need
+          their own switch — otherwise hiding every calendar leaves the grid
+          full of task chips and the checkboxes look broken. */}
+      <div className="mt-1 border-t border-[color-mix(in_oklab,white_7%,transparent)] pt-1">
+        <div className="group flex items-center gap-2 rounded-lg px-1.5 py-1.5 transition-colors hover:bg-[color-mix(in_oklab,white_5%,transparent)]">
+          <button
+            type="button"
+            onClick={onToggleTasks}
+            title={showTasks ? "Hide task chips" : "Show task chips"}
+            className="flex shrink-0 items-center"
+          >
+            <span
+              className="flex h-3.5 w-3.5 items-center justify-center rounded border transition-colors"
+              style={{
+                backgroundColor: showTasks ? "var(--primary)" : "transparent",
+                borderColor: "var(--primary)",
+              }}
+            >
+              {showTasks && <Check size={9} className="text-white" />}
+            </span>
+          </button>
+
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-[13px]">Tasks</p>
+            <p className="truncate text-[11px] text-faint">
+              {taskCount} due in view
+            </p>
+          </div>
+
+          <span className="hover-action shrink-0">
+            {showTasks ? <Eye size={12} /> : <EyeOff size={12} />}
+          </span>
+        </div>
       </div>
 
       {calendars.some((c) => !c.isOwn) && (
