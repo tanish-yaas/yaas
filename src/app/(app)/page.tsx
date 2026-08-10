@@ -1,8 +1,20 @@
-import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { getCurrentContext } from "@/server/auth/session";
 import { SuggestionCard } from "@/components/dashboard/suggestion-card";
+import { TaskBoard } from "@/components/dashboard/task-board";
+import {
+  columnForStatus,
+  type BoardTask,
+} from "@/components/dashboard/board-columns";
 import { APP_CONFIG } from "@/config/app";
+import {
+  addDaysToKey,
+  daysBetweenKeys,
+  formatIST,
+  istDayKey,
+  istKeyToDate,
+  istTodayKey,
+} from "@/lib/dates";
 import type { SuggestionPayload } from "@/server/services/intelligence";
 
 function greeting(tz: string) {
@@ -64,12 +76,13 @@ export default async function DashboardPage() {
   const now = new Date();
   const tz = APP_CONFIG.timezone;
 
-  const startOfDay = new Date(now);
-  startOfDay.setHours(0, 0, 0, 0);
-  const endOfDay = new Date(startOfDay);
-  endOfDay.setDate(endOfDay.getDate() + 1);
-  const endOfWeek = new Date(startOfDay);
-  endOfWeek.setDate(endOfWeek.getDate() + 7);
+  // Day boundaries are IST wall-clock, not the server's. Vercel runs in UTC, so
+  // setHours(0,0,0,0) here put "today" at 05:30–05:30 IST and quietly counted
+  // the wrong tasks. Same reasoning as buildDigest in services/reminders.ts.
+  const todayKey = istTodayKey();
+  const startOfDay = istKeyToDate(todayKey);
+  const endOfDay = istKeyToDate(addDaysToKey(todayKey, 1));
+  const endOfWeek = istKeyToDate(addDaysToKey(todayKey, 7));
 
   const mine = {
     organizationId: orgId,
@@ -110,12 +123,21 @@ export default async function DashboardPage() {
 
   const totalWeek = dueThisWeek + completed;
 
-  const [recentTasks, suggestions] = await Promise.all([
+  const [boardRows, suggestions] = await Promise.all([
     prisma.task.findMany({
-      where: mine,
-      orderBy: { createdAt: "desc" },
-      take: 6,
-      select: { id: true, title: true, status: true },
+      where: { ...mine, status: { not: "CANCELLED" } },
+      orderBy: [{ dueAt: { sort: "asc", nulls: "last" } }, { createdAt: "desc" }],
+      take: 120,
+      select: {
+        id: true,
+        title: true,
+        status: true,
+        dueAt: true,
+        assignments: { select: { user: { select: { name: true } } } },
+        labels: {
+          select: { label: { select: { id: true, name: true, color: true } } },
+        },
+      },
     }),
     prisma.aISuggestion.findMany({
       where: {
@@ -128,6 +150,43 @@ export default async function DashboardPage() {
       take: 4,
     }),
   ]);
+
+  // Formatted here rather than in the client board: the app is pinned to IST
+  // and the browser is not, so a client-side format would drift and mismatch
+  // on hydration. daysBetweenKeys is positive when the due day is behind today.
+  const boardTasks: BoardTask[] = boardRows
+    .filter((t) => columnForStatus(t.status) !== null)
+    .map((t) => {
+      const daysLate = t.dueAt
+        ? daysBetweenKeys(istDayKey(t.dueAt), todayKey)
+        : null;
+
+      let dueLabel: string | null = null;
+      if (daysLate !== null) {
+        if (daysLate > 0) {
+          dueLabel = `Due ${daysLate} ${daysLate === 1 ? "day" : "days"} ago`;
+        } else if (daysLate === 0) {
+          dueLabel = "Today";
+        } else if (daysLate === -1) {
+          dueLabel = "Tomorrow";
+        } else {
+          dueLabel = formatIST(t.dueAt, { day: "numeric", month: "short" });
+        }
+      }
+
+      return {
+        id: t.id,
+        title: t.title,
+        status: t.status,
+        blocked: t.status === "BLOCKED",
+        dueLabel,
+        overdue: daysLate !== null && daysLate > 0 && t.status !== "DONE",
+        labels: t.labels.map((tl) => tl.label),
+        assignees: t.assignments
+          .map((a) => a.user.name?.split(" ")[0] ?? "")
+          .filter(Boolean),
+      };
+    });
 
   return (
     <div className="w-full">
@@ -170,41 +229,18 @@ export default async function DashboardPage() {
       <section className="panel mt-4 overflow-hidden">
         <div className="flex items-center justify-between border-b border-[color-mix(in_oklab,white_7%,transparent)] px-4 py-2.5">
           <h2 className="text-[11px] uppercase tracking-[0.12em] text-faint">
-            Recent
+            Board
           </h2>
-          <Link
-            href="/tasks"
-            className="text-[11px] text-faint transition-colors hover:text-foreground"
-          >
-            All tasks
-          </Link>
+          <span className="text-[11px] text-faint">
+            {boardTasks.length === 0
+              ? "No tasks yet"
+              : "Drag a card to change its status"}
+          </span>
         </div>
 
-        {recentTasks.length === 0 ? (
-          <p className="py-10 text-center text-[13px] text-faint">
-            No tasks yet
-          </p>
-        ) : (
-          <div>
-            {recentTasks.map((t, i) => (
-              <div
-                key={t.id}
-                className={`row ${
-                  i > 0
-                    ? "border-t border-[color-mix(in_oklab,white_6%,transparent)]"
-                    : ""
-                }`}
-              >
-                <span className="min-w-0 flex-1 truncate text-[13px]">
-                  {t.title}
-                </span>
-                <span className="chip shrink-0 border-[color-mix(in_oklab,white_10%,transparent)] bg-[color-mix(in_oklab,white_5%,transparent)] text-faint">
-                  {t.status.replace("_", " ").toLowerCase()}
-                </span>
-              </div>
-            ))}
-          </div>
-        )}
+        <div className="p-3">
+          <TaskBoard tasks={boardTasks} />
+        </div>
       </section>
 
       <section className="panel mt-4 overflow-hidden">
