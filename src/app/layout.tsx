@@ -15,7 +15,7 @@ const spaceGrotesk = Space_Grotesk({
 
 export const metadata: Metadata = {
   title: {
-    default: "Nova by YAAS",
+    default: "YAAS Nova",
     template: "%s · Nova",
   },
   description:

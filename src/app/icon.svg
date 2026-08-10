@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!--
+    Static stand-in for OrbitField, reduced to what still reads at 16px in a
+    browser tab: two tilted orbits, a body on each, the violet core. The full
+    four-ring system turns to mud at that size.
+
+    Brand colours are hardcoded. A favicon is served standalone, so the aurora
+    custom properties in globals.css never resolve here; keep them in sync by
+    hand if the palette moves.
+  -->
+  <defs>
+    <linearGradient id="orbit-arc" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#7c5cff" />
+      <stop offset="50%" stop-color="#22d3ee" />
+      <stop offset="100%" stop-color="#ff4d8f" />
+    </linearGradient>
+
+    <radialGradient id="orbit-core">
+      <stop offset="0%" stop-color="#7c5cff" stop-opacity="0.7" />
+      <stop offset="55%" stop-color="#7c5cff" stop-opacity="0.18" />
+      <stop offset="100%" stop-color="#7c5cff" stop-opacity="0" />
+    </radialGradient>
+  </defs>
+
+  <rect width="64" height="64" rx="14" fill="#141416" />
+
+  <circle cx="32" cy="32" r="20" fill="url(#orbit-core)" />
+
+  <g fill="none">
+    <g transform="rotate(-22 32 32)">
+      <ellipse cx="32" cy="32" rx="25" ry="11.5" stroke="url(#orbit-arc)" stroke-width="3.6" />
+      <circle cx="57" cy="32" r="3.6" fill="#7c5cff" />
+    </g>
+
+    <g transform="rotate(40 32 32)">
+      <ellipse cx="32" cy="32" rx="20" ry="10" stroke="#ff4d8f" stroke-opacity="0.85" stroke-width="3.2" />
+      <circle cx="12" cy="32" r="3.2" fill="#22d3ee" />
+    </g>
+  </g>
+
+  <circle cx="32" cy="32" r="7.5" fill="#7c5cff" />
+  <circle cx="32" cy="32" r="3.2" fill="#fff" />
+</svg>
