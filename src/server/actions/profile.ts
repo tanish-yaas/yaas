@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireContext } from "@/server/rbac/guard";
 import { computeNextSendAt } from "@/server/services/reminders";
+import { avatarKeyOf } from "@/lib/avatars";
 import { TIMEZONES } from "@/lib/timezones";
 
 export async function updateTimezone(timezone: string) {
@@ -47,6 +48,55 @@ export async function updateTimezone(timezone: string) {
 
   revalidatePath("/settings");
   revalidatePath("/");
+  return { ok: true as const };
+}
+
+const MAX_BIO = 280;
+
+export async function updateProfile(input: {
+  displayName: string;
+  jobTitle: string;
+  bio: string;
+  /** "avatar:<key>" for a built-in, or "" to fall back to the sign-in photo. */
+  avatarUrl: string;
+}) {
+  const ctx = await requireContext();
+  const userId = ctx.session.user.id;
+
+  const displayName = input.displayName.trim();
+  if (displayName.length === 0) {
+    return { ok: false as const, error: "Name can't be empty" };
+  }
+  if (displayName.length > 80) {
+    return { ok: false as const, error: "Name is too long" };
+  }
+
+  const bio = input.bio.trim();
+  if (bio.length > MAX_BIO) {
+    return { ok: false as const, error: `Bio is limited to ${MAX_BIO} characters` };
+  }
+
+  // Only the built-in keys are accepted. avatarUrl is rendered as an <img> src
+  // when it is not one of them, so taking a caller-supplied string here would
+  // let anyone point another member's avatar wherever they liked.
+  const avatar = input.avatarUrl.trim();
+  if (avatar !== "" && !avatarKeyOf(avatar)) {
+    return { ok: false as const, error: "Unknown avatar" };
+  }
+
+  await prisma.profile.update({
+    where: { userId },
+    data: {
+      displayName,
+      jobTitle: input.jobTitle.trim() || null,
+      bio: bio || null,
+      avatarUrl: avatar || null,
+    },
+  });
+
+  revalidatePath("/settings");
+  revalidatePath("/");
+  revalidatePath(`/people/${userId}`);
   return { ok: true as const };
 }
 

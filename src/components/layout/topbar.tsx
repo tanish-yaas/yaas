@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { signOut } from "@/auth";
 import { LogOut } from "lucide-react";
 import { NotificationBell } from "./notification-bell";
@@ -6,12 +7,15 @@ import {
   SuggestionHint,
   type SuggestionHintRow,
 } from "./suggestion-hint";
+import { Avatar } from "@/components/ui/avatar";
 import type { NotificationRow } from "@/server/services/notifications";
 
 export function Topbar({
   displayName,
   roleName,
   image,
+  avatarUrl,
+  userId,
   unreadCount,
   notifications,
   suggestions,
@@ -19,12 +23,12 @@ export function Topbar({
   displayName: string;
   roleName: string;
   image?: string | null;
+  avatarUrl?: string | null;
+  userId: string;
   unreadCount: number;
   notifications: NotificationRow[];
   suggestions: SuggestionHintRow[];
 }) {
-  const initial = displayName.charAt(0).toUpperCase();
-
   return (
     <>
       <CommandPalette />
@@ -37,17 +41,19 @@ export function Topbar({
           notifications={notifications}
         />
 
-        <div className="pill" title={`${displayName} · ${roleName}`}>
-          {image ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={image} alt="" className="h-5 w-5 rounded-full" />
-          ) : (
-            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[var(--card-hover)] text-[10px]">
-              {initial}
-            </span>
-          )}
+        <Link
+          href={`/people/${userId}`}
+          className="pill"
+          title={`${displayName} · ${roleName}`}
+        >
+          <Avatar
+            avatarUrl={avatarUrl}
+            image={image}
+            name={displayName}
+            size={20}
+          />
           <span className="hidden sm:block">{displayName}</span>
-        </div>
+        </Link>
 
         <form
           action={async () => {

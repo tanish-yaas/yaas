@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentContext } from "@/server/auth/session";
 import { WhatsAppLink } from "@/components/settings/whatsapp-link";
 import { ProfileSettings } from "@/components/settings/profile-settings";
+import { IdentitySettings } from "@/components/settings/identity-settings";
 import {
   ReminderSettings,
   type ScheduleRow,
@@ -108,6 +109,14 @@ export default async function SettingsPage() {
       </header>
 
       <div className="flex flex-col gap-4">
+        <IdentitySettings
+          displayName={ctx.profile.displayName ?? ""}
+          jobTitle={ctx.profile.jobTitle ?? ""}
+          bio={ctx.profile.bio ?? ""}
+          avatarUrl={ctx.profile.avatarUrl ?? ""}
+          signInImage={ctx.session.user.image ?? null}
+        />
+
         <ProfileSettings
           workingHoursStart={ctx.profile.workingHoursStart}
           workingHoursEnd={ctx.profile.workingHoursEnd}

@@ -46,6 +46,7 @@ export default async function AppLayout({
             displayName={ctx.profile.displayName ?? "You"}
             roleName={ctx.membership.role.name}
             image={ctx.session.user.image}
+            avatarUrl={ctx.profile.avatarUrl}
           />
         </Suspense>
       }

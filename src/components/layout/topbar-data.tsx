@@ -21,12 +21,14 @@ export async function TopbarData({
   displayName,
   roleName,
   image,
+  avatarUrl,
 }: {
   orgId: string;
   userId: string;
   displayName: string;
   roleName: string;
   image?: string | null;
+  avatarUrl?: string | null;
 }) {
   const now = new Date();
 
@@ -58,6 +60,8 @@ export async function TopbarData({
       displayName={displayName}
       roleName={roleName}
       image={image}
+      avatarUrl={avatarUrl}
+      userId={userId}
       unreadCount={unreadCount}
       notifications={notifications}
       suggestions={suggestions}

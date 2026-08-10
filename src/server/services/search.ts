@@ -10,6 +10,9 @@ export type SearchResult = {
   subtitle: string | null;
   meta: string | null;
   href: string;
+  /** People only — lets the palette show a face rather than a generic icon. */
+  avatarUrl?: string | null;
+  image?: string | null;
 };
 
 export async function searchWorkspace(params: {
@@ -80,7 +83,16 @@ export async function searchWorkspace(params: {
       },
       take: 5,
       include: {
-        user: { select: { name: true, email: true } },
+        user: {
+          select: {
+            name: true,
+            email: true,
+            image: true,
+            profile: {
+              select: { displayName: true, jobTitle: true, avatarUrl: true },
+            },
+          },
+        },
         role: { select: { name: true } },
       },
     }),
@@ -114,10 +126,15 @@ export async function searchWorkspace(params: {
     results.push({
       id: m.id,
       kind: "person",
-      title: m.user.name ?? m.user.email ?? "Member",
-      subtitle: m.user.email,
+      title: m.user.profile?.displayName ?? m.user.name ?? m.user.email ?? "Member",
+      // Their title if they have set one, otherwise the email as before.
+      subtitle: m.user.profile?.jobTitle ?? m.user.email,
       meta: m.role.name,
-      href: "/admin/members",
+      // Was /admin/members, which needs member.manage — for everyone else the
+      // result was a dead end. Their profile is visible to the whole org.
+      href: `/people/${m.userId}`,
+      avatarUrl: m.user.profile?.avatarUrl ?? null,
+      image: m.user.image ?? null,
     });
   }
 

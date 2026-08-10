@@ -16,6 +16,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { runSearch } from "@/server/actions/search";
+import { Avatar } from "@/components/ui/avatar";
 import type { SearchResult } from "@/server/services/search";
 
 const NAV = [
@@ -177,7 +178,18 @@ export function CommandPalette() {
                   active === index ? "bg-[var(--card-hover)]" : ""
                 }`}
               >
-                <span className="shrink-0 text-faint">{KIND_ICON[r.kind]}</span>
+                {/* People show their actual face, which is the whole point of
+                    being able to look someone up. */}
+                {r.kind === "person" ? (
+                  <Avatar
+                    avatarUrl={r.avatarUrl}
+                    image={r.image}
+                    name={r.title}
+                    size={18}
+                  />
+                ) : (
+                  <span className="shrink-0 text-faint">{KIND_ICON[r.kind]}</span>
+                )}
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-[13px]">{r.title}</span>
                   {r.subtitle && (
