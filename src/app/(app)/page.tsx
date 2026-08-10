@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/prisma";
 import { getCurrentContext } from "@/server/auth/session";
 import { SuggestionCard } from "@/components/dashboard/suggestion-card";
+import { InsightRow } from "@/components/dashboard/insight-row";
+import { getDashboardInsights } from "@/server/services/insights";
 import { TaskBoard } from "@/components/dashboard/task-board";
 import {
   columnForStatus,
@@ -30,10 +32,6 @@ function greeting(tz: string) {
   return "Good evening";
 }
 
-/**
- * Compact form of the old stat tile. The board is the page now, so these sit
- * stacked in a side rail rather than taking a full row across the top.
- */
 function Stat({
   label,
   value,
@@ -48,25 +46,23 @@ function Stat({
   const pct = total > 0 ? Math.round((value / total) * 100) : 0;
 
   return (
-    <div>
-      <div className="flex items-baseline justify-between gap-2">
-        <p className="text-[10px] uppercase tracking-[0.12em] text-faint">
-          {label}
-        </p>
-        <p
-          className="text-[15px] font-semibold leading-none tabular-nums"
-          style={{ color: value > 0 ? color : "var(--foreground)" }}
-        >
-          {value}
-        </p>
-      </div>
-      <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-[color-mix(in_oklab,white_8%,transparent)]">
+    <div className="stat">
+      <p className="text-[10px] uppercase tracking-[0.12em] text-faint">
+        {label}
+      </p>
+      <p
+        className="mt-1.5 text-[28px] font-semibold leading-none tabular-nums"
+        style={{ color: value > 0 ? color : "var(--foreground)" }}
+      >
+        {value}
+      </p>
+      <div className="mt-3 h-1 overflow-hidden rounded-full bg-[color-mix(in_oklab,white_8%,transparent)]">
         <div
           className="h-full rounded-full transition-all"
           style={{ width: `${pct}%`, backgroundColor: color }}
         />
       </div>
-      <p className="mt-1 text-[10px] tabular-nums text-faint">
+      <p className="mt-1.5 text-[10px] tabular-nums text-faint">
         {pct}% of {total}
       </p>
     </div>
@@ -129,7 +125,7 @@ export default async function DashboardPage() {
 
   const totalWeek = dueThisWeek + completed;
 
-  const [boardRows, suggestions] = await Promise.all([
+  const [boardRows, suggestions, insights] = await Promise.all([
     prisma.task.findMany({
       where: { ...mine, status: { not: "CANCELLED" } },
       orderBy: [{ dueAt: { sort: "asc", nulls: "last" } }, { createdAt: "desc" }],
@@ -156,6 +152,7 @@ export default async function DashboardPage() {
       orderBy: [{ confidence: "desc" }, { createdAt: "desc" }],
       take: 4,
     }),
+    getDashboardInsights(orgId, userId),
   ]);
 
   // Formatted here rather than in the client board: the app is pinned to IST
@@ -214,10 +211,32 @@ export default async function DashboardPage() {
         </p>
       </header>
 
-      {/* Board takes the width; the counters and suggestions are a side rail.
-          They stack above the board below xl, where there is no room for it. */}
+      {/* Tiles keep their own row across the top. Below them the board takes
+          the width and the height that is left, with suggestions in a rail. */}
+      <div className="mb-3 grid shrink-0 grid-cols-2 gap-3 lg:grid-cols-4">
+        <Stat label="Due today" value={dueToday} total={totalOpen || 1} />
+        <Stat
+          label="This week"
+          value={dueThisWeek}
+          total={totalOpen || 1}
+          color="var(--status-blue)"
+        />
+        <Stat
+          label="Overdue"
+          value={overdue}
+          total={totalOpen || 1}
+          color="var(--status-red)"
+        />
+        <Stat
+          label="Completed"
+          value={completed}
+          total={totalWeek || 1}
+          color="var(--status-green)"
+        />
+      </div>
+
       <div className="flex min-h-0 flex-1 flex-col gap-3 xl:flex-row">
-        <section className="panel flex min-h-[420px] flex-1 flex-col overflow-hidden xl:min-h-0">
+        <section className="panel flex min-h-[380px] flex-1 flex-col overflow-hidden xl:min-h-0">
           <div className="flex shrink-0 items-center justify-between border-b border-[color-mix(in_oklab,white_7%,transparent)] px-4 py-2.5">
             <h2 className="text-[11px] uppercase tracking-[0.12em] text-faint">
               Board
@@ -225,7 +244,7 @@ export default async function DashboardPage() {
             <span className="text-[11px] text-faint">
               {boardTasks.length === 0
                 ? "No tasks yet"
-                : "Drag a card to change its status"}
+                : "Drag to change status · click to open"}
             </span>
           </div>
 
@@ -234,50 +253,20 @@ export default async function DashboardPage() {
           </div>
         </section>
 
-        <aside className="flex w-full shrink-0 flex-col gap-3 xl:w-[300px] xl:overflow-y-auto">
-          <section className="panel overflow-hidden">
-            <div className="border-b border-[color-mix(in_oklab,white_7%,transparent)] px-4 py-2.5">
-              <h2 className="text-[11px] uppercase tracking-[0.12em] text-faint">
-                Completion
-              </h2>
-            </div>
-            <div className="flex flex-col gap-3 px-4 py-3">
-              <Stat label="Due today" value={dueToday} total={totalOpen || 1} />
-              <Stat
-                label="This week"
-                value={dueThisWeek}
-                total={totalOpen || 1}
-                color="var(--status-blue)"
-              />
-              <Stat
-                label="Overdue"
-                value={overdue}
-                total={totalOpen || 1}
-                color="var(--status-red)"
-              />
-              <Stat
-                label="Completed"
-                value={completed}
-                total={totalWeek || 1}
-                color="var(--status-green)"
-              />
-            </div>
-          </section>
+        <aside className="panel flex w-full shrink-0 flex-col overflow-hidden xl:w-[320px]">
+          <div className="shrink-0 border-b border-[color-mix(in_oklab,white_7%,transparent)] px-4 py-2.5">
+            <h2 className="text-[11px] uppercase tracking-[0.12em] text-faint">
+              Suggestions
+            </h2>
+          </div>
 
-          <section className="panel overflow-hidden">
-            <div className="border-b border-[color-mix(in_oklab,white_7%,transparent)] px-4 py-2.5">
-              <h2 className="text-[11px] uppercase tracking-[0.12em] text-faint">
-                Suggestions
-              </h2>
-            </div>
-
-            {suggestions.length === 0 ? (
-              <p className="py-8 text-center text-[13px] text-faint">
-                Nothing to flag
-              </p>
-            ) : (
-              <div>
-                {suggestions.map((s) => {
+          {/* Stored suggestions when any are pending, otherwise live insights.
+              Without the fallback this panel sits empty most of the time — the
+              nightly run is the only thing that fills it, and accepting or
+              dismissing a row takes it straight back out. */}
+          <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto p-3">
+            {suggestions.length > 0
+              ? suggestions.map((s) => {
                   const payload = s.payload as SuggestionPayload | null;
                   return (
                     <SuggestionCard
@@ -288,10 +277,11 @@ export default async function DashboardPage() {
                       actionable={!!payload?.apply}
                     />
                   );
-                })}
-              </div>
-            )}
-          </section>
+                })
+              : insights.map((i) => (
+                  <InsightRow key={i.key} type={i.type} text={i.text} />
+                ))}
+          </div>
         </aside>
       </div>
     </div>

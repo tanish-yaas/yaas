@@ -458,6 +458,20 @@ h3 {
   width: auto;
 }
 
+/* Stat tile for dashboard metrics */
+.stat {
+  padding: 1rem 1.125rem;
+  border-radius: 0.75rem;
+  border: 1px solid color-mix(in oklab, white 9%, transparent);
+  background: color-mix(in oklab, var(--card) 62%, transparent);
+  backdrop-filter: blur(14px);
+  transition: border-color 140ms ease;
+}
+
+.stat:hover {
+  border-color: color-mix(in oklab, white 16%, transparent);
+}
+
 .hover-action {
   opacity: 0;
   color: var(--text-faint);

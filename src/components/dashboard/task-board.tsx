@@ -3,8 +3,20 @@
 import { useMemo, useOptimistic, useState, useTransition } from "react";
 import Link from "next/link";
 import { Flag, Plus } from "lucide-react";
+import dynamic from "next/dynamic";
 import { useToast } from "@/components/ui/toast";
 import { setTaskStatus } from "@/server/actions/tasks";
+
+// Deferred: the sheet is the largest component in the app and the dashboard is
+// the first page after login, so its JS should not be in that payload. It only
+// mounts once a card is opened.
+const TaskDetailSheet = dynamic(
+  () =>
+    import("@/components/tasks/task-detail-sheet").then(
+      (m) => m.TaskDetailSheet
+    ),
+  { ssr: false }
+);
 import {
   accentFor,
   BOARD_COLUMNS,
@@ -35,6 +47,7 @@ export function TaskBoard({ tasks }: { tasks: BoardTask[] }) {
 
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [overColumn, setOverColumn] = useState<string | null>(null);
+  const [openId, setOpenId] = useState<string | null>(null);
 
   const byColumn = useMemo(() => {
     const map = new Map<string, BoardTask[]>(
@@ -71,6 +84,7 @@ export function TaskBoard({ tasks }: { tasks: BoardTask[] }) {
   }
 
   return (
+    <>
     <div className="-mx-1 flex h-full min-h-0 gap-2.5 overflow-x-auto px-1 pb-1">
       {BOARD_COLUMNS.map((column) => {
         const items = byColumn.get(column.key) ?? [];
@@ -124,6 +138,7 @@ export function TaskBoard({ tasks }: { tasks: BoardTask[] }) {
                     setDraggingId(null);
                     setOverColumn(null);
                   }}
+                  onOpen={() => setOpenId(task.id)}
                 />
               ))}
 
@@ -145,6 +160,14 @@ export function TaskBoard({ tasks }: { tasks: BoardTask[] }) {
         );
       })}
     </div>
+
+    {/* Same sheet the tasks page uses — it loads its own detail from the id,
+        so opening a card here needs nothing extra passed down. Kept out of the
+        tree until first open so the deferred chunk is not fetched on load. */}
+    {openId && (
+      <TaskDetailSheet taskId={openId} onClose={() => setOpenId(null)} />
+    )}
+    </>
   );
 }
 
@@ -153,11 +176,13 @@ function Card({
   dragging,
   onDragStart,
   onDragEnd,
+  onOpen,
 }: {
   task: BoardTask;
   dragging: boolean;
   onDragStart: () => void;
   onDragEnd: () => void;
+  onOpen: () => void;
 }) {
   const accent = accentFor(task);
 
@@ -171,6 +196,17 @@ function Card({
         onDragStart();
       }}
       onDragEnd={onDragEnd}
+      // Browsers suppress the click that would otherwise follow a drag, so a
+      // plain handler is enough to keep dragging and opening apart.
+      onClick={onOpen}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onOpen();
+        }
+      }}
+      role="button"
+      tabIndex={0}
       // The accent is carried by a left stripe and a dot rather than a tinted
       // background: at this card size a wash flattens the text contrast, and
       // the stripe still reads when several cards stack up.
