@@ -7,6 +7,7 @@ import { Check, Plus, Tag } from "lucide-react";
 import { theme } from "@/config/theme";
 import { createLabel } from "@/server/actions/labels";
 import { useToast } from "@/components/ui/toast";
+import { anchorOf } from "@/lib/ui-scale";
 
 export type LabelOption = { id: string; name: string; color: string };
 
@@ -72,13 +73,13 @@ export function LabelPicker({
 
   useLayoutEffect(() => {
     if (!open || !buttonRef.current) return;
-    const rect = buttonRef.current.getBoundingClientRect();
+    const rect = anchorOf(buttonRef.current);
     const height = menuRef.current?.offsetHeight ?? 260;
 
     setPosition({
-      left: Math.min(rect.left, window.innerWidth - WIDTH - 12),
+      left: Math.min(rect.left, rect.viewportWidth - WIDTH - 12),
       top:
-        rect.bottom + height + 12 > window.innerHeight
+        rect.bottom + height + 12 > rect.viewportHeight
           ? Math.max(12, rect.top - height - 6)
           : rect.bottom + 6,
     });

@@ -5,6 +5,7 @@ import { toLocalInput, formatIST } from "@/lib/dates";
 import { TaskComposer } from "@/components/tasks/task-composer";
 import { SmartComposer } from "@/components/tasks/smart-composer";
 import { TaskRow, type TaskRowData } from "@/components/tasks/task-row";
+import { isStorageConfigured } from "@/lib/storage";
 
 function Section({
   title,
@@ -38,6 +39,10 @@ export default async function TasksPage() {
   const orgId = ctx.membership.organizationId;
   const userId = ctx.session.user.id;
   const scope = await buildTaskScope(orgId, userId, ctx.permissions);
+
+  // Voice notes ride the attachment path, so without object storage there is
+  // nowhere to put one — the recorder stays hidden rather than failing on save.
+  const storageReady = isStorageConfigured();
 
   const [tasks, memberRows, labelRows, teamRows] = await Promise.all([
     prisma.task.findMany({
@@ -128,6 +133,7 @@ export default async function TasksPage() {
             members={members}
             currentUserId={userId}
             labels={labelRows}
+            storageReady={storageReady}
           />
           <details>
             <summary className="cursor-pointer text-[12px] text-faint transition-colors hover:text-foreground">
@@ -139,6 +145,7 @@ export default async function TasksPage() {
                 currentUserId={userId}
                 labels={labelRows}
                 teams={teamRows}
+                storageReady={storageReady}
               />
             </div>
           </details>
@@ -149,6 +156,7 @@ export default async function TasksPage() {
           currentUserId={userId}
           labels={labelRows}
           teams={teamRows}
+          storageReady={storageReady}
         />
       )}
 

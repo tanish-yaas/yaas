@@ -4,6 +4,7 @@ import { CalendarDays } from "lucide-react";
 import { addDaysToKey, formatIST, istDayKey, istKeyToDate } from "@/lib/dates";
 import { EmptyState } from "@/components/ui/empty-state";
 import type { EventItem, TaskItem } from "./types";
+import { toZoomed, type AnchorRect } from "@/lib/ui-scale";
 
 type Row =
   | { kind: "event"; sortAt: number; event: EventItem }
@@ -30,7 +31,7 @@ export function AgendaView({
   events: EventItem[];
   tasks: TaskItem[];
   todayKey: string;
-  onSelectEvent: (event: EventItem, rect: DOMRect) => void;
+  onSelectEvent: (event: EventItem, rect: AnchorRect) => void;
   onOpenDay: (dayKey: string) => void;
 }) {
   const byDay = new Map<string, Row[]>();
@@ -111,7 +112,10 @@ export function AgendaView({
                         onClick={(e) =>
                           onSelectEvent(
                             row.event,
-                            e.currentTarget.getBoundingClientRect()
+                            toZoomed(
+                              e.currentTarget.getBoundingClientRect(),
+                              e.currentTarget
+                            )
                           )
                         }
                         className="flex w-full items-center gap-3 px-3.5 py-2.5 text-left transition-colors hover:bg-[color-mix(in_oklab,white_4%,transparent)]"

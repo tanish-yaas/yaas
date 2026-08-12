@@ -11,6 +11,7 @@ import {
 import { allDayEventsForDay, packColumns, slicesForDay } from "./layout";
 import { EventChip, TaskChip } from "./event-chip";
 import type { DraftSlot, EventItem, TaskItem } from "./types";
+import { toZoomed, zoomOf, type AnchorRect } from "@/lib/ui-scale";
 
 const HOUR_HEIGHT = 52;
 const PX_PER_MINUTE = HOUR_HEIGHT / 60;
@@ -46,7 +47,7 @@ export function TimeGrid({
   startHour: number;
   endHour: number;
   detailed?: boolean;
-  onSelectEvent: (event: EventItem, rect: DOMRect) => void;
+  onSelectEvent: (event: EventItem, rect: AnchorRect) => void;
   onCreateSlot: (draft: DraftSlot) => void;
   onMoveEvent: (eventId: string, startLocal: string) => void;
   onResizeEvent: (eventId: string, endLocal: string) => void;
@@ -61,6 +62,10 @@ export function TimeGrid({
     dayIndex: number;
     originX: number;
     originY: number;
+    /** Captured at drag start — pointer deltas arrive in screen pixels, and
+        columnWidth / PX_PER_MINUTE are layout pixels. It cannot change
+        mid-drag, so reading it once beats reading it per pointermove. */
+    zoom: number;
     dayDelta: number;
     minuteDelta: number;
     moved: boolean;
@@ -117,11 +122,11 @@ export function TimeGrid({
         d.moved = true;
       }
 
-      const rawMinutes = (e.clientY - d.originY) / PX_PER_MINUTE;
+      const rawMinutes = (e.clientY - d.originY) / d.zoom / PX_PER_MINUTE;
       d.minuteDelta = Math.round(rawMinutes / SNAP_MINUTES) * SNAP_MINUTES;
 
       if (d.mode === "move" && columnWidth > 0) {
-        const raw = Math.round((e.clientX - d.originX) / columnWidth);
+        const raw = Math.round((e.clientX - d.originX) / d.zoom / columnWidth);
         d.dayDelta = Math.max(
           -d.dayIndex,
           Math.min(dayKeys.length - 1 - d.dayIndex, raw)
@@ -200,6 +205,7 @@ export function TimeGrid({
       dayIndex,
       originX: e.clientX,
       originY: e.clientY,
+      zoom: zoomOf(e.currentTarget),
       dayDelta: 0,
       minuteDelta: 0,
       moved: false,
@@ -209,7 +215,11 @@ export function TimeGrid({
 
   function handleColumnClick(e: React.MouseEvent<HTMLDivElement>, dayKey: string) {
     const rect = e.currentTarget.getBoundingClientRect();
-    const offsetMinutes = (e.clientY - rect.top) / PX_PER_MINUTE;
+    // clientY and the rect are screen pixels; PX_PER_MINUTE is a layout
+    // constant. Dividing the gap by the zoom puts both on the same ruler —
+    // without it, clicking the grid lands you off by the scale factor.
+    const offsetMinutes =
+      (e.clientY - rect.top) / zoomOf(e.currentTarget) / PX_PER_MINUTE;
     const minutes =
       windowStart +
       Math.floor(offsetMinutes / SLOT_MINUTES) * SLOT_MINUTES;
@@ -366,7 +376,10 @@ export function TimeGrid({
                           }
                           onSelectEvent(
                             slot.event,
-                            e.currentTarget.getBoundingClientRect()
+                            toZoomed(
+                              e.currentTarget.getBoundingClientRect(),
+                              e.currentTarget
+                            )
                           );
                         }}
                         className={`absolute overflow-hidden rounded-md border px-1.5 py-1 text-left transition-shadow ${

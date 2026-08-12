@@ -10,6 +10,7 @@ import {
 } from "@/lib/dates";
 import { EventChip, TaskChip } from "./event-chip";
 import type { EventItem, TaskItem } from "./types";
+import type { AnchorRect } from "@/lib/ui-scale";
 
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const MAX_CHIPS = 3;
@@ -46,7 +47,7 @@ export function MonthView({
   tasks: TaskItem[];
   todayKey: string;
   onOpenDay: (dayKey: string) => void;
-  onSelectEvent: (event: EventItem, rect: DOMRect) => void;
+  onSelectEvent: (event: EventItem, rect: AnchorRect) => void;
 }) {
   const monthStart = istMonthStartKey(anchorKey);
   const monthEnd = addMonthsToKey(monthStart, 1);

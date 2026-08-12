@@ -39,7 +39,7 @@ export default async function OnboardingPage({
     <>
       <div className="aurora-bg" aria-hidden />
 
-      <main className="relative z-10 flex min-h-screen items-center justify-center px-6 py-16">
+      <main className="relative z-10 flex min-h-full items-center justify-center px-6 py-16">
         <div className="glass w-full max-w-lg rounded-2xl px-8 py-10">
           <div className="mb-8 text-center">
             <h1 className="text-gradient font-display text-3xl font-semibold tracking-tight">

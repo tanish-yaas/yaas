@@ -41,7 +41,11 @@ export function AppShell({
     <>
       <div className="aurora-bg aurora-bg--subtle" aria-hidden />
 
-      <div className="relative z-10 flex h-screen overflow-hidden">
+      {/* h-full, not h-screen. Viewport units resolve against the unscaled
+          viewport, so under the interface scale a 100vh shell renders taller
+          than the window and the topbar scrolls away. Percentage height
+          resolves through body's height:100% and tracks the scale exactly. */}
+      <div className="relative z-10 flex h-full overflow-hidden">
         {ready && !collapsed && (
           <Sidebar
             canApprove={canApprove}

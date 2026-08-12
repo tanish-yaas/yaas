@@ -12,6 +12,12 @@ import { createLabel } from "@/server/actions/labels";
 import { theme } from "@/config/theme";
 import { useToast } from "@/components/ui/toast";
 import { LabelPicker, type LabelOption } from "./label-picker";
+import {
+  VoiceRecorder,
+  uploadVoiceClip,
+  type VoiceClip,
+} from "./voice-recorder";
+import { uploadTaskAttachment } from "@/server/actions/task-detail";
 import type { ParsedTask } from "@/lib/ai/schemas";
 
 type Member = { userId: string; name: string };
@@ -20,10 +26,13 @@ export function SmartComposer({
   members,
   currentUserId,
   labels,
+  storageReady = false,
 }: {
   members: Member[];
   currentUserId: string;
   labels: LabelOption[];
+  /** Voice notes need object storage; without it the recorder stays hidden. */
+  storageReady?: boolean;
 }) {
   const { push } = useToast();
   const [input, setInput] = useState("");
@@ -43,6 +52,10 @@ export function SmartComposer({
   const [labelIds, setLabelIds] = useState<string[]>([]);
   const [labelOptions, setLabelOptions] = useState<LabelOption[]>(labels);
   const [suggestedLabels, setSuggestedLabels] = useState<string[]>([]);
+  // Survives the parse step: recorded before "Add", attached after the task
+  // exists. Held here rather than in the draft because a re-parse shouldn't
+  // throw away a clip the user already recorded.
+  const [clip, setClip] = useState<VoiceClip | null>(null);
 
   function handleParse() {
     if (!input.trim()) return;
@@ -133,10 +146,28 @@ export function SmartComposer({
         return;
       }
 
+      // The task is saved by this point. A failed upload is worth telling the
+      // user about, but it must not read as though the task itself failed.
+      if (clip && result.taskId) {
+        const attached = await uploadVoiceClip(
+          result.taskId,
+          clip,
+          uploadTaskAttachment
+        );
+        if (!attached.ok) {
+          push(
+            attached.error ?? "Task added, but the voice note didn't attach",
+            "error"
+          );
+        }
+        URL.revokeObjectURL(clip.url);
+      }
+
       setDraft(null);
       setInput("");
       setLabelIds([]);
       setSuggestedLabels([]);
+      setClip(null);
     });
   }
 
@@ -173,6 +204,12 @@ export function SmartComposer({
             {pending ? "Reading…" : "Add"}
           </button>
         </div>
+
+        {storageReady && (
+          <div className="mt-2 px-1">
+            <VoiceRecorder clip={clip} onClip={setClip} disabled={pending} compact />
+          </div>
+        )}
 
         {error && (
           <p className="mt-2 px-1 text-[12px] text-destructive">{error}</p>
@@ -324,6 +361,20 @@ export function SmartComposer({
             </div>
           )}
         </div>
+
+        {storageReady && (
+          <div className="sm:col-span-2">
+            <label className="mb-1.5 block text-[11px] text-faint">
+              Voice note
+            </label>
+            <VoiceRecorder
+              clip={clip}
+              onClip={setClip}
+              disabled={pending}
+              compact
+            />
+          </div>
+        )}
 
         {subtasks.length > 0 && (
           <div className="sm:col-span-2">

@@ -4,6 +4,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Check, Eye, EyeOff, Users, X } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
+import { toZoomed, viewportSize, type AnchorRect } from "@/lib/ui-scale";
 
 const WIDTH = 260;
 
@@ -42,7 +43,7 @@ export function PeopleFilter({
   onToggle: (userId: string) => void;
   onOnly: (userId: string) => void;
 }) {
-  const [anchor, setAnchor] = useState<DOMRect | null>(null);
+  const [anchor, setAnchor] = useState<AnchorRect | null>(null);
 
   // "Just me" is the default, so it needs no badge and no highlight.
   const isDefault = selected.size === 1 && selected.has(selfId);
@@ -56,9 +57,14 @@ export function PeopleFilter({
         type="button"
         data-on={!isDefault}
         // Measured before setState — see the same note in calendar-shell.
-        // currentTarget is null by the time an updater runs.
+        // currentTarget is null by the time an updater runs. Converted on the
+        // way in so the panel, which lays out inside the scaled root, never
+        // sees a screen-space rect.
         onClick={(e) => {
-          const rect = e.currentTarget.getBoundingClientRect();
+          const rect = toZoomed(
+            e.currentTarget.getBoundingClientRect(),
+            e.currentTarget
+          );
           setAnchor((current) => (current ? null : rect));
         }}
         title={
@@ -101,7 +107,7 @@ function Panel({
   onOnly,
   onClose,
 }: {
-  anchor: DOMRect;
+  anchor: AnchorRect;
   members: BoardMember[];
   selected: Set<string>;
   selfId: string;
@@ -118,12 +124,16 @@ function Panel({
   useLayoutEffect(() => {
     if (!mounted) return;
     const height = ref.current?.offsetHeight ?? 280;
+    // offsetHeight and the anchor are both in the scaled root's space, so the
+    // window has to be measured there too or the clamp drifts with the scale.
+    const view = viewportSize(ref.current);
+
     setPosition({
       left: Math.max(
         12,
-        Math.min(anchor.right - WIDTH, window.innerWidth - WIDTH - 12)
+        Math.min(anchor.right - WIDTH, view.width - WIDTH - 12)
       ),
-      top: Math.min(anchor.bottom + 8, window.innerHeight - height - 12),
+      top: Math.min(anchor.bottom + 8, view.height - height - 12),
     });
   }, [anchor, mounted]);
 
@@ -154,7 +164,7 @@ function Panel({
   return createPortal(
     <div
       ref={ref}
-      className="overlay fixed z-[94] max-h-[70vh] overflow-y-auto p-3"
+      className="overlay fixed z-[94] max-h-[calc(0.7*var(--vh))] overflow-y-auto p-3"
       style={{ left: position.left, top: position.top, width: WIDTH }}
     >
       <div className="mb-2 flex items-center justify-between">

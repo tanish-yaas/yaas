@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { buildTaskScope } from "@/server/services/tasks";
 import { formatIST, toLocalInput } from "@/lib/dates";
+import { isStorageConfigured } from "@/lib/storage";
 
 export type CommentNode = {
   id: string;
@@ -79,6 +80,8 @@ export type TaskDetailData = {
   attachments: AttachmentRow[];
   activity: ActivityRow[];
   canEdit: boolean;
+  /** Object storage is configured, so recording and uploading are available. */
+  storageReady: boolean;
 };
 
 const DONE_STATUSES = ["DONE", "CANCELLED"];
@@ -310,5 +313,9 @@ export async function getTaskDetail(
     })),
     activity,
     canEdit,
+    // Carried on the detail rather than passed in: the sheet is opened from the
+    // board, the task rows and the suggestion sheet, none of which are server
+    // components with the env to hand.
+    storageReady: isStorageConfigured(),
   };
 }

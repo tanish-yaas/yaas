@@ -112,7 +112,7 @@ export function CommandPalette() {
         onClick={() => setOpen(false)}
         aria-hidden
       />
-      <div className="overlay fixed left-1/2 top-[18vh] z-[9999] w-[min(36rem,calc(100vw-2rem))] -translate-x-1/2 overflow-hidden">
+      <div className="overlay fixed left-1/2 top-[calc(0.18*var(--vh))] z-[9999] w-[min(36rem,calc(100vw-2rem))] -translate-x-1/2 overflow-hidden">
         <div className="flex items-center gap-2.5 border-b border-border px-3 py-2.5">
           <Search size={14} className="shrink-0 text-faint" />
           <input
@@ -138,7 +138,7 @@ export function CommandPalette() {
           {loading && <Loader2 size={13} className="animate-spin text-faint" />}
         </div>
 
-        <div className="max-h-[50vh] overflow-y-auto py-1">
+        <div className="max-h-[calc(0.5*var(--vh))] overflow-y-auto py-1">
           {combined.length === 0 && (
             <p className="px-3 py-8 text-center text-[13px] text-faint">
               {q.length < 2 ? "Type to search" : "No matches"}

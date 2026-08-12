@@ -3,7 +3,8 @@
     "allow": [
       "Bash(timeout 25 npx vercel whoami)",
       "Bash(timeout 30 npx vercel whoami)",
-      "Bash(echo \"exit=$?\")"
+      "Bash(echo \"exit=$?\")",
+      "Bash(npx prisma *)"
     ]
   }
 }

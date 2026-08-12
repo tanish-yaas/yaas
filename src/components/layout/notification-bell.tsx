@@ -70,7 +70,7 @@ export function NotificationBell({
           )}
         </div>
 
-        <div className="max-h-[60vh] overflow-y-auto">
+        <div className="max-h-[calc(0.6*var(--vh))] overflow-y-auto">
           {notifications.length === 0 ? (
             <p className="px-3 py-8 text-center text-[13px] text-faint">
               Nothing yet

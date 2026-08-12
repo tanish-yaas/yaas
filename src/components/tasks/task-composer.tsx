@@ -3,7 +3,14 @@
 import { useState, useRef, useTransition } from "react";
 import { Plus, ChevronDown, ChevronUp } from "lucide-react";
 import { createTask } from "@/server/actions/tasks";
+import { uploadTaskAttachment } from "@/server/actions/task-detail";
+import { useToast } from "@/components/ui/toast";
 import { LabelPicker, type LabelOption } from "./label-picker";
+import {
+  VoiceRecorder,
+  uploadVoiceClip,
+  type VoiceClip,
+} from "./voice-recorder";
 
 type Member = { userId: string; name: string };
 
@@ -15,17 +22,22 @@ export function TaskComposer({
   currentUserId,
   labels,
   teams,
+  storageReady = false,
 }: {
   members: Member[];
   currentUserId: string;
   labels: LabelOption[];
   teams: { id: string; name: string }[];
+  /** Voice notes need object storage; without it the recorder stays hidden. */
+  storageReady?: boolean;
 }) {
+  const { push } = useToast();
   const [expanded, setExpanded] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const [labelIds, setLabelIds] = useState<string[]>([]);
   const [labelOptions, setLabelOptions] = useState<LabelOption[]>(labels);
+  const [clip, setClip] = useState<VoiceClip | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
 
   function handleSubmit(formData: FormData) {
@@ -38,8 +50,27 @@ export function TaskComposer({
         setError(result.error);
         return;
       }
+
+      // The task is saved by this point. A failed upload is worth telling the
+      // user about, but it must not read as though the task itself failed.
+      if (clip && result?.taskId) {
+        const attached = await uploadVoiceClip(
+          result.taskId,
+          clip,
+          uploadTaskAttachment
+        );
+        if (!attached.ok) {
+          push(
+            attached.error ?? "Task added, but the voice note didn't attach",
+            "error"
+          );
+        }
+        URL.revokeObjectURL(clip.url);
+      }
+
       formRef.current?.reset();
       setLabelIds([]);
+      setClip(null);
       setExpanded(false);
     });
   }
@@ -138,6 +169,18 @@ export function TaskComposer({
               }
             />
           </div>
+
+          {storageReady && (
+            <div className="flex flex-col gap-1.5 sm:col-span-2">
+              <span className="text-xs text-muted-foreground">Voice note</span>
+              <VoiceRecorder
+                clip={clip}
+                onClip={setClip}
+                disabled={pending}
+                compact
+              />
+            </div>
+          )}
 
           <div className="flex flex-col gap-1.5">
             <label className="text-xs text-muted-foreground">Assign to</label>
