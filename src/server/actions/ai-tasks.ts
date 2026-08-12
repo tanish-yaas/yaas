@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { requirePermission, checkRate } from "@/server/rbac/guard";
 import { LIMITS } from "@/lib/rate-limit";
 import { parseTaskInput } from "@/server/services/ai-parser";
+import { transcribeAudio } from "@/server/services/transcribe";
 import { computePriorityScore } from "@/server/services/tasks";
 import { fromLocalInput } from "@/lib/dates";
 import type { ParsedTask } from "@/lib/ai/schemas";
@@ -31,6 +32,87 @@ export async function parseTask(rawInput: string) {
     orgId: ctx.membership!.organizationId,
     userId: ctx.session.user.id,
   });
+}
+
+/** Audio a phone or laptop mic can realistically produce, and Gemini accepts. */
+const AUDIO_TYPES = [
+  "audio/webm",
+  "audio/ogg",
+  "audio/mp4",
+  "audio/mpeg",
+  "audio/wav",
+  "audio/aac",
+  "audio/flac",
+];
+
+const MAX_AUDIO_BYTES = 10 * 1024 * 1024;
+
+/**
+ * Speak a task instead of typing it: transcribe the clip, then hand the text
+ * to the same parser the typed composer uses.
+ *
+ * Both steps happen here rather than round-tripping the transcript to the
+ * browser and back, because the second call needs the first's output and the
+ * audio is already the expensive part of the trip. The user still confirms —
+ * this returns a draft, exactly as parseTask does, and writes nothing.
+ */
+export async function transcribeToTask(formData: FormData) {
+  const ctx = await requirePermission("ai.use");
+
+  const rate = checkRate(
+    ctx.session.user.id,
+    "ai-transcribe",
+    LIMITS.aiTranscribe.limit,
+    LIMITS.aiTranscribe.window
+  );
+
+  if (!rate.allowed) {
+    return {
+      ok: false as const,
+      error: `Slow down a moment — try again in ${rate.retryAfterSeconds}s.`,
+    };
+  }
+
+  const file = formData.get("audio");
+  if (!(file instanceof File) || file.size === 0) {
+    return { ok: false as const, error: "Nothing was recorded" };
+  }
+  if (file.size > MAX_AUDIO_BYTES) {
+    return { ok: false as const, error: "That recording is too long" };
+  }
+
+  // The browser appends codec parameters ("audio/webm;codecs=opus"); the
+  // allowlist matches on the base type.
+  const mediaType = (file.type || "audio/webm").split(";")[0].trim();
+  if (!AUDIO_TYPES.includes(mediaType)) {
+    return { ok: false as const, error: "That audio format isn't supported" };
+  }
+
+  const transcript = await transcribeAudio(
+    new Uint8Array(await file.arrayBuffer()),
+    mediaType
+  );
+  if (!transcript.ok) return { ok: false as const, error: transcript.error };
+
+  const parsed = await parseTaskInput({
+    rawInput: transcript.text,
+    orgId: ctx.membership!.organizationId,
+    userId: ctx.session.user.id,
+  });
+
+  // The transcript rides along either way: on success the composer shows what
+  // it heard next to the draft, and on a parse failure it is all the user has
+  // left of the recording, so losing it would mean recording again.
+  if (!parsed.ok) {
+    return { ok: false as const, error: parsed.error, transcript: transcript.text };
+  }
+
+  return {
+    ok: true as const,
+    transcript: transcript.text,
+    parsed: parsed.parsed,
+    parsedTaskId: parsed.parsedTaskId,
+  };
 }
 
 export async function applyParsedTask(

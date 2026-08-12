@@ -6,6 +6,7 @@ import {
   parseTask,
   applyParsedTask,
   discardParsedTask,
+  transcribeToTask,
 } from "@/server/actions/ai-tasks";
 import { toLocalInput } from "@/lib/dates";
 import { createLabel } from "@/server/actions/labels";
@@ -17,6 +18,7 @@ import {
   uploadVoiceClip,
   type VoiceClip,
 } from "./voice-recorder";
+import { DictationButton } from "./dictation-button";
 import { uploadTaskAttachment } from "@/server/actions/task-detail";
 import type { ParsedTask } from "@/lib/ai/schemas";
 
@@ -56,6 +58,48 @@ export function SmartComposer({
   // exists. Held here rather than in the draft because a re-parse shouldn't
   // throw away a clip the user already recorded.
   const [clip, setClip] = useState<VoiceClip | null>(null);
+  // Separate from `pending` so the Add button doesn't also read "Reading…"
+  // while it is the mic that is busy.
+  const [dictating, setDictating] = useState(false);
+
+  /** Load a parse result into the confirm form. Shared by typing and speaking. */
+  function fillDraft(p: ParsedTask, parsedTaskId: string) {
+    setDraft({ parsed: p, id: parsedTaskId });
+    setTitle(p.title);
+    setDescription(p.description ?? "");
+    setPriority(p.priority);
+    setDueAt(p.dueAt ? toLocalInput(new Date(p.dueAt)) : "");
+    setEstimate(p.estimatedMinutes ? String(p.estimatedMinutes) : "");
+    setSubtasks(p.subtasks);
+
+    const matched = members
+      .filter((m) =>
+        p.assigneeNames.some(
+          (n) =>
+            m.name.toLowerCase().includes(n.toLowerCase()) ||
+            n.toLowerCase().includes(m.name.split(" ")[0].toLowerCase())
+        )
+      )
+      .map((m) => m.userId);
+
+    setAssignees(matched.length > 0 ? matched : [currentUserId]);
+
+    // The parser hands back label names; match them to what already exists
+    // and offer the rest as one-click creations.
+    const known: string[] = [];
+    const unknown: string[] = [];
+
+    for (const name of p.labels) {
+      const hit = labelOptions.find(
+        (l) => l.name.toLowerCase() === name.trim().toLowerCase()
+      );
+      if (hit) known.push(hit.id);
+      else if (name.trim()) unknown.push(name.trim());
+    }
+
+    setLabelIds(known);
+    setSuggestedLabels(unknown);
+  }
 
   function handleParse() {
     if (!input.trim()) return;
@@ -69,42 +113,42 @@ export function SmartComposer({
         return;
       }
 
-      const p = result.parsed;
-      setDraft({ parsed: p, id: result.parsedTaskId });
-      setTitle(p.title);
-      setDescription(p.description ?? "");
-      setPriority(p.priority);
-      setDueAt(p.dueAt ? toLocalInput(new Date(p.dueAt)) : "");
-      setEstimate(p.estimatedMinutes ? String(p.estimatedMinutes) : "");
-      setSubtasks(p.subtasks);
+      fillDraft(result.parsed, result.parsedTaskId);
+    });
+  }
 
-      const matched = members
-        .filter((m) =>
-          p.assigneeNames.some(
-            (n) =>
-              m.name.toLowerCase().includes(n.toLowerCase()) ||
-              n.toLowerCase().includes(m.name.split(" ")[0].toLowerCase())
-          )
-        )
-        .map((m) => m.userId);
+  /**
+   * Speaking is the same flow as typing, one step earlier: the clip goes up,
+   * comes back as a transcript plus a parsed draft, and lands on the same
+   * confirm screen. The transcript is kept in the input box so "Start over"
+   * leaves you with the words rather than nothing.
+   */
+  function handleDictation(clip: VoiceClip) {
+    setError(null);
+    setDictating(true);
 
-      setAssignees(matched.length > 0 ? matched : [currentUserId]);
+    startTransition(async () => {
+      const formData = new FormData();
+      formData.set(
+        "audio",
+        new File([clip.blob], clip.fileName, { type: clip.blob.type })
+      );
 
-      // The parser hands back label names; match them to what already exists
-      // and offer the rest as one-click creations.
-      const known: string[] = [];
-      const unknown: string[] = [];
+      const result = await transcribeToTask(formData);
 
-      for (const name of p.labels) {
-        const hit = labelOptions.find(
-          (l) => l.name.toLowerCase() === name.trim().toLowerCase()
-        );
-        if (hit) known.push(hit.id);
-        else if (name.trim()) unknown.push(name.trim());
+      // The recording only ever existed to become text; the voice-note field
+      // below is what keeps audio. Released either way.
+      URL.revokeObjectURL(clip.url);
+      setDictating(false);
+
+      if (result.transcript) setInput(result.transcript);
+
+      if (!result.ok) {
+        setError(result.error);
+        return;
       }
 
-      setLabelIds(known);
-      setSuggestedLabels(unknown);
+      fillDraft(result.parsed, result.parsedTaskId);
     });
   }
 
@@ -195,21 +239,28 @@ export function SmartComposer({
             placeholder="Write it however you'd say it — we'll sort out the details. ⌘/Ctrl + Enter to add."
             className="flex-1 resize-none bg-transparent py-1.5 text-[13px] outline-none placeholder:text-faint"
           />
-          <button
-            type="button"
-            onClick={handleParse}
-            disabled={pending || !input.trim()}
-            className="mt-0.5 shrink-0 rounded-lg bg-primary px-3.5 py-1.5 text-[12px] font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-40"
-          >
-            {pending ? "Reading…" : "Add"}
-          </button>
-        </div>
+          {/* Speak and Add sit together: they are two ways to do the one
+              thing this box is for. The voice-note field is a different job
+              and stays on the confirm screen with the rest of the details. */}
+          <div className="mt-0.5 flex shrink-0 items-start gap-2">
+            {/* No storage gate here, unlike the voice-note field — dictation
+                only needs the transcript, so nothing is ever uploaded. */}
+            <DictationButton
+              onClip={handleDictation}
+              busy={dictating}
+              disabled={pending}
+            />
 
-        {storageReady && (
-          <div className="mt-2 px-1">
-            <VoiceRecorder clip={clip} onClip={setClip} disabled={pending} compact />
+            <button
+              type="button"
+              onClick={handleParse}
+              disabled={pending || !input.trim()}
+              className="shrink-0 rounded-lg bg-primary px-3.5 py-1.5 text-[12px] font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-40"
+            >
+              {pending && !dictating ? "Reading…" : "Add"}
+            </button>
           </div>
-        )}
+        </div>
 
         {error && (
           <p className="mt-2 px-1 text-[12px] text-destructive">{error}</p>

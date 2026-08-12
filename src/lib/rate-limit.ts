@@ -49,6 +49,9 @@ export function rateLimit(
 
 export const LIMITS = {
   aiParse: { limit: 20, window: 60 },
+  // Tighter than parsing: every call ships up to a few MB of audio, and a
+  // dictated note is one recording rather than something you retry in a burst.
+  aiTranscribe: { limit: 10, window: 60 },
   aiChat: { limit: 15, window: 60 },
   search: { limit: 60, window: 60 },
   mutation: { limit: 60, window: 60 },

@@ -1,79 +1,14 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { Mic, Pause, Play, Square, Trash2 } from "lucide-react";
+import {
+  formatDuration,
+  useAudioRecorder,
+  type VoiceClip,
+} from "./use-audio-recorder";
 
-/** Recording stops itself here. Ten minutes of Opus sits well inside the 10 MB
-    attachment cap, and an accidental open mic shouldn't run all afternoon. */
-const MAX_SECONDS = 10 * 60;
-
-/**
- * Ordered by preference. Chrome and Firefox take the first; Safari has no
- * WebM encoder and falls through to mp4. An empty type lets the browser pick,
- * which is better than refusing to record at all.
- */
-const CANDIDATE_TYPES = [
-  "audio/webm;codecs=opus",
-  "audio/webm",
-  "audio/mp4",
-  "audio/ogg;codecs=opus",
-];
-
-function pickMimeType(): string {
-  if (typeof MediaRecorder === "undefined") return "";
-  return CANDIDATE_TYPES.find((t) => MediaRecorder.isTypeSupported(t)) ?? "";
-}
-
-function extensionFor(mimeType: string): string {
-  if (mimeType.includes("mp4")) return "m4a";
-  if (mimeType.includes("ogg")) return "ogg";
-  return "webm";
-}
-
-/**
- * Turn a getUserMedia rejection into something a user can act on.
- *
- * These all arrive as NotAllowedError and mean different things, so the copy
- * has to come from context rather than the error alone. The case that cost the
- * most to diagnose was a Permissions-Policy header of `microphone=()`: the
- * browser refuses without ever prompting, which is indistinguishable from a
- * denied permission except that no site setting can fix it. See next.config.ts.
- */
-function describeMicError(err: unknown, alreadyDenied: boolean): string {
-  const name = err instanceof DOMException ? err.name : "";
-
-  if (name === "NotFoundError" || name === "OverconstrainedError") {
-    return "No microphone found — plug one in and try again";
-  }
-
-  // The device exists but something else holds it, or the OS refuses. On
-  // Windows this is also what a disabled system-wide mic permission looks like.
-  if (name === "NotReadableError" || name === "AbortError") {
-    return "Your microphone is busy in another app — close it and try again";
-  }
-
-  if (name === "NotAllowedError" || name === "SecurityError") {
-    return alreadyDenied
-      ? "Microphone blocked. Click the icon at the left of the address bar → Microphone → Allow, then reload."
-      : "Nova couldn't reach your microphone. Check that your browser and Windows both allow it, then try again.";
-  }
-
-  return "Couldn't start recording";
-}
-
-export function formatDuration(seconds: number): string {
-  const m = Math.floor(seconds / 60);
-  const s = Math.floor(seconds % 60);
-  return `${m}:${String(s).padStart(2, "0")}`;
-}
-
-export type VoiceClip = {
-  blob: Blob;
-  /** Object URL for preview playback. Revoked when the clip is dropped. */
-  url: string;
-  seconds: number;
-  fileName: string;
-};
+export { formatDuration, type VoiceClip };
 
 /**
  * Attach a recorded clip to a task through the normal attachment path.
@@ -100,10 +35,31 @@ export async function uploadVoiceClip(
   return upload(formData);
 }
 
+/** Six bars lit in proportion to the input peak. */
+export function LevelMeter({ level }: { level: number }) {
+  return (
+    <div className="flex items-center gap-0.5" aria-hidden>
+      {Array.from({ length: 6 }, (_, i) => (
+        <span
+          key={i}
+          className="w-0.5 rounded-full transition-all duration-75"
+          style={{
+            height: `${4 + i * 2}px`,
+            backgroundColor:
+              level * 6 > i
+                ? "var(--primary)"
+                : "color-mix(in oklab, white 15%, transparent)",
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
 /**
- * In-app voice note capture. Records through MediaRecorder, keeps the clip in
- * memory as a Blob and hands it to the parent — it never uploads anything
- * itself, because a task composer has no task to attach to until it saves.
+ * Voice note capture. Keeps the clip in memory as a Blob and hands it to the
+ * parent — it never uploads anything itself, because a task composer has no
+ * task to attach to until it saves.
  *
  * The level meter is driven from an AnalyserNode rather than a fixed animation:
  * a bar that moves whether or not the mic is working is worse than none, since
@@ -121,168 +77,11 @@ export function VoiceRecorder({
   /** Drops the helper line — for tight rows like the detail sheet. */
   compact?: boolean;
 }) {
-  const [recording, setRecording] = useState(false);
-  const [seconds, setSeconds] = useState(0);
-  const [level, setLevel] = useState(0);
-  const [error, setError] = useState<string | null>(null);
   const [playing, setPlaying] = useState(false);
-
-  const recorderRef = useRef<MediaRecorder | null>(null);
-  const chunksRef = useRef<BlobPart[]>([]);
-  const streamRef = useRef<MediaStream | null>(null);
-  const audioContextRef = useRef<AudioContext | null>(null);
-  const frameRef = useRef<number | null>(null);
-  const tickRef = useRef<number | null>(null);
-  const secondsRef = useRef(0);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  /** Everything the recording holds open. Safe to call twice. */
-  function teardown() {
-    if (frameRef.current !== null) cancelAnimationFrame(frameRef.current);
-    if (tickRef.current !== null) window.clearInterval(tickRef.current);
-    frameRef.current = null;
-    tickRef.current = null;
-
-    streamRef.current?.getTracks().forEach((t) => t.stop());
-    streamRef.current = null;
-
-    void audioContextRef.current?.close().catch(() => undefined);
-    audioContextRef.current = null;
-
-    setLevel(0);
-  }
-
-  // Releasing the microphone is not optional — the browser keeps showing the
-  // recording indicator until every track is stopped, including on unmount
-  // mid-recording.
-  useEffect(() => teardown, []);
-
-  async function start() {
-    setError(null);
-
-    // getUserMedia only exists on a secure origin. Over plain http on a LAN
-    // address — which is what `next dev` prints as its Network URL — it is
-    // either missing or rejects, and no amount of clicking Allow will help.
-    // Worth naming, because the browser gives no clue that this is the reason.
-    if (typeof window !== "undefined" && !window.isSecureContext) {
-      setError("Recording needs https — open Nova on localhost or the live site");
-      return;
-    }
-
-    if (typeof navigator === "undefined" || !navigator.mediaDevices) {
-      setError("This browser can't record audio");
-      return;
-    }
-
-    // Asked before prompting, purely to tell two states apart that throw the
-    // same error: "will ask you now" and "already refused, and will not ask
-    // again". Only the second needs the user to go into site settings.
-    let alreadyDenied = false;
-    try {
-      const status = await navigator.permissions?.query({
-        name: "microphone" as PermissionName,
-      });
-      alreadyDenied = status?.state === "denied";
-    } catch {
-      // Firefox has no microphone descriptor here. Fall through and let
-      // getUserMedia be the authority.
-    }
-
-    let stream: MediaStream;
-    try {
-      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    } catch (err) {
-      setError(describeMicError(err, alreadyDenied));
-      return;
-    }
-
-    streamRef.current = stream;
-
-    const mimeType = pickMimeType();
-    let recorder: MediaRecorder;
-    try {
-      recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
-    } catch {
-      teardown();
-      setError("This browser can't record audio");
-      return;
-    }
-
-    chunksRef.current = [];
-    recorderRef.current = recorder;
-
-    recorder.ondataavailable = (e) => {
-      if (e.data.size > 0) chunksRef.current.push(e.data);
-    };
-
-    recorder.onstop = () => {
-      // recorder.mimeType is the type actually used, which may differ from the
-      // one requested. The blob has to match or playback breaks.
-      const type = recorder.mimeType || mimeType || "audio/webm";
-      const blob = new Blob(chunksRef.current, { type });
-      chunksRef.current = [];
-      teardown();
-      setRecording(false);
-
-      if (blob.size === 0) {
-        setError("Nothing was recorded");
-        return;
-      }
-
-      onClip({
-        blob,
-        url: URL.createObjectURL(blob),
-        seconds: secondsRef.current,
-        fileName: `voice-note.${extensionFor(type)}`,
-      });
-    };
-
-    // Timeslice so a long recording flushes as it goes rather than sitting in
-    // one buffer until stop.
-    recorder.start(1000);
-    setRecording(true);
-    secondsRef.current = 0;
-    setSeconds(0);
-
-    tickRef.current = window.setInterval(() => {
-      secondsRef.current += 1;
-      setSeconds(secondsRef.current);
-      if (secondsRef.current >= MAX_SECONDS) stop();
-    }, 1000);
-
-    // Level meter. Wrapped because Safari has thrown here when the page is
-    // backgrounded at exactly the wrong moment, and a dead meter should not
-    // take the recording with it.
-    try {
-      const context = new AudioContext();
-      audioContextRef.current = context;
-      const source = context.createMediaStreamSource(stream);
-      const analyser = context.createAnalyser();
-      analyser.fftSize = 256;
-      source.connect(analyser);
-
-      const data = new Uint8Array(analyser.frequencyBinCount);
-      const sample = () => {
-        analyser.getByteTimeDomainData(data);
-        let peak = 0;
-        for (const v of data) peak = Math.max(peak, Math.abs(v - 128) / 128);
-        setLevel(peak);
-        frameRef.current = requestAnimationFrame(sample);
-      };
-      sample();
-    } catch {
-      // No meter; the timer still tells you it is running.
-    }
-  }
-
-  function stop() {
-    const recorder = recorderRef.current;
-    if (recorder && recorder.state !== "inactive") recorder.stop();
-    else {
-      teardown();
-      setRecording(false);
-    }
-  }
+  const { recording, seconds, level, error, setError, start, stop } =
+    useAudioRecorder({ onClip });
 
   function discard() {
     if (clip) URL.revokeObjectURL(clip.url);
@@ -312,9 +111,7 @@ export function VoiceRecorder({
 
           <Mic size={13} className="shrink-0 text-faint" />
 
-          <span className="min-w-0 flex-1 truncate text-[12px]">
-            Voice note
-          </span>
+          <span className="min-w-0 flex-1 truncate text-[12px]">Voice note</span>
 
           <span className="shrink-0 text-[11px] tabular-nums text-faint">
             {formatDuration(clip.seconds)}
@@ -362,23 +159,7 @@ export function VoiceRecorder({
             <span className="text-[11px] tabular-nums text-faint">
               {formatDuration(seconds)}
             </span>
-
-            {/* Six bars lit in proportion to the input peak. */}
-            <div className="flex items-center gap-0.5" aria-hidden>
-              {Array.from({ length: 6 }, (_, i) => (
-                <span
-                  key={i}
-                  className="w-0.5 rounded-full transition-all duration-75"
-                  style={{
-                    height: `${4 + i * 2}px`,
-                    backgroundColor:
-                      level * 6 > i
-                        ? "var(--primary)"
-                        : "color-mix(in oklab, white 15%, transparent)",
-                  }}
-                />
-              ))}
-            </div>
+            <LevelMeter level={level} />
           </>
         )}
       </div>
