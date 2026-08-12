@@ -9,20 +9,17 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
-import {
-  AlertOctagon,
-  CalendarClock,
-  Check,
-  Scale,
-  Split,
-  Sparkles,
-  TrendingUp,
-  X,
-} from "lucide-react";
+import { Check, X } from "lucide-react";
 import {
   acceptSuggestion,
   dismissSuggestion,
 } from "@/server/actions/suggestions";
+import { anchorOf } from "@/lib/ui-scale";
+import {
+  accentForSuggestion as accentOf,
+  iconForSuggestion as iconOf,
+} from "@/components/dashboard/suggestion-style";
+import { SuggestionSheet } from "@/components/dashboard/suggestion-sheet";
 
 export type SuggestionHintRow = {
   id: string;
@@ -30,27 +27,6 @@ export type SuggestionHintRow = {
   reason: string;
   actionable: boolean;
 };
-
-const ICONS: Record<string, React.ReactNode> = {
-  TASK_PRIORITY: <TrendingUp size={13} />,
-  DEADLINE_ADJUSTMENT: <CalendarClock size={13} />,
-  WORKLOAD_REBALANCE: <Scale size={13} />,
-  ROADBLOCK_RESOLUTION: <AlertOctagon size={13} />,
-  TASK_BREAKDOWN: <Split size={13} />,
-  SCHEDULE_SLOT: <CalendarClock size={13} />,
-};
-
-const ACCENTS: Record<string, string> = {
-  TASK_PRIORITY: "var(--status-blue)",
-  DEADLINE_ADJUSTMENT: "var(--status-red)",
-  WORKLOAD_REBALANCE: "var(--status-amber)",
-  ROADBLOCK_RESOLUTION: "var(--status-purple)",
-  TASK_BREAKDOWN: "var(--primary)",
-  SCHEDULE_SLOT: "var(--status-green)",
-};
-
-const accentOf = (type: string) => ACCENTS[type] ?? "var(--primary)";
-const iconOf = (type: string) => ICONS[type] ?? <Sparkles size={13} />;
 
 /**
  * The topbar's one piece of proactive surface. It shows the strongest pending
@@ -63,6 +39,7 @@ export function SuggestionHint({
   suggestions: SuggestionHintRow[];
 }) {
   const [open, setOpen] = useState(false);
+  const [detailId, setDetailId] = useState<string | null>(null);
   const [position, setPosition] = useState({ left: -9999, top: -9999, width: 0 });
   const [pending, startTransition] = useTransition();
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -75,12 +52,14 @@ export function SuggestionHint({
   // topbar's left edge, and the panel has to portal out to escape the shell.
   useLayoutEffect(() => {
     if (!open || !buttonRef.current) return;
-    const rect = buttonRef.current.getBoundingClientRect();
-    const width = Math.min(384, window.innerWidth - 24);
+    // anchorOf hands back the trigger and the viewport in the scaled root's
+    // space, which is the space the portalled panel is positioned in.
+    const rect = anchorOf(buttonRef.current);
+    const width = Math.min(384, rect.viewportWidth - 24);
 
     setPosition({
       width,
-      left: Math.max(12, Math.min(rect.left, window.innerWidth - width - 12)),
+      left: Math.max(12, Math.min(rect.left, rect.viewportWidth - width - 12)),
       top: rect.bottom + 8,
     });
   }, [open]);
@@ -107,6 +86,11 @@ export function SuggestionHint({
     });
   }
 
+  function openDetail(id: string) {
+    setOpen(false);
+    setDetailId(id);
+  }
+
   const panel = (
     <>
       <div
@@ -131,11 +115,22 @@ export function SuggestionHint({
           </span>
         </div>
 
-        <div className="max-h-[60vh] overflow-y-auto">
+        <div className="max-h-[calc(0.6*var(--vh))] overflow-y-auto">
           {suggestions.map((s) => (
             <div
               key={s.id}
-              className={`border-b border-border px-3 py-3 last:border-0 ${
+              role="button"
+              tabIndex={0}
+              // Opening closes this popover first: it portals at z-9999 and
+              // would otherwise sit over the sheet it just opened.
+              onClick={() => openDetail(s.id)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  openDetail(s.id);
+                }
+              }}
+              className={`cursor-pointer border-b border-border px-3 py-3 transition-colors last:border-0 hover:bg-[color-mix(in_oklab,white_4%,transparent)] ${
                 pending ? "opacity-40" : ""
               }`}
             >
@@ -156,7 +151,10 @@ export function SuggestionHint({
                   <button
                     type="button"
                     disabled={pending}
-                    onClick={() => resolve(() => acceptSuggestion(s.id))}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      resolve(() => acceptSuggestion(s.id));
+                    }}
                     className="pill pill-sm"
                   >
                     <Check size={11} />
@@ -166,12 +164,16 @@ export function SuggestionHint({
                 <button
                   type="button"
                   disabled={pending}
-                  onClick={() => resolve(() => dismissSuggestion(s.id))}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    resolve(() => dismissSuggestion(s.id));
+                  }}
                   className="inline-flex items-center gap-1 text-[11px] text-faint transition-colors hover:text-foreground"
                 >
                   <X size={11} />
                   No thanks
                 </button>
+                <span className="ml-auto text-[10px] text-faint">Details</span>
               </div>
             </div>
           ))}
@@ -199,6 +201,11 @@ export function SuggestionHint({
       </button>
 
       {open && createPortal(panel, document.body)}
+
+      <SuggestionSheet
+        suggestionId={detailId}
+        onClose={() => setDetailId(null)}
+      />
     </>
   );
 }

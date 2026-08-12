@@ -50,6 +50,7 @@ import {
   type EventItem,
   type TaskItem,
 } from "./types";
+import { toZoomed, type AnchorRect } from "@/lib/ui-scale";
 
 const HIDDEN_KEY = "yaas.calendar.hidden";
 
@@ -100,10 +101,10 @@ export function CalendarShell({
   const [allHours, setAllHours] = useState(false);
   const [panelKey, setPanelKey] = useState<string | null>(null);
   const [draft, setDraft] = useState<DraftSlot | null>(null);
-  const [popover, setPopover] = useState<{ id: string; rect: DOMRect } | null>(
+  const [popover, setPopover] = useState<{ id: string; rect: AnchorRect } | null>(
     null
   );
-  const [calendarPanel, setCalendarPanel] = useState<DOMRect | null>(null);
+  const [calendarPanel, setCalendarPanel] = useState<AnchorRect | null>(null);
   const [hiddenCalendars, setHiddenCalendars] = useState<Set<string>>(
     () => new Set()
   );
@@ -366,7 +367,7 @@ export function CalendarShell({
 
   // ---- rendering ---------------------------------------------------------
 
-  function selectEvent(event: EventItem, rect: DOMRect) {
+  function selectEvent(event: EventItem, rect: AnchorRect) {
     setPopover({ id: event.id, rect });
   }
 
@@ -466,7 +467,10 @@ export function CalendarShell({
               // later during render — reading it there threw
               // "Cannot read properties of null" and took the page down.
               onClick={(e) => {
-                const rect = e.currentTarget.getBoundingClientRect();
+                const rect = toZoomed(
+                  e.currentTarget.getBoundingClientRect(),
+                  e.currentTarget
+                );
                 setCalendarPanel((current) => (current ? null : rect));
               }}
               title="Calendars"
@@ -601,7 +605,7 @@ export function CalendarShell({
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.15 }}
                 onClick={() => setDraft(null)}
-                className="fixed inset-0 z-[93] flex items-start justify-center bg-black/50 px-4 pt-[12vh]"
+                className="fixed inset-0 z-[93] flex items-start justify-center bg-black/50 px-4 pt-[calc(0.12*var(--vh))]"
               >
                 <motion.div
                   initial={{ opacity: 0, y: 12, scale: 0.98 }}

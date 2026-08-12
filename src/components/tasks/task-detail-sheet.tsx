@@ -1,6 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useState, useTransition } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  useTransition,
+} from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import {
@@ -8,7 +14,10 @@ import {
   Download,
   Loader2,
   MessageSquare,
+  Mic,
   Paperclip,
+  Pause,
+  Play,
   Plus,
   Trash2,
   X,
@@ -32,10 +41,17 @@ import { setTaskLabels } from "@/server/actions/labels";
 import { setTaskTeam } from "@/server/actions/teams";
 import { DependencySection } from "./dependency-section";
 import { LabelPicker } from "./label-picker";
+import {
+  VoiceRecorder,
+  uploadVoiceClip,
+  type VoiceClip,
+} from "./voice-recorder";
 import type {
   CommentNode,
   TaskDetailData,
 } from "@/server/services/task-detail";
+
+type AttachmentFile = TaskDetailData["attachments"][number];
 
 const STATUSES = [
   "BACKLOG",
@@ -350,56 +366,31 @@ export function TaskDetailSheet({
                   >
                     <div className="flex flex-col gap-1.5">
                       {detail.attachments.map((file) => (
-                        <div
+                        <AttachmentItem
                           key={file.id}
-                          className="group flex items-center gap-2.5 rounded-lg border border-border/60 px-2.5 py-2"
-                        >
-                          <Paperclip
-                            size={13}
-                            className="shrink-0 text-muted-foreground"
-                          />
-                          <div className="min-w-0 flex-1">
-                            <p className="truncate text-xs">{file.fileName}</p>
-                            <p className="truncate text-[10px] text-muted-foreground">
-                              {formatBytes(file.sizeBytes)} ·{" "}
-                              {file.mimeType.split("/").pop()} · {file.uploadedBy}{" "}
-                              · {relativeTime(file.createdAt)}
-                            </p>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={async () => {
-                              const result = await attachmentLink(file.id);
-                              if (!result.ok) {
-                                push(result.error, "error");
-                                return;
-                              }
-                              window.open(result.url, "_blank", "noopener");
-                            }}
-                            className="shrink-0 rounded p-1 text-muted-foreground transition-colors hover:text-foreground"
-                            title="Download"
-                          >
-                            <Download size={13} />
-                          </button>
-                          {file.isMine && (
-                            <button
-                              type="button"
-                              disabled={pending}
-                              onClick={() => run(() => deleteAttachment(file.id))}
-                              className="shrink-0 rounded p-1 text-muted-foreground opacity-0 transition-all hover:text-destructive group-hover:opacity-100"
-                            >
-                              <Trash2 size={12} />
-                            </button>
-                          )}
-                        </div>
+                          file={file}
+                          pending={pending}
+                          onError={(message) => push(message, "error")}
+                          onDelete={() => run(() => deleteAttachment(file.id))}
+                        />
                       ))}
                     </div>
 
-                    <UploadField
-                      taskId={detail.id}
-                      onUploaded={reload}
-                      onError={(message) => push(message, "error")}
-                    />
+                    <div className="mt-2 flex flex-col gap-2">
+                      <UploadField
+                        taskId={detail.id}
+                        onUploaded={reload}
+                        onError={(message) => push(message, "error")}
+                      />
+
+                      {detail.storageReady && (
+                        <RecordField
+                          taskId={detail.id}
+                          onUploaded={reload}
+                          onError={(message) => push(message, "error")}
+                        />
+                      )}
+                    </div>
                   </Section>
 
                   <Section title="Activity" count={detail.activity.length}>
@@ -894,6 +885,198 @@ function Comment({
   );
 }
 
+/**
+ * One attachment. Audio plays inline rather than opening in a tab — a voice
+ * note is meant to be heard in place, and a download round trip for a
+ * twelve-second clip is the wrong shape.
+ *
+ * The signed URL is fetched on first play, not up front: links expire in
+ * minutes, so one minted at render time is likely dead by the time it is used.
+ */
+function AttachmentItem({
+  file,
+  pending,
+  onError,
+  onDelete,
+}: {
+  file: AttachmentFile;
+  pending: boolean;
+  onError: (message: string) => void;
+  onDelete: () => void;
+}) {
+  const [src, setSrc] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [playing, setPlaying] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  const isAudio = file.mimeType.startsWith("audio/");
+
+  async function open() {
+    const result = await attachmentLink(file.id);
+    if (!result.ok) {
+      onError(result.error);
+      return;
+    }
+    window.open(result.url, "_blank", "noopener");
+  }
+
+  async function toggle() {
+    const el = audioRef.current;
+    if (el && src) {
+      if (el.paused) void el.play();
+      else el.pause();
+      return;
+    }
+
+    setLoading(true);
+    const result = await attachmentLink(file.id);
+    setLoading(false);
+
+    if (!result.ok) {
+      onError(result.error);
+      return;
+    }
+    // Playback starts from the audio element's onCanPlay once the src lands.
+    setSrc(result.url);
+  }
+
+  return (
+    <div className="group flex items-center gap-2.5 rounded-lg border border-border/60 px-2.5 py-2">
+      {isAudio ? (
+        <button
+          type="button"
+          onClick={toggle}
+          disabled={loading}
+          className="shrink-0 text-brand-violet transition-opacity hover:opacity-80 disabled:opacity-50"
+          aria-label={playing ? "Pause" : "Play"}
+        >
+          {loading ? (
+            <Loader2 size={14} className="animate-spin" />
+          ) : playing ? (
+            <Pause size={14} />
+          ) : (
+            <Play size={14} />
+          )}
+        </button>
+      ) : (
+        <Paperclip size={13} className="shrink-0 text-muted-foreground" />
+      )}
+
+      <div className="min-w-0 flex-1">
+        <p className="flex items-center gap-1.5 truncate text-xs">
+          {isAudio && <Mic size={11} className="shrink-0 text-faint" />}
+          {file.fileName}
+        </p>
+        <p className="truncate text-[10px] text-muted-foreground">
+          {formatBytes(file.sizeBytes)} · {file.mimeType.split("/").pop()} ·{" "}
+          {file.uploadedBy} · {relativeTime(file.createdAt)}
+        </p>
+
+        {src && (
+          <audio
+            ref={audioRef}
+            src={src}
+            controls
+            autoPlay
+            onPlay={() => setPlaying(true)}
+            onPause={() => setPlaying(false)}
+            onEnded={() => setPlaying(false)}
+            // The link expires; if playback fails, fall back to a fresh fetch.
+            onError={() => {
+              setSrc(null);
+              setPlaying(false);
+              onError("That clip's link expired — try again");
+            }}
+            className="mt-1.5 h-8 w-full"
+          />
+        )}
+      </div>
+
+      <button
+        type="button"
+        onClick={open}
+        className="shrink-0 rounded p-1 text-muted-foreground transition-colors hover:text-foreground"
+        title="Download"
+      >
+        <Download size={13} />
+      </button>
+
+      {file.isMine && (
+        <button
+          type="button"
+          disabled={pending}
+          onClick={onDelete}
+          className="shrink-0 rounded p-1 text-muted-foreground opacity-0 transition-all hover:text-destructive group-hover:opacity-100"
+        >
+          <Trash2 size={12} />
+        </button>
+      )}
+    </div>
+  );
+}
+
+/** Record a voice note straight onto an existing task. */
+function RecordField({
+  taskId,
+  onUploaded,
+  onError,
+}: {
+  taskId: string;
+  onUploaded: () => Promise<void>;
+  onError: (message: string) => void;
+}) {
+  const [clip, setClip] = useState<VoiceClip | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  async function attach() {
+    if (!clip) return;
+    setSaving(true);
+    const result = await uploadVoiceClip(taskId, clip, uploadTaskAttachment);
+    setSaving(false);
+
+    if (!result.ok) {
+      onError(result.error ?? "Couldn't attach that voice note");
+      return;
+    }
+
+    URL.revokeObjectURL(clip.url);
+    setClip(null);
+    await onUploaded();
+  }
+
+  return (
+    <div className="flex flex-col gap-2 rounded-lg border border-dashed border-border px-2.5 py-2">
+      <VoiceRecorder
+        clip={clip}
+        onClip={setClip}
+        disabled={saving}
+        compact
+      />
+
+      {clip && (
+        <button
+          type="button"
+          onClick={attach}
+          disabled={saving}
+          className="flex h-8 items-center justify-center gap-1.5 rounded-lg bg-primary text-[12px] font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
+        >
+          {saving ? (
+            <>
+              <Loader2 size={12} className="animate-spin" />
+              Attaching…
+            </>
+          ) : (
+            <>
+              <Mic size={12} />
+              Attach voice note
+            </>
+          )}
+        </button>
+      )}
+    </div>
+  );
+}
+
 function UploadField({
   taskId,
   onUploaded,
@@ -906,7 +1089,7 @@ function UploadField({
   const [uploading, setUploading] = useState(false);
 
   return (
-    <label className="mt-2 flex h-9 cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-border text-xs text-muted-foreground transition-colors hover:border-brand-violet hover:text-foreground">
+    <label className="flex h-9 cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-border text-xs text-muted-foreground transition-colors hover:border-brand-violet hover:text-foreground">
       {uploading ? (
         <>
           <Loader2 size={13} className="animate-spin" />

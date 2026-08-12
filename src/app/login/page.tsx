@@ -5,7 +5,7 @@ import { OrbitField } from "@/components/visual/orbit-field";
 export default function LoginPage() {
   return (
     <main
-      className="flex h-screen overflow-hidden"
+      className="flex h-full overflow-hidden"
       style={{
         backgroundImage:
           "linear-gradient(160deg, #1d1d22 0%, #17171a 34%, #121214 68%, #0c0c0e 100%)",

@@ -3,6 +3,8 @@ import { getCurrentContext } from "@/server/auth/session";
 import { WhatsAppLink } from "@/components/settings/whatsapp-link";
 import { ProfileSettings } from "@/components/settings/profile-settings";
 import { IdentitySettings } from "@/components/settings/identity-settings";
+import { AppearanceSettings } from "@/components/settings/appearance-settings";
+import { getUiScale } from "@/server/services/ui-scale";
 import {
   ReminderSettings,
   type ScheduleRow,
@@ -29,7 +31,8 @@ export default async function SettingsPage() {
 
   const orgId = ctx.membership?.organizationId;
 
-  const [schedules, labels, recurring, memberRows] = await Promise.all([
+  const [uiScale, schedules, labels, recurring, memberRows] = await Promise.all([
+    getUiScale(),
     prisma.reminderSchedule.findMany({
       where: { userId: ctx.session.user.id },
       orderBy: { type: "asc" },
@@ -116,6 +119,8 @@ export default async function SettingsPage() {
           avatarUrl={ctx.profile.avatarUrl ?? ""}
           signInImage={ctx.session.user.image ?? null}
         />
+
+        <AppearanceSettings value={uiScale} />
 
         <ProfileSettings
           workingHoursStart={ctx.profile.workingHoursStart}

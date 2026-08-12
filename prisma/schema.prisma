@@ -351,6 +351,7 @@ model UserSettings {
   userId String @unique @map("user_id")
 
   theme                 String  @default("system")
+  uiScale               String  @default("medium") @map("ui_scale")
   emailNotifications    Boolean @default(true) @map("email_notifications")
   whatsappNotifications Boolean @default(false) @map("whatsapp_notifications")
   pushNotifications     Boolean @default(true) @map("push_notifications")

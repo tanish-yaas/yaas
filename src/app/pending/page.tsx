@@ -11,7 +11,7 @@ export default async function PendingPage() {
     <>
       <div className="aurora-bg" aria-hidden />
 
-      <main className="relative z-10 flex min-h-screen items-center justify-center px-6">
+      <main className="relative z-10 flex min-h-full items-center justify-center px-6">
         <div className="panel w-full max-w-sm px-8 py-10 text-center backdrop-blur-xl">
           <p className="text-[11px] uppercase tracking-[0.05em] text-primary">
             Awaiting approval

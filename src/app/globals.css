@@ -123,6 +123,47 @@
   --radius-xl: 0.5rem;
 }
 
+/* ─── UI scale ────────────────────────────────────────── */
+/* One knob for the whole interface. `zoom` on the root scales layout, not just
+   type, so a step down contracts pills, card heights, icons and gaps by the
+   same ratio instead of leaving text swimming in unchanged padding. It is a
+   layout-level scale — text still rasterises crisply, unlike a transform.
+
+   Two things follow from this and both matter:
+   - Viewport units resolve against the zoomed root, so `h-screen` still means
+     one screen. No compensation needed.
+   - getBoundingClientRect() and pointer coordinates come back in *screen* px,
+     while anything positioned inside the root reads them as *zoomed* px. Every
+     hand-positioned overlay must divide by the zoom. See lib/ui-scale.ts —
+     don't reach for getBoundingClientRect() in an overlay without it. */
+:root {
+  --ui-scale: 1;
+  zoom: var(--ui-scale);
+
+  /* One viewport, expressed in the scaled root's own pixels. Under the legacy
+     zoom implementation viewport units resolve against the *unscaled* viewport,
+     so a raw 85vh panel renders 85% × the scale and runs off the bottom of the
+     screen. Anything sized to a fraction of the screen uses this instead:
+     calc(0.7 * var(--vh)).
+
+     Verified exact on the legacy implementation. Standardised zoom is expected
+     to scale the initial containing block itself, which would make this
+     over-correct — a panel a little shorter than asked for. That is cosmetic on
+     a scrolling panel, and one consistent rule beats splitting these six call
+     sites between two mechanisms: percentage max-heights would be engine-
+     agnostic, but only three of them have a definite-height parent to resolve
+     against. */
+  --vh: calc(100dvh / var(--ui-scale));
+}
+
+:root[data-ui-scale="small"] {
+  --ui-scale: 0.875;
+}
+
+:root[data-ui-scale="large"] {
+  --ui-scale: 1.125;
+}
+
 /* ─── Base ────────────────────────────────────────────── */
 html {
   height: 100%;

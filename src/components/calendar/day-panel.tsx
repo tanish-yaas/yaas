@@ -125,7 +125,7 @@ export function DayPanel({
             animate={isDesktop ? { x: 0 } : { y: 0 }}
             exit={isDesktop ? { x: "100%" } : { y: "100%" }}
             transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
-            className="overlay fixed inset-x-0 bottom-0 z-[91] flex max-h-[85vh] flex-col md:inset-y-0 md:left-auto md:right-0 md:max-h-none md:w-[26rem]"
+            className="overlay fixed inset-x-0 bottom-0 z-[91] flex max-h-[calc(0.85*var(--vh))] flex-col md:inset-y-0 md:left-auto md:right-0 md:max-h-none md:w-[26rem]"
           >
             <header className="flex shrink-0 items-start justify-between gap-3 border-b border-[color-mix(in_oklab,white_7%,transparent)] px-5 py-4">
               <div>

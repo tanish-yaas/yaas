@@ -2,6 +2,7 @@
 
 import { formatIST } from "@/lib/dates";
 import type { EventItem, TaskItem } from "./types";
+import { toZoomed, type AnchorRect } from "@/lib/ui-scale";
 
 const PRIORITY_COLOR: Record<string, string> = {
   URGENT: "var(--status-red)",
@@ -15,7 +16,7 @@ export function EventChip({
   onSelect,
 }: {
   event: EventItem;
-  onSelect: (event: EventItem, rect: DOMRect) => void;
+  onSelect: (event: EventItem, rect: AnchorRect) => void;
 }) {
   const time = event.allDay
     ? null
@@ -26,7 +27,10 @@ export function EventChip({
       type="button"
       onClick={(e) => {
         e.stopPropagation();
-        onSelect(event, e.currentTarget.getBoundingClientRect());
+        onSelect(
+          event,
+          toZoomed(e.currentTarget.getBoundingClientRect(), e.currentTarget)
+        );
       }}
       title={
         event.isOwnCalendar

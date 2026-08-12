@@ -69,7 +69,8 @@ export async function createTask(formData: FormData) {
         })
       : [];
 
-  await prisma.$transaction(async (tx) => {
+  // Returned so the composer can attach a voice note to the row it just made.
+  const created = await prisma.$transaction(async (tx) => {
     const task = await tx.task.create({
       data: {
         organizationId: orgId,
@@ -132,10 +133,12 @@ export async function createTask(formData: FormData) {
         })),
       });
     }
+
+    return task.id;
   });
 
   refresh();
-  return { ok: true };
+  return { ok: true, taskId: created };
 }
 
 export async function updateTask(

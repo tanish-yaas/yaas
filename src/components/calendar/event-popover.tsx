@@ -15,6 +15,7 @@ import {
 import { formatIST, toLocalInput } from "@/lib/dates";
 import type { EventPatch } from "@/lib/validators/event";
 import type { EventItem } from "./types";
+import { viewportSize, type AnchorRect } from "@/lib/ui-scale";
 
 const WIDTH = 340;
 const MARGIN = 12;
@@ -31,7 +32,7 @@ export function EventPopover({
   onDelete,
 }: {
   event: EventItem;
-  anchor: DOMRect;
+  anchor: AnchorRect;
   openTasks: { id: string; title: string }[];
   onClose: () => void;
   onPatch: (eventId: string, patch: EventPatch) => Promise<string | null>;
@@ -65,21 +66,23 @@ export function EventPopover({
   useLayoutEffect(() => {
     if (!mounted) return;
     const height = ref.current?.offsetHeight ?? 240;
+    // Measured in the scaled root's space, to match the anchor and offsetHeight.
+    const view = viewportSize(ref.current);
 
     let left = anchor.right + 8;
-    if (left + WIDTH > window.innerWidth - MARGIN) {
+    if (left + WIDTH > view.width - MARGIN) {
       left = anchor.left - WIDTH - 8;
     }
     if (left < MARGIN) {
       left = Math.min(
         Math.max(MARGIN, anchor.left),
-        window.innerWidth - WIDTH - MARGIN
+        view.width - WIDTH - MARGIN
       );
     }
 
     const top = Math.max(
       MARGIN,
-      Math.min(anchor.top, window.innerHeight - height - MARGIN)
+      Math.min(anchor.top, view.height - height - MARGIN)
     );
 
     setPosition({ left, top });

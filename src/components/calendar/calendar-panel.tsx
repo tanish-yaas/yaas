@@ -10,6 +10,7 @@ import {
   shareCalendar,
 } from "@/server/actions/calendar-shares";
 import type { CalendarOption } from "./types";
+import { viewportSize, type AnchorRect } from "@/lib/ui-scale";
 
 const WIDTH = 300;
 
@@ -34,7 +35,7 @@ export function CalendarPanel({
   onToggle,
   onClose,
 }: {
-  anchor: DOMRect;
+  anchor: AnchorRect;
   calendars: CalendarOption[];
   hidden: Set<string>;
   members: { userId: string; name: string }[];
@@ -59,13 +60,15 @@ export function CalendarPanel({
   useLayoutEffect(() => {
     if (!mounted) return;
     const height = ref.current?.offsetHeight ?? 320;
+    // Measured in the scaled root's space, to match the anchor and offsetHeight.
+    const view = viewportSize(ref.current);
 
     setPosition({
       left: Math.max(
         12,
-        Math.min(anchor.right - WIDTH, window.innerWidth - WIDTH - 12)
+        Math.min(anchor.right - WIDTH, view.width - WIDTH - 12)
       ),
-      top: Math.min(anchor.bottom + 8, window.innerHeight - height - 12),
+      top: Math.min(anchor.bottom + 8, view.height - height - 12),
     });
   }, [anchor, mounted, sharingId, calendars]);
 
@@ -122,7 +125,7 @@ export function CalendarPanel({
       initial={{ opacity: 0, y: -4 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.15 }}
-      className="overlay fixed z-[94] max-h-[70vh] overflow-y-auto p-3"
+      className="overlay fixed z-[94] max-h-[calc(0.7*var(--vh))] overflow-y-auto p-3"
       style={{ left: position.left, top: position.top, width: WIDTH }}
     >
       <div className="mb-2 flex items-center justify-between">

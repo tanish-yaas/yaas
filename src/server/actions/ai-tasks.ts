@@ -89,7 +89,7 @@ export async function applyParsedTask(
         })
       : [];
 
-  await prisma.$transaction(async (tx) => {
+  const created = await prisma.$transaction(async (tx) => {
     const task = await tx.task.create({
       data: {
         organizationId: orgId,
@@ -175,12 +175,15 @@ export async function applyParsedTask(
         })),
       });
     }
+
+    return task.id;
   });
 
   revalidatePath("/tasks");
   revalidatePath("/");
   revalidatePath("/calendar");
-  return { ok: true };
+  // Returned so the composer can attach a voice note to the row it just made.
+  return { ok: true, taskId: created };
 }
 
 export async function discardParsedTask(parsedTaskId: string) {
