@@ -2,10 +2,26 @@ import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@/generated/prisma";
 import { addDaysToKey, istKeyToDate, istTodayKey } from "@/lib/dates";
 
+/**
+ * Which tasks an insight is talking about. The text says "3 tasks are overdue";
+ * this is how the panel can then show you which three.
+ *
+ * `null` is for the all-clear line, which describes an absence and has nothing
+ * to open.
+ */
+export type InsightFilter =
+  | "overdue"
+  | "due-today"
+  | "undated"
+  | "unassigned"
+  | "done-week"
+  | null;
+
 export type Insight = {
   key: string;
   type: string;
   text: string;
+  filter: InsightFilter;
 };
 
 /**
@@ -76,6 +92,7 @@ export async function getDashboardInsights(
     );
     out.push({
       key: "overdue",
+      filter: "overdue",
       type: "DEADLINE_ADJUSTMENT",
       text: `${overdue} ${overdue === 1 ? "task is" : "tasks are"} overdue. The oldest, "${oldest.title}", is ${days} ${days === 1 ? "day" : "days"} past due.`,
     });
@@ -84,6 +101,7 @@ export async function getDashboardInsights(
   if (dueToday > 0) {
     out.push({
       key: "due-today",
+      filter: "due-today",
       type: "TASK_PRIORITY",
       text: `${dueToday} ${dueToday === 1 ? "task is" : "tasks are"} due today.`,
     });
@@ -92,6 +110,7 @@ export async function getDashboardInsights(
   if (undated > 0) {
     out.push({
       key: "undated",
+      filter: "undated",
       type: "DEADLINE_ADJUSTMENT",
       text: `${undated} open ${undated === 1 ? "task has" : "tasks have"} no due date, so ${undated === 1 ? "it will" : "they will"} never surface in a digest.`,
     });
@@ -100,6 +119,7 @@ export async function getDashboardInsights(
   if (unassigned > 0) {
     out.push({
       key: "unassigned",
+      filter: "unassigned",
       type: "WORKLOAD_REBALANCE",
       text: `${unassigned} open ${unassigned === 1 ? "task is" : "tasks are"} unassigned and belong to nobody's board.`,
     });
@@ -108,6 +128,7 @@ export async function getDashboardInsights(
   if (doneThisWeek > 0) {
     out.push({
       key: "done-week",
+      filter: "done-week",
       type: "TASK_BREAKDOWN",
       text: `You closed ${doneThisWeek} ${doneThisWeek === 1 ? "task" : "tasks"} in the last seven days.`,
     });
@@ -118,6 +139,7 @@ export async function getDashboardInsights(
   if (out.length === 0) {
     out.push({
       key: "clear",
+      filter: null,
       type: "TASK_PRIORITY",
       text:
         openCount === 0

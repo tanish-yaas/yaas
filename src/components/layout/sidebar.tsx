@@ -5,7 +5,6 @@ import {
   CheckSquare,
   Calendar,
   Users,
-  Settings,
   Sparkles,
   Bell,
   PanelLeftClose,
@@ -67,11 +66,8 @@ export function Sidebar({
         </>
       )}
 
-      <div className="mt-auto pt-4">
-        <NavLink href="/settings" label="Settings">
-          <Settings size={15} />
-        </NavLink>
-      </div>
+      {/* Settings used to sit here. It lives next to the profile in the topbar
+          now, where it is also reachable with the sidebar collapsed. */}
     </aside>
   );
 }

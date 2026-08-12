@@ -9,7 +9,6 @@ import {
   columnForStatus,
   type BoardTask,
 } from "@/components/dashboard/board-columns";
-import { APP_CONFIG } from "@/config/app";
 import {
   addDaysToKey,
   daysBetweenKeys,
@@ -19,19 +18,6 @@ import {
   istTodayKey,
 } from "@/lib/dates";
 import type { SuggestionPayload } from "@/server/services/intelligence";
-
-function greeting(tz: string) {
-  const hour = Number(
-    new Intl.DateTimeFormat("en-GB", {
-      hour: "numeric",
-      hour12: false,
-      timeZone: tz,
-    }).format(new Date())
-  );
-  if (hour < 12) return "Good morning";
-  if (hour < 17) return "Good afternoon";
-  return "Good evening";
-}
 
 function Stat({
   label,
@@ -46,26 +32,35 @@ function Stat({
 }) {
   const pct = total > 0 ? Math.round((value / total) * 100) : 0;
 
+  // Three stacked rows became two. The label and the number share a baseline
+  // instead of sitting one above the other, and the ratio moved next to the bar
+  // rather than under it — roughly half the height for the same information,
+  // and the tile still fills its grid column, so no gap opens up beside it.
   return (
     <div className="stat">
-      <p className="text-[10px] uppercase tracking-[0.12em] text-faint">
-        {label}
-      </p>
-      <p
-        className="mt-1.5 text-[28px] font-semibold leading-none tabular-nums"
-        style={{ color: value > 0 ? color : "var(--foreground)" }}
-      >
-        {value}
-      </p>
-      <div className="mt-3 h-1 overflow-hidden rounded-full bg-[color-mix(in_oklab,white_8%,transparent)]">
-        <div
-          className="h-full rounded-full transition-all"
-          style={{ width: `${pct}%`, backgroundColor: color }}
-        />
+      <div className="flex items-baseline justify-between gap-2">
+        <p className="truncate text-[10px] uppercase tracking-[0.12em] text-faint">
+          {label}
+        </p>
+        <p
+          className="shrink-0 text-[20px] font-semibold leading-none tabular-nums"
+          style={{ color: value > 0 ? color : "var(--foreground)" }}
+        >
+          {value}
+        </p>
       </div>
-      <p className="mt-1.5 text-[10px] tabular-nums text-faint">
-        {pct}% of {total}
-      </p>
+
+      <div className="mt-2 flex items-center gap-2">
+        <div className="h-1 flex-1 overflow-hidden rounded-full bg-[color-mix(in_oklab,white_8%,transparent)]">
+          <div
+            className="h-full rounded-full transition-all"
+            style={{ width: `${pct}%`, backgroundColor: color }}
+          />
+        </div>
+        <p className="shrink-0 text-[10px] tabular-nums text-faint">
+          {pct}% of {total}
+        </p>
+      </div>
     </div>
   );
 }
@@ -77,7 +72,6 @@ export default async function DashboardPage() {
   const orgId = ctx.membership.organizationId;
   const userId = ctx.session.user.id;
   const now = new Date();
-  const tz = APP_CONFIG.timezone;
 
   // Day boundaries are IST wall-clock, not the server's. Vercel runs in UTC, so
   // setHours(0,0,0,0) here put "today" at 05:30–05:30 IST and quietly counted
@@ -245,19 +239,9 @@ export default async function DashboardPage() {
 
   return (
     <div className="w-full">
-      <header className="mb-4">
-        <h1 className="text-[22px] font-semibold tracking-tight">
-          {greeting(tz)}, {ctx.profile.displayName?.split(" ")[0]}
-        </h1>
-        <p className="mt-0.5 text-[13px] text-faint">
-          {new Intl.DateTimeFormat("en-GB", {
-            weekday: "long",
-            day: "numeric",
-            month: "long",
-            timeZone: tz,
-          }).format(now)}
-        </p>
-      </header>
+      {/* The greeting and date moved into the topbar — they were a heading
+          block and a second line for information glanced at once a session,
+          and the board is what this page is for. */}
 
       {/* Tiles keep their own row across the top. Below them the board takes
           the width and the height that is left, with suggestions in a rail. */}
@@ -333,7 +317,12 @@ export default async function DashboardPage() {
                   );
                 })
               : insights.map((i) => (
-                  <InsightRow key={i.key} type={i.type} text={i.text} />
+                  <InsightRow
+                    key={i.key}
+                    type={i.type}
+                    text={i.text}
+                    filter={i.filter}
+                  />
                 ))}
           </div>
         </aside>

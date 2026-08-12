@@ -499,9 +499,10 @@ h3 {
   width: auto;
 }
 
-/* Stat tile for dashboard metrics */
+/* Stat tile for dashboard metrics. Unlayered, so Tailwind padding utilities
+   cannot reach it — the tightening lives here rather than on the element. */
 .stat {
-  padding: 1rem 1.125rem;
+  padding: 0.75rem 0.875rem;
   border-radius: 0.75rem;
   border: 1px solid color-mix(in oklab, white 9%, transparent);
   background: color-mix(in oklab, var(--card) 62%, transparent);
