@@ -30,6 +30,37 @@ function extensionFor(mimeType: string): string {
   return "webm";
 }
 
+/**
+ * Turn a getUserMedia rejection into something a user can act on.
+ *
+ * These all arrive as NotAllowedError and mean different things, so the copy
+ * has to come from context rather than the error alone. The case that cost the
+ * most to diagnose was a Permissions-Policy header of `microphone=()`: the
+ * browser refuses without ever prompting, which is indistinguishable from a
+ * denied permission except that no site setting can fix it. See next.config.ts.
+ */
+function describeMicError(err: unknown, alreadyDenied: boolean): string {
+  const name = err instanceof DOMException ? err.name : "";
+
+  if (name === "NotFoundError" || name === "OverconstrainedError") {
+    return "No microphone found — plug one in and try again";
+  }
+
+  // The device exists but something else holds it, or the OS refuses. On
+  // Windows this is also what a disabled system-wide mic permission looks like.
+  if (name === "NotReadableError" || name === "AbortError") {
+    return "Your microphone is busy in another app — close it and try again";
+  }
+
+  if (name === "NotAllowedError" || name === "SecurityError") {
+    return alreadyDenied
+      ? "Microphone blocked. Click the icon at the left of the address bar → Microphone → Allow, then reload."
+      : "Nova couldn't reach your microphone. Check that your browser and Windows both allow it, then try again.";
+  }
+
+  return "Couldn't start recording";
+}
+
 export function formatDuration(seconds: number): string {
   const m = Math.floor(seconds / 60);
   const s = Math.floor(seconds % 60);
@@ -129,25 +160,39 @@ export function VoiceRecorder({
   async function start() {
     setError(null);
 
+    // getUserMedia only exists on a secure origin. Over plain http on a LAN
+    // address — which is what `next dev` prints as its Network URL — it is
+    // either missing or rejects, and no amount of clicking Allow will help.
+    // Worth naming, because the browser gives no clue that this is the reason.
+    if (typeof window !== "undefined" && !window.isSecureContext) {
+      setError("Recording needs https — open Nova on localhost or the live site");
+      return;
+    }
+
     if (typeof navigator === "undefined" || !navigator.mediaDevices) {
       setError("This browser can't record audio");
       return;
+    }
+
+    // Asked before prompting, purely to tell two states apart that throw the
+    // same error: "will ask you now" and "already refused, and will not ask
+    // again". Only the second needs the user to go into site settings.
+    let alreadyDenied = false;
+    try {
+      const status = await navigator.permissions?.query({
+        name: "microphone" as PermissionName,
+      });
+      alreadyDenied = status?.state === "denied";
+    } catch {
+      // Firefox has no microphone descriptor here. Fall through and let
+      // getUserMedia be the authority.
     }
 
     let stream: MediaStream;
     try {
       stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     } catch (err) {
-      // NotAllowedError covers both a denied prompt and a blocked permission,
-      // which are the same fix from the user's side.
-      const denied =
-        err instanceof DOMException &&
-        (err.name === "NotAllowedError" || err.name === "SecurityError");
-      setError(
-        denied
-          ? "Microphone access was blocked — allow it in your browser settings"
-          : "No microphone available"
-      );
+      setError(describeMicError(err, alreadyDenied));
       return;
     }
 

@@ -23,8 +23,14 @@ const nextConfig: NextConfig = {
           { key: "X-Content-Type-Options", value: "nosniff" },
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
           {
+            // microphone=(self), not microphone=(). An empty allowlist blocks
+            // the feature for our own origin too, and the browser then refuses
+            // getUserMedia *without prompting* — by design, since the site has
+            // said it does not want the capability. That reads exactly like a
+            // user-denied permission with no way to grant it. Voice notes need
+            // this; camera and geolocation stay closed because nothing uses them.
             key: "Permissions-Policy",
-            value: "camera=(), microphone=(), geolocation=()",
+            value: "camera=(), microphone=(self), geolocation=()",
           },
           {
             key: "Strict-Transport-Security",
