@@ -34,6 +34,7 @@ import {
   deleteSubtask,
   editComment,
   loadTaskDetail,
+  setTaskAssignees,
   setSubtaskDone,
   uploadTaskAttachment,
 } from "@/server/actions/task-detail";
@@ -79,19 +80,34 @@ function formatBytes(bytes: number) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function Avatar({ name, image }: { name: string; image: string | null }) {
+function Avatar({
+  name,
+  image,
+  size = 24,
+}: {
+  name: string;
+  image: string | null;
+  /** Smaller inside a 28px pill, where the default would fill it edge to edge. */
+  size?: number;
+}) {
+  const box = { width: size, height: size };
+
   if (image) {
     return (
       // eslint-disable-next-line @next/next/no-img-element
       <img
         src={image}
         alt=""
-        className="h-6 w-6 shrink-0 rounded-full border border-border object-cover"
+        style={box}
+        className="shrink-0 rounded-full border border-border object-cover"
       />
     );
   }
   return (
-    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-violet/20 text-[10px] font-medium text-brand-violet">
+    <span
+      style={{ ...box, fontSize: Math.round(size * 0.42) }}
+      className="flex shrink-0 items-center justify-center rounded-full bg-brand-violet/20 font-medium text-brand-violet"
+    >
       {name.charAt(0).toUpperCase()}
     </span>
   );
@@ -476,19 +492,49 @@ function Fields({
 }) {
   const { push } = useToast();
   const [description, setDescription] = useState(detail.description);
+  // Every free-text field is a draft until it is committed, so typing is not
+  // fighting a server round trip on each keystroke. Selects commit on change;
+  // text and date inputs commit on blur or Enter.
+  const [title, setTitle] = useState(detail.title);
+  const [dueAt, setDueAt] = useState(detail.dueAtInput);
+  const [estimate, setEstimate] = useState(detail.estimatedMinutes);
   const [pending, startTransition] = useTransition();
 
   useEffect(() => setDescription(detail.description), [detail.description]);
+  useEffect(() => setTitle(detail.title), [detail.title]);
+  useEffect(() => setDueAt(detail.dueAtInput), [detail.dueAtInput]);
+  useEffect(
+    () => setEstimate(detail.estimatedMinutes),
+    [detail.estimatedMinutes]
+  );
 
-  function save(patch: Partial<{ status: string; priority: string; description: string }>) {
+  type Patch = Partial<{
+    status: string;
+    priority: string;
+    description: string;
+    title: string;
+    dueAt: string;
+    estimatedMinutes: string;
+  }>;
+
+  // updateTask takes the whole row, so every call sends the current draft of
+  // each field. Sending only the patch would blank whatever it omitted.
+  function save(patch: Patch) {
+    const nextTitle = (patch.title ?? title).trim();
+    if (!nextTitle) {
+      push("Title can't be empty", "error");
+      setTitle(detail.title);
+      return;
+    }
+
     startTransition(async () => {
       const result = await updateTask(detail.id, {
-        title: detail.title,
+        title: nextTitle,
         description: patch.description ?? description,
         priority: patch.priority ?? detail.priority,
         status: patch.status ?? detail.status,
-        dueAt: detail.dueAtInput,
-        estimatedMinutes: detail.estimatedMinutes,
+        dueAt: patch.dueAt ?? dueAt,
+        estimatedMinutes: patch.estimatedMinutes ?? estimate,
       });
 
       if (!result.ok) {
@@ -499,8 +545,39 @@ function Fields({
     });
   }
 
+  function setAssignees(ids: string[]) {
+    startTransition(async () => {
+      const result = await setTaskAssignees(detail.id, ids);
+      if (!result.ok) {
+        push(result.error, "error");
+        return;
+      }
+      await onSaved();
+    });
+  }
+
   return (
     <div className={pending ? "opacity-70" : ""}>
+      <label className="mb-3 flex flex-col gap-1">
+        <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+          Title
+        </span>
+        <input
+          value={title}
+          disabled={!detail.canEdit}
+          onChange={(e) => setTitle(e.target.value)}
+          onBlur={() => {
+            if (title.trim() === detail.title) return;
+            save({ title });
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") e.currentTarget.blur();
+            if (e.key === "Escape") setTitle(detail.title);
+          }}
+          className={`${field} text-sm`}
+        />
+      </label>
+
       <div className="grid grid-cols-2 gap-2">
         <label className="flex flex-col gap-1">
           <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
@@ -539,23 +616,50 @@ function Fields({
         </label>
       </div>
 
-      <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
-        <div>
-          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+      {/* Both were read-only text before, which meant a task could be created
+          with the wrong date and never corrected without deleting it. */}
+      <div className="mt-3 grid grid-cols-2 gap-2">
+        <label className="flex flex-col gap-1">
+          <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
             Due
-          </p>
-          <p className="mt-1">{detail.dueAtLabel ?? "No date"}</p>
-        </div>
-        <div>
-          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
-            Estimate
-          </p>
-          <p className="mt-1">
-            {detail.estimatedMinutes
-              ? `${detail.estimatedMinutes} min`
-              : "Not set"}
-          </p>
-        </div>
+          </span>
+          {/* datetime-local, so it round-trips through toLocalInput /
+              fromLocalInput — the server runs in UTC and a raw value lands
+              5.5 hours out. */}
+          <input
+            type="datetime-local"
+            value={dueAt}
+            disabled={!detail.canEdit}
+            onChange={(e) => setDueAt(e.target.value)}
+            onBlur={() => {
+              if (dueAt === detail.dueAtInput) return;
+              save({ dueAt });
+            }}
+            className={field}
+          />
+        </label>
+
+        <label className="flex flex-col gap-1">
+          <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+            Estimate (min)
+          </span>
+          <input
+            type="number"
+            min={0}
+            value={estimate}
+            disabled={!detail.canEdit}
+            placeholder="Not set"
+            onChange={(e) => setEstimate(e.target.value)}
+            onBlur={() => {
+              if (estimate === detail.estimatedMinutes) return;
+              save({ estimatedMinutes: estimate });
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") e.currentTarget.blur();
+            }}
+            className={field}
+          />
+        </label>
       </div>
 
       {detail.teams.length > 0 && (
@@ -591,21 +695,48 @@ function Fields({
         </label>
       )}
 
-      {detail.assignees.length > 0 && (
-        <div className="mt-3">
-          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
-            Assignees
-          </p>
-          <div className="mt-1.5 flex flex-wrap items-center gap-2">
-            {detail.assignees.map((a) => (
-              <span key={a.id} className="flex items-center gap-1.5 text-xs">
-                <Avatar name={a.name} image={a.image} />
-                {a.name}
-              </span>
-            ))}
-          </div>
+      <div className="mt-3">
+        <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+          Assignees
+        </p>
+
+        {/* A roster of toggles rather than a dropdown: the workspace is small,
+            and the whole point is seeing at a glance who is on this. The first
+            one selected owns the task, which is how the composers create them. */}
+        <div className="mt-1.5 flex flex-wrap gap-1.5">
+          {detail.allMembers.map((member) => {
+            const on = detail.assignees.some((a) => a.id === member.id);
+            return (
+              <button
+                key={member.id}
+                type="button"
+                data-on={on}
+                disabled={!detail.canEdit || pending}
+                onClick={() =>
+                  setAssignees(
+                    on
+                      ? detail.assignees
+                          .filter((a) => a.id !== member.id)
+                          .map((a) => a.id)
+                      : [...detail.assignees.map((a) => a.id), member.id]
+                  )
+                }
+                title={on ? `Remove ${member.name}` : `Assign ${member.name}`}
+                className="pill pill-sm disabled:opacity-50"
+              >
+                <Avatar name={member.name} image={member.image} size={16} />
+                {member.name}
+              </button>
+            );
+          })}
         </div>
-      )}
+
+        {detail.assignees.length === 0 && (
+          <p className="mt-1.5 text-[11px] text-faint">
+            Nobody is on this — it belongs to no one&apos;s board.
+          </p>
+        )}
+      </div>
 
       <div className="mt-3">
         <p className="mb-1.5 text-[10px] uppercase tracking-wider text-muted-foreground">

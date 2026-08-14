@@ -69,6 +69,8 @@ export type TaskDetailData = {
   labels: { id: string; name: string; color: string }[];
   /** Every label in the workspace, so the picker needs no second round trip. */
   allLabels: { id: string; name: string; color: string }[];
+  /** Active org members, so the assignee picker needs no second round trip. */
+  allMembers: { id: string; name: string; image: string | null }[];
   teamId: string | null;
   teams: { id: string; name: string; color: string }[];
   subtasks: SubtaskRow[];
@@ -190,7 +192,7 @@ export async function getTaskDetail(
 
   if (!task) return null;
 
-  const [allLabels, teams] = await Promise.all([
+  const [allLabels, teams, memberRows] = await Promise.all([
     prisma.label.findMany({
       where: { organizationId: orgId },
       orderBy: { name: "asc" },
@@ -201,7 +203,30 @@ export async function getTaskDetail(
       orderBy: { name: "asc" },
       select: { id: true, name: true, color: true },
     }),
+    // The roster, so reassigning needs no second round trip — the same reason
+    // allLabels rides along.
+    prisma.organizationMember.findMany({
+      where: { organizationId: orgId, status: "ACTIVE" },
+      orderBy: { createdAt: "asc" },
+      select: {
+        userId: true,
+        user: {
+          select: {
+            name: true,
+            email: true,
+            image: true,
+            profile: { select: { displayName: true, avatarUrl: true } },
+          },
+        },
+      },
+    }),
   ]);
+
+  const allMembers = memberRows.map((m) => ({
+    id: m.userId,
+    name: m.user.profile?.displayName ?? m.user.name ?? m.user.email ?? "Member",
+    image: m.user.profile?.avatarUrl ?? m.user.image ?? null,
+  }));
 
   const blockedBy: DependencyRow[] = task.dependencies.map((d) => ({
     id: d.id,
@@ -277,6 +302,7 @@ export async function getTaskDetail(
       color: l.label.color,
     })),
     allLabels,
+    allMembers,
     teamId: task.teamId,
     teams: teams.map((t) => ({
       id: t.id,

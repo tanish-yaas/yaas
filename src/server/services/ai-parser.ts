@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { AI_CONFIG } from "@/config/ai";
 import { APP_CONFIG } from "@/config/app";
 import { parsedTaskSchema, type ParsedTask } from "@/lib/ai/schemas";
+import { isTransientModelError } from "@/lib/ai/errors";
 import {
   addDaysToKey,
   addMonthsToKey,
@@ -179,11 +180,11 @@ async function callModel(
       temperature: 0,
     });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "";
-    const rateLimited = /429|quota|rate.?limit|resource.?exhausted/i.test(message);
-
-    if (rateLimited && attempt < 3) {
-      await new Promise((r) => setTimeout(r, attempt * 2500));
+    // Attempt 2 and 3 run on the fallback model, so a primary that is simply
+    // busy costs a retry rather than the whole parse. The backoff is shorter
+    // on the first retry because switching models is usually enough on its own.
+    if (isTransientModelError(err) && attempt < 3) {
+      await new Promise((r) => setTimeout(r, attempt * 1200));
       return callModel(system, prompt, attempt + 1);
     }
 
@@ -259,12 +260,13 @@ export async function parseTaskInput(params: ParseParams): Promise<ParseResult> 
       },
     });
 
-    const rateLimited = /429|quota|rate|exhausted/i.test(message);
-
+    // Worth separating: "the model is busy" is nothing to do with what was
+    // typed, and telling someone to rephrase a perfectly good sentence sends
+    // them rewriting it until the outage ends.
     return {
       ok: false,
-      error: rateLimited
-        ? "Too many requests just now. Add it manually below, or wait a moment."
+      error: isTransientModelError(err)
+        ? "The model is busy right now — try again in a moment, or add it manually below."
         : "Couldn't read that. Try rephrasing, or add it manually.",
     };
   }

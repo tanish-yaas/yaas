@@ -1,6 +1,7 @@
 import { generateText } from "ai";
 import { google } from "@ai-sdk/google";
 import { AI_CONFIG } from "@/config/ai";
+import { isTransientModelError } from "@/lib/ai/errors";
 
 export type TranscribeResult =
   | { ok: true; text: string }
@@ -50,13 +51,10 @@ async function callModel(
 
     return result.text;
   } catch (err) {
-    const message = err instanceof Error ? err.message : "";
-    const rateLimited = /429|quota|rate.?limit|resource.?exhausted/i.test(message);
-
-    // Same backoff shape as the parser's callModel. The free tier rate-limits
-    // per minute, and a retry usually clears it.
-    if (rateLimited && attempt < 3) {
-      await new Promise((r) => setTimeout(r, attempt * 2500));
+    // Same shape as the parser's callModel: attempts 2 and 3 use the fallback
+    // model, so an overloaded primary costs a retry rather than the feature.
+    if (isTransientModelError(err) && attempt < 3) {
+      await new Promise((r) => setTimeout(r, attempt * 1200));
       return callModel(bytes, mediaType, attempt + 1);
     }
 
@@ -86,8 +84,7 @@ export async function transcribeAudio(
 
     return { ok: true, text: unwrapped.slice(0, AI_CONFIG.maxInputChars) };
   } catch (err) {
-    const message = err instanceof Error ? err.message : "";
-    if (/429|quota|rate.?limit|resource.?exhausted/i.test(message)) {
+    if (isTransientModelError(err)) {
       return { ok: false, error: "Speech-to-text is busy — try again shortly" };
     }
     return { ok: false, error: "Couldn't read that recording" };

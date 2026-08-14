@@ -252,6 +252,79 @@ export async function deleteComment(commentId: string) {
 }
 
 // ---------------------------------------------------------------------------
+// Assignees
+// ---------------------------------------------------------------------------
+
+/**
+ * Replace a task's assignees.
+ *
+ * The first id becomes OWNER and the rest COLLABORATOR, matching how the
+ * composers create them. An empty list is allowed on purpose — "unassigned" is
+ * a real state the board and the insights both count, so editing must be able
+ * to reach it.
+ */
+export async function setTaskAssignees(taskId: string, userIds: string[]) {
+  const ctx = await requirePermission("task.edit_own");
+  const orgId = ctx.membership!.organizationId;
+  const userId = ctx.session.user.id;
+
+  const task = await canMutateTask(taskId, orgId, userId, ctx.permissions);
+  if (!task) return { ok: false as const, error: "Not allowed" };
+
+  // Membership is re-checked rather than trusted from the client: this list
+  // comes back as ids from a picker, and an id that is not an active member of
+  // this org must never end up on a task.
+  const valid = await prisma.organizationMember.findMany({
+    where: { organizationId: orgId, userId: { in: userIds }, status: "ACTIVE" },
+    select: { userId: true },
+  });
+
+  // Preserve the order the picker sent, so whoever is first stays the owner.
+  const ordered = userIds.filter((id) => valid.some((v) => v.userId === id));
+
+  const before = await prisma.taskAssignment.findMany({
+    where: { taskId },
+    select: { userId: true },
+  });
+  const had = new Set(before.map((a) => a.userId));
+
+  await prisma.$transaction(async (tx) => {
+    await tx.taskAssignment.deleteMany({ where: { taskId } });
+
+    if (ordered.length > 0) {
+      await tx.taskAssignment.createMany({
+        data: ordered.map((id, i) => ({
+          organizationId: orgId,
+          taskId,
+          userId: id,
+          role: i === 0 ? ("OWNER" as const) : ("COLLABORATOR" as const),
+          assignedById: userId,
+        })),
+        skipDuplicates: true,
+      });
+    }
+
+    // Only the people who were not already on it, and never yourself.
+    const added = ordered.filter((id) => !had.has(id) && id !== userId);
+    if (added.length > 0) {
+      await tx.notification.createMany({
+        data: added.map((id) => ({
+          organizationId: orgId,
+          userId: id,
+          type: "TASK_ASSIGNED" as const,
+          title: "New task assigned",
+          body: task.title,
+          taskId,
+        })),
+      });
+    }
+  });
+
+  refresh();
+  return { ok: true as const };
+}
+
+// ---------------------------------------------------------------------------
 // Attachments
 // ---------------------------------------------------------------------------
 
