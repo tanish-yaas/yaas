@@ -2,6 +2,7 @@ import { generateText } from "ai";
 import { google } from "@ai-sdk/google";
 import { AI_CONFIG } from "@/config/ai";
 import { isTransientModelError } from "@/lib/ai/errors";
+import { markPrimaryDown, markPrimaryUp, primaryIsDown } from "@/lib/ai/model-health";
 
 export type TranscribeResult =
   | { ok: true; text: string }
@@ -31,9 +32,15 @@ async function callModel(
   mediaType: string,
   attempt = 1
 ): Promise<string> {
+  // Same policy as the parser's callModel, and the same reasoning — see there.
+  // Dictation feels the latency more, if anything: the user has just finished
+  // speaking and is watching the button.
+  const usePrimary = attempt === 1 && !primaryIsDown();
+  const model = usePrimary ? AI_CONFIG.model : AI_CONFIG.fallbackModel;
+
   try {
     const result = await generateText({
-      model: google(attempt === 1 ? AI_CONFIG.model : AI_CONFIG.fallbackModel),
+      model: google(model),
       system: SYSTEM,
       messages: [
         {
@@ -47,18 +54,20 @@ async function callModel(
       // Transcription is recall, not composition. Sampling here invents words
       // that were never said — the same reason the parser pins this to 0.
       temperature: 0,
+      // Our retry switches model; the SDK's would re-send the whole clip to the
+      // same busy one, which is both slow and the larger upload to repeat.
+      maxRetries: 0,
     });
 
+    if (usePrimary) markPrimaryUp();
     return result.text;
   } catch (err) {
-    // Same shape as the parser's callModel: attempts 2 and 3 use the fallback
-    // model, so an overloaded primary costs a retry rather than the feature.
-    if (isTransientModelError(err) && attempt < 3) {
-      await new Promise((r) => setTimeout(r, attempt * 1200));
-      return callModel(bytes, mediaType, attempt + 1);
-    }
+    if (!isTransientModelError(err) || attempt >= 3) throw err;
 
-    throw err;
+    if (usePrimary) markPrimaryDown();
+    else await new Promise((r) => setTimeout(r, attempt * 500));
+
+    return callModel(bytes, mediaType, attempt + 1);
   }
 }
 

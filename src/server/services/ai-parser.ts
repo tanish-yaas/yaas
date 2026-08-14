@@ -5,6 +5,7 @@ import { AI_CONFIG } from "@/config/ai";
 import { APP_CONFIG } from "@/config/app";
 import { parsedTaskSchema, type ParsedTask } from "@/lib/ai/schemas";
 import { isTransientModelError } from "@/lib/ai/errors";
+import { markPrimaryDown, markPrimaryUp, primaryIsDown } from "@/lib/ai/model-health";
 import {
   addDaysToKey,
   addMonthsToKey,
@@ -167,28 +168,43 @@ async function callModel(
   prompt: string,
   attempt = 1
 ): Promise<Awaited<ReturnType<typeof generateObject<typeof parsedTaskSchema>>>> {
+  // The primary only gets the first attempt, and only when it is not already
+  // known to be down. Everything after that is the fallback.
+  const usePrimary = attempt === 1 && !primaryIsDown();
+  const model = usePrimary ? AI_CONFIG.model : AI_CONFIG.fallbackModel;
+
   try {
-    return await generateObject({
-      model: google(
-        attempt === 1 ? AI_CONFIG.model : AI_CONFIG.fallbackModel
-      ),
+    const result = await generateObject({
+      model: google(model),
       schema: parsedTaskSchema,
       system,
       prompt,
       // Extraction, not writing. Sampling at the model's default temperature is
       // why the same note could parse two different ways on two tries.
       temperature: 0,
+      // The SDK's own retry re-tries the *same* model with exponential backoff,
+      // which is the one thing that cannot help an overloaded one — measured at
+      // 7.5s of waiting before it gave up and let us switch. Retrying is our
+      // job here precisely because our retry changes model.
+      maxRetries: 0,
     });
+
+    if (usePrimary) markPrimaryUp();
+    return result;
   } catch (err) {
-    // Attempt 2 and 3 run on the fallback model, so a primary that is simply
-    // busy costs a retry rather than the whole parse. The backoff is shorter
-    // on the first retry because switching models is usually enough on its own.
-    if (isTransientModelError(err) && attempt < 3) {
-      await new Promise((r) => setTimeout(r, attempt * 1200));
-      return callModel(system, prompt, attempt + 1);
+    if (!isTransientModelError(err) || attempt >= 3) throw err;
+
+    if (usePrimary) {
+      // Skip the primary for the next minute rather than rediscovering this on
+      // every request for as long as the outage lasts.
+      markPrimaryDown();
+    } else {
+      // Only wait when the next attempt is the same model again. Switching
+      // models needs no cooling-off period — that is the whole point of it.
+      await new Promise((r) => setTimeout(r, attempt * 500));
     }
 
-    throw err;
+    return callModel(system, prompt, attempt + 1);
   }
 }
 
