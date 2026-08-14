@@ -88,8 +88,13 @@ export type AnchorRect = {
  */
 export function toZoomed(rect: DOMRect, element?: Element | null): AnchorRect {
   const z = zoomOf(element);
-  if (z === 1) return rect;
 
+  // Always a fresh plain object, even at zoom 1 where the numbers are
+  // unchanged. Returning the DOMRect itself reads like a harmless fast path,
+  // but a DOMRect keeps left/top/right/bottom as getters on its prototype and
+  // has no own enumerable properties — so `{ ...rect }` downstream yields `{}`
+  // and every coordinate silently becomes undefined. That is what broke the
+  // label picker: NaN offsets on a fixed element, which renders nowhere.
   return {
     left: rect.left / z,
     top: rect.top / z,
@@ -138,5 +143,19 @@ export function anchorOf(element: Element): AnchorRect & {
 } {
   const rect = toZoomed(element.getBoundingClientRect(), element);
   const { width, height } = viewportSize(element);
-  return { ...rect, viewportWidth: width, viewportHeight: height };
+
+  // Copied field by field rather than spread. toZoomed is contracted to return
+  // a plain object, but this is the one call site where a DOMRect sneaking
+  // through would produce undefined coordinates and no error — so it does not
+  // depend on that contract holding.
+  return {
+    left: rect.left,
+    top: rect.top,
+    right: rect.right,
+    bottom: rect.bottom,
+    width: rect.width,
+    height: rect.height,
+    viewportWidth: width,
+    viewportHeight: height,
+  };
 }
