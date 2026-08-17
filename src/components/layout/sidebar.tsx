@@ -76,10 +76,9 @@ export function Sidebar({
       {/* Settings used to sit here. It lives next to the profile in the topbar
           now, where it is also reachable with the sidebar collapsed. */}
 
-      {/* A growing spacer rather than a margin, so today's page sits at the
-          bottom of the empty run below the nav — and still keeps a gap when
-          the sidebar is too short for one. */}
-      <div className="min-h-6 flex-1" />
+      {/* Directly under the nav, not pushed to the floor: the note grows down
+          as points are added, and the sidebar scrolls once it runs out of
+          room. */}
       <DiaryPin todayKey={todayKey} canPush={canPush} />
     </aside>
   );

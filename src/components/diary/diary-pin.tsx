@@ -26,7 +26,7 @@ export function DiaryPin({
 
   return (
     <div
-      className="note-pinned flex max-h-[19rem] shrink-0 flex-col overflow-hidden"
+      className="note-pinned mt-5 flex shrink-0 flex-col overflow-hidden"
       style={{ "--note": page.color } as React.CSSProperties}
     >
       <div aria-hidden className="note-edge h-[3px] shrink-0" />
@@ -53,7 +53,9 @@ export function DiaryPin({
         </button>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-1 pb-1">
+      {/* No inner scroller: the note is as tall as its points, and the sidebar
+          is what scrolls when there are more of them than there is sidebar. */}
+      <div className="px-1 pb-1">
         {page.loading ? (
           <p className="px-2 py-2 text-[11px] text-faint">Opening…</p>
         ) : (
