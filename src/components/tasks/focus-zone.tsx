@@ -6,7 +6,9 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Target } from "lucide-react";
 import { Stagger, StaggerItem } from "@/components/motion/fade-in";
 import { EmptyState } from "@/components/ui/empty-state";
+import { useHydrated } from "@/lib/use-hydrated";
 import { TaskRow, type TaskRowData } from "./task-row";
+import { DiaryButton } from "./diary-book";
 import type { LabelOption } from "./label-picker";
 
 const KEY = "yaas.tasks.focus";
@@ -37,8 +39,6 @@ function writeFocus(next: boolean) {
 }
 
 const alwaysFalse = () => false;
-const alwaysTrue = () => true;
-const noSubscribe = () => () => {};
 
 export function FocusZone({
   todayTasks,
@@ -48,6 +48,8 @@ export function FocusZone({
   openCount,
   doneCount,
   allLabels,
+  todayKey,
+  canPush,
   children,
 }: {
   /** Everything today is asking for: overdue first, then due before midnight. */
@@ -60,12 +62,16 @@ export function FocusZone({
   openCount: number;
   doneCount: number;
   allLabels: LabelOption[];
+  /** Today in IST, for the diary's opening page. */
+  todayKey: string;
+  /** Whether this member may run the parser behind the diary's push button. */
+  canPush: boolean;
   /** The full, unfiltered page. Rendered whenever focus mode is off. */
   children: React.ReactNode;
 }) {
   const on = useSyncExternalStore(subscribeFocus, readFocus, alwaysFalse);
   // The aura portals into document.body, which only exists once hydrated.
-  const mounted = useSyncExternalStore(noSubscribe, alwaysTrue, alwaysFalse);
+  const mounted = useHydrated();
 
   const toggle = useCallback((next: boolean) => writeFocus(next), []);
 
@@ -174,6 +180,7 @@ export function FocusZone({
               Esc to exit
             </span>
           )}
+          <DiaryButton todayKey={todayKey} canPush={canPush} />
           <button
             type="button"
             onClick={() => toggle(!on)}

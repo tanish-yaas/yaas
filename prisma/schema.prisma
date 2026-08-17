@@ -255,6 +255,8 @@ model User {
   llmConversations LLMConversation[]
   aiSuggestions    AISuggestion[]
 
+  diaryEntries DiaryEntry[]
+
   productivitySnapshots ProductivitySnapshot[]
   activityLogs          ActivityLog[]
   auditLogs             AuditLog[]
@@ -425,6 +427,8 @@ model Organization {
   llmConversations LLMConversation[]
   llmMessages      LLMMessage[]
   aiSuggestions    AISuggestion[]
+
+  diaryEntries DiaryEntry[]
 
   productivitySnapshots ProductivitySnapshot[]
   activityLogs          ActivityLog[]
@@ -1022,6 +1026,38 @@ model TaskPriorityHistory {
   @@index([taskId, createdAt])
   @@index([changedByAI])
   @@map("task_priority_history")
+}
+
+// ---------------------------------------------------------------------------
+// Diary
+// ---------------------------------------------------------------------------
+
+/// One page per person per day: the bullet points someone jotted down before
+/// any of them became tasks. Private to its author — never scoped by team.
+model DiaryEntry {
+  id             String @id @default(cuid())
+  organizationId String @map("organization_id")
+  userId         String @map("user_id")
+
+  /// The IST calendar day this page is, as "YYYY-MM-DD". A day key rather than
+  /// a timestamp because a diary page is a wall-clock day, not an instant.
+  dayKey String @map("day_key")
+
+  /// Ordered points: [{ id, text, taskId, taskTitle }]. A page is edited and
+  /// saved whole, so rows per point would buy nothing but joins — and taskId is
+  /// a soft reference, kept alongside the title so a deleted task still reads.
+  points Json @default("[]")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, userId, dayKey])
+  @@index([organizationId, userId, deletedAt])
+  @@map("diary_entries")
 }
 
 // ---------------------------------------------------------------------------

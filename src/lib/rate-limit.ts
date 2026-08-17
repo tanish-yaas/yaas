@@ -55,5 +55,8 @@ export const LIMITS = {
   aiChat: { limit: 15, window: 60 },
   search: { limit: 60, window: 60 },
   mutation: { limit: 60, window: 60 },
+  // The diary autosaves while you type, so it needs more headroom than a
+  // deliberate mutation — a debounced page still lands a few times a minute.
+  diarySave: { limit: 180, window: 60 },
   webhook: { limit: 120, window: 60 },
 } as const;
