@@ -156,8 +156,6 @@ export default async function TasksPage() {
         openCount={open.length}
         doneCount={done.length}
         allLabels={labelRows}
-        todayKey={todayKey}
-        canPush={ctx.permissions.has("ai.use")}
       >
         {ctx.permissions.has("ai.use") ? (
           <div className="flex flex-col gap-2">

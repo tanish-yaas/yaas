@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { istTodayKey } from "@/lib/dates";
 import {
   getRecentNotifications,
   getUnreadCount,
@@ -65,6 +66,7 @@ export async function TopbarData({
       unreadCount={unreadCount}
       notifications={notifications}
       suggestions={suggestions}
+      todayKey={istTodayKey()}
     />
   );
 }

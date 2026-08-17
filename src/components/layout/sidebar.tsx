@@ -11,14 +11,21 @@ import {
 } from "lucide-react";
 import { NavLink } from "./nav-link";
 import { BrandLockup } from "./brand";
+import { DiaryPin } from "@/components/diary/diary-pin";
 
 export function Sidebar({
   canApprove,
   pendingCount,
+  todayKey,
+  canPush,
   onToggle,
 }: {
   canApprove: boolean;
   pendingCount: number;
+  /** Today in IST — the page pinned at the bottom. */
+  todayKey: string;
+  /** Whether this member may run the parser behind the pin's push buttons. */
+  canPush: boolean;
   onToggle: () => void;
 }) {
   return (
@@ -68,6 +75,12 @@ export function Sidebar({
 
       {/* Settings used to sit here. It lives next to the profile in the topbar
           now, where it is also reachable with the sidebar collapsed. */}
+
+      {/* A growing spacer rather than a margin, so today's page sits at the
+          bottom of the empty run below the nav — and still keeps a gap when
+          the sidebar is too short for one. */}
+      <div className="min-h-6 flex-1" />
+      <DiaryPin todayKey={todayKey} canPush={canPush} />
     </aside>
   );
 }

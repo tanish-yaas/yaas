@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getCurrentContext } from "@/server/auth/session";
+import { istTodayKey } from "@/lib/dates";
 import { AppShell } from "@/components/layout/app-shell";
 import {
   TopbarData,
@@ -38,6 +39,8 @@ export default async function AppLayout({
       orgName={ctx.membership.organization.name}
       canApprove={canApprove}
       pendingCount={pendingCount}
+      todayKey={istTodayKey()}
+      canPush={ctx.permissions.has("ai.use")}
       topbar={
         <Suspense fallback={<TopbarFallback />}>
           <TopbarData

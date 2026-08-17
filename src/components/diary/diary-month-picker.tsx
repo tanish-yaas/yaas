@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import {
   addDaysToKey,
@@ -10,6 +10,7 @@ import {
   istMonthStartKey,
   istWeekStartKey,
 } from "@/lib/dates";
+import { diaryColorFor } from "@/lib/diary-color";
 import { listDiaryDays } from "@/server/actions/diary";
 
 const WEEKDAYS = ["M", "T", "W", "T", "F", "S", "S"];
@@ -17,8 +18,9 @@ const CELLS = 42;
 
 /**
  * Six weeks of days, Monday first — the same grid the calendar month view lays
- * out, at diary scale. Days that already have a page get a dot, so paging back
- * through the book is a matter of aiming rather than guessing.
+ * out, at diary scale. Days that already have a page get a dot in that page's
+ * own colour, so paging back through the book is a matter of aiming rather than
+ * guessing.
  */
 export function DiaryMonthPicker({
   selectedKey,
@@ -32,8 +34,7 @@ export function DiaryMonthPicker({
   onDismiss: () => void;
 }) {
   const [anchorKey, setAnchorKey] = useState(() => istMonthStartKey(selectedKey));
-  const [written, setWritten] = useState<Set<string>>(new Set());
-  const [, startTransition] = useTransition();
+  const [written, setWritten] = useState<Map<string, string>>(new Map());
   const ref = useRef<HTMLDivElement>(null);
 
   const monthStart = istMonthStartKey(anchorKey);
@@ -44,11 +45,15 @@ export function DiaryMonthPicker({
   useEffect(() => {
     let live = true;
 
-    startTransition(async () => {
+    void (async () => {
       const result = await listDiaryDays(gridStart, gridEnd);
       if (!live || !result.ok) return;
-      setWritten(new Set(result.days));
-    });
+      setWritten(
+        new Map(
+          result.days.map((d) => [d.dayKey, d.color ?? diaryColorFor(d.dayKey)])
+        )
+      );
+    })();
 
     return () => {
       live = false;
@@ -78,7 +83,7 @@ export function DiaryMonthPicker({
   return (
     <div
       ref={ref}
-      className="overlay absolute right-3 top-14 z-10 w-[16.5rem] p-3"
+      className="overlay absolute right-3 top-14 z-20 w-[16.5rem] p-3"
     >
       <div className="mb-2 flex items-center justify-between">
         <button
@@ -121,6 +126,7 @@ export function DiaryMonthPicker({
           const outside = key < monthStart || key >= monthEnd;
           const selected = key === selectedKey;
           const isToday = key === todayKey;
+          const noteColor = written.get(key);
 
           return (
             <button
@@ -136,13 +142,13 @@ export function DiaryMonthPicker({
               } ${isToday && !selected ? "text-brand-cyan" : ""}`}
             >
               {Number(key.slice(8))}
-              {written.has(key) && (
+              {noteColor && (
                 <span
                   className="absolute bottom-0.5 h-[3px] w-[3px] rounded-full"
                   style={{
                     background: selected
                       ? "var(--primary-foreground)"
-                      : "var(--brand-violet)",
+                      : noteColor,
                   }}
                 />
               )}

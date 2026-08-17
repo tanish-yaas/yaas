@@ -5,6 +5,8 @@ import { requireContext, requirePermission, checkRate } from "@/server/rbac/guar
 import { LIMITS } from "@/lib/rate-limit";
 import { parseTaskInput } from "@/server/services/ai-parser";
 import { applyParsedTask } from "@/server/actions/ai-tasks";
+import { getDiaryPage, readDiaryPoints } from "@/server/services/diary";
+import { isDiaryColor } from "@/lib/diary-color";
 import { toLocalInput, formatIST } from "@/lib/dates";
 import {
   dayKeySchema,
@@ -21,32 +23,20 @@ function isEmptyPage(points: DiaryPoint[]) {
   return points.every((p) => !p.text.trim() && !p.taskId);
 }
 
-function readPoints(value: unknown): DiaryPoint[] {
-  const parsed = diaryPointsSchema.safeParse(value);
-  return parsed.success ? parsed.data : [];
-}
-
 export async function loadDiaryPage(rawDayKey: string) {
   const ctx = await requireContext();
 
   const dayKey = dayKeySchema.safeParse(rawDayKey);
   if (!dayKey.success) return { ok: false as const, error: "That isn't a day" };
 
-  const entry = await prisma.diaryEntry.findFirst({
-    where: {
-      organizationId: ctx.membership!.organizationId,
-      userId: ctx.session.user.id,
-      dayKey: dayKey.data,
-      deletedAt: null,
-    },
-    select: { points: true },
-  });
+  const page = await getDiaryPage(
+    ctx.membership!.organizationId,
+    ctx.session.user.id,
+    ctx.permissions,
+    dayKey.data
+  );
 
-  return {
-    ok: true as const,
-    dayKey: dayKey.data,
-    points: entry ? readPoints(entry.points) : [],
-  };
+  return { ok: true as const, page };
 }
 
 /** Which days in a range have a page, so the date picker can mark them. */
@@ -67,14 +57,21 @@ export async function listDiaryDays(rawFrom: string, rawTo: string) {
       deletedAt: null,
       dayKey: { gte: from.data, lte: to.data },
     },
-    select: { dayKey: true },
+    select: { dayKey: true, color: true },
     take: 400,
   });
 
-  return { ok: true as const, days: entries.map((e) => e.dayKey) };
+  return {
+    ok: true as const,
+    days: entries.map((e) => ({ dayKey: e.dayKey, color: e.color })),
+  };
 }
 
-export async function saveDiaryPage(rawDayKey: string, rawPoints: unknown) {
+export async function saveDiaryPage(
+  rawDayKey: string,
+  rawPoints: unknown,
+  rawColor?: string
+) {
   const ctx = await requireContext();
   const orgId = ctx.membership!.organizationId;
   const userId = ctx.session.user.id;
@@ -100,6 +97,9 @@ export async function saveDiaryPage(rawDayKey: string, rawPoints: unknown) {
     return { ok: false as const, error: "That page is too long to save" };
   }
 
+  // An unrecognised hue is dropped rather than rejected: the page is what
+  // matters, and the day's own colour is a fine answer.
+  const color = isDiaryColor(rawColor) ? rawColor : null;
   const where = { organizationId: orgId, userId, dayKey: dayKey.data };
 
   if (isEmptyPage(points.data)) {
@@ -114,8 +114,8 @@ export async function saveDiaryPage(rawDayKey: string, rawPoints: unknown) {
   // it revives a page that was emptied earlier and is being written in again.
   await prisma.diaryEntry.upsert({
     where: { organizationId_userId_dayKey: where },
-    create: { ...where, points: points.data },
-    update: { points: points.data, deletedAt: null },
+    create: { ...where, points: points.data, color },
+    update: { points: points.data, color, deletedAt: null },
   });
 
   return { ok: true as const, savedAt: Date.now() };
@@ -160,7 +160,7 @@ export async function pushDiaryPoint(rawDayKey: string, pointId: string) {
   });
   if (!entry) return { ok: false as const, error: "Save the page first" };
 
-  const points = readPoints(entry.points);
+  const points = readDiaryPoints(entry.points);
   const point = points.find((p) => p.id === pointId);
   if (!point) return { ok: false as const, error: "That point is gone" };
   if (point.taskId) {
@@ -213,10 +213,9 @@ export async function pushDiaryPoint(rawDayKey: string, pointId: string) {
     };
   }
 
+  const taskId = applied.taskId;
   const stamped = points.map((p) =>
-    p.id === pointId
-      ? { ...p, taskId: applied.taskId!, taskTitle: draft.title }
-      : p
+    p.id === pointId ? { ...p, taskId, taskTitle: draft.title } : p
   );
 
   await prisma.diaryEntry.update({
@@ -226,7 +225,7 @@ export async function pushDiaryPoint(rawDayKey: string, pointId: string) {
 
   return {
     ok: true as const,
-    taskId: applied.taskId,
+    taskId,
     title: draft.title,
     dueLabel: draft.dueAt ? formatIST(new Date(draft.dueAt)) : null,
     priority: draft.priority,

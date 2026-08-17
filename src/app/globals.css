@@ -798,6 +798,77 @@ h3 {
   }
 }
 
+/* ─── Diary notes ─────────────────────────────────────── */
+/* A page's colour arrives as --note on the element. Everything here tints the
+   ordinary card surface with it instead of filling with it, so a note pops off
+   the background while still reading as part of the room. */
+.note-surface {
+  border: 1px solid color-mix(in oklab, var(--note) 34%, transparent);
+  border-radius: 0.75rem;
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in oklab, var(--note) 16%, transparent),
+      color-mix(in oklab, var(--note) 4%, transparent)
+    ),
+    color-mix(in oklab, var(--card) 92%, transparent);
+  backdrop-filter: blur(18px) saturate(135%);
+  box-shadow:
+    0 1px 0 0 color-mix(in oklab, white 7%, transparent) inset,
+    0 0 0 1px rgba(0, 0, 0, 0.3),
+    0 24px 60px -26px color-mix(in oklab, var(--note) 55%, transparent),
+    0 20px 48px rgba(0, 0, 0, 0.45);
+}
+
+/* Pinned in the sidebar: same tint, flatter, and no drop shadow to fight the
+   panel it sits in. */
+.note-pinned {
+  border: 1px solid color-mix(in oklab, var(--note) 30%, transparent);
+  border-radius: 0.625rem;
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in oklab, var(--note) 17%, transparent),
+      color-mix(in oklab, var(--note) 5%, transparent)
+    ),
+    color-mix(in oklab, var(--card) 70%, transparent);
+  box-shadow: 0 1px 0 0 color-mix(in oklab, white 6%, transparent) inset;
+}
+
+/* The strip of colour along a note's top edge — the glued end of the pad. */
+.note-edge {
+  background: linear-gradient(
+    90deg,
+    color-mix(in oklab, var(--note) 90%, transparent),
+    color-mix(in oklab, var(--note) 30%, transparent)
+  );
+}
+
+.note-push {
+  border: 1px solid color-mix(in oklab, var(--note) 48%, transparent);
+  background: color-mix(in oklab, var(--note) 20%, transparent);
+  color: color-mix(in oklab, var(--note) 80%, white);
+}
+
+.note-swatch {
+  height: 13px;
+  width: 13px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in oklab, white 24%, transparent);
+  transition: transform 140ms ease, box-shadow 140ms ease;
+}
+
+.note-swatch:hover {
+  transform: scale(1.15);
+}
+
+/* Declared after :hover so the picked one stays picked while hovered. */
+.note-swatch[data-on="true"],
+.note-swatch[data-on="true"]:hover {
+  transform: scale(1.2);
+  box-shadow: 0 0 0 2px color-mix(in oklab, white 32%, transparent);
+}
+
 /* Ghost panel — casing you can see the backdrop through */
 .panel-ghost {
   background: color-mix(in oklab, var(--card) 32%, transparent);

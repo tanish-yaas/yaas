@@ -9,6 +9,7 @@ import {
   type SuggestionHintRow,
 } from "./suggestion-hint";
 import { Avatar } from "@/components/ui/avatar";
+import { DiaryTrigger } from "@/components/diary/diary-dock";
 import type { NotificationRow } from "@/server/services/notifications";
 
 /** Server-rendered, like every other date in the app — the browser is not on
@@ -35,6 +36,7 @@ export function Topbar({
   unreadCount,
   notifications,
   suggestions,
+  todayKey,
 }: {
   displayName: string;
   roleName: string;
@@ -44,6 +46,8 @@ export function Topbar({
   unreadCount: number;
   notifications: NotificationRow[];
   suggestions: SuggestionHintRow[];
+  /** Today in IST — the page the diary opens on. */
+  todayKey: string;
 }) {
   return (
     <>
@@ -69,6 +73,10 @@ export function Topbar({
       <SuggestionHint suggestions={suggestions} />
 
       <div className="ml-auto flex items-center gap-2">
+        {/* Was in the tasks header, where it was only ever one tab's tool. A
+            day's notes belong to the day, not to a page. */}
+        <DiaryTrigger todayKey={todayKey} />
+
         <NotificationBell
           unreadCount={unreadCount}
           notifications={notifications}

@@ -28,6 +28,20 @@ export const theme = {
     "#9B6DF3", // violet
     "#DE5DA8", // pink
   ],
+  /**
+   * Sticky-note hues for diary pages. Brighter and warmer than the label
+   * palette — a note is meant to catch the eye — and each one is used as a tint
+   * over the card surface rather than a fill, so a page pops without turning
+   * into a flat yellow rectangle stuck to a dark room.
+   */
+  diaryPalette: [
+    "#F5B544", // amber
+    "#FF7A6B", // coral
+    "#FF6F91", // rose
+    "#9B6DF3", // violet
+    "#22D3EE", // cyan
+    "#4CC38A", // mint
+  ],
   motion: {
     duration: { fast: 0.15, base: 0.25, slow: 0.4 },
     ease: {

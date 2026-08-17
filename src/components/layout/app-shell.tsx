@@ -5,6 +5,7 @@ import { PanelLeft } from "lucide-react";
 import { Sidebar } from "./sidebar";
 import { BrandLockup } from "./brand";
 import { OrbitField } from "@/components/visual/orbit-field";
+import { DiaryDock } from "@/components/diary/diary-dock";
 
 const KEY = "yaas.sidebar.collapsed";
 
@@ -12,12 +13,18 @@ export function AppShell({
   orgName,
   canApprove,
   pendingCount,
+  todayKey,
+  canPush,
   topbar,
   children,
 }: {
   orgName: string;
   canApprove: boolean;
   pendingCount: number;
+  /** Today in IST, for the pinned page and the diary window. */
+  todayKey: string;
+  /** Whether this member may run the parser behind the diary's push buttons. */
+  canPush: boolean;
   topbar: React.ReactNode;
   children: React.ReactNode;
 }) {
@@ -50,6 +57,8 @@ export function AppShell({
           <Sidebar
             canApprove={canApprove}
             pendingCount={pendingCount}
+            todayKey={todayKey}
+            canPush={canPush}
             onToggle={toggle}
           />
         )}
@@ -88,6 +97,11 @@ export function AppShell({
           </main>
         </div>
       </div>
+
+      {/* Mounted once, here rather than in a page: the diary is a window you
+          leave open, and it keeps its page, size and position while you move
+          around the app. */}
+      <DiaryDock todayKey={todayKey} canPush={canPush} />
     </>
   );
 }
