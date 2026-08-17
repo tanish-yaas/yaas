@@ -22,7 +22,7 @@ export function Sidebar({
   onToggle: () => void;
 }) {
   return (
-    <aside className="group/sidebar hidden w-60 shrink-0 flex-col overflow-y-auto border-r border-border bg-[color-mix(in_oklab,var(--sidebar)_84%,transparent)] px-2.5 py-3 backdrop-blur-xl md:flex">
+    <aside className="focus-dim group/sidebar hidden w-60 shrink-0 flex-col overflow-y-auto border-r border-border bg-[color-mix(in_oklab,var(--sidebar)_84%,transparent)] px-2.5 py-3 backdrop-blur-xl md:flex">
       <div className="mb-6 flex items-start gap-1 px-1">
         <BrandLockup size={38} className="min-w-0 flex-1" />
         <button

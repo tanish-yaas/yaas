@@ -59,7 +59,7 @@ export function AppShell({
             <OrbitField variant="backdrop" />
           </div>
 
-          <div className="relative z-10 flex h-14 shrink-0 items-center gap-3 border-b border-border px-4">
+          <div className="focus-dim relative z-10 flex h-14 shrink-0 items-center gap-3 border-b border-border px-4">
             {ready && collapsed && (
               <>
                 <button

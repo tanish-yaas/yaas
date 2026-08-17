@@ -1,10 +1,16 @@
 import { prisma } from "@/lib/prisma";
 import { getCurrentContext } from "@/server/auth/session";
 import { buildTaskScope } from "@/server/services/tasks";
-import { toLocalInput, formatIST } from "@/lib/dates";
+import {
+  toLocalInput,
+  formatIST,
+  istKeyToDate,
+  istTodayKey,
+} from "@/lib/dates";
 import { TaskComposer } from "@/components/tasks/task-composer";
 import { SmartComposer } from "@/components/tasks/smart-composer";
 import { TaskRow, type TaskRowData } from "@/components/tasks/task-row";
+import { FocusZone } from "@/components/tasks/focus-zone";
 import { isStorageConfigured } from "@/lib/storage";
 
 function Section({
@@ -85,8 +91,13 @@ export default async function TasksPage() {
   }));
 
   const now = new Date();
-  const endOfToday = new Date();
-  endOfToday.setHours(23, 59, 59, 999);
+
+  // Day bounds come from the IST calendar day, not the server's clock — the
+  // server runs in UTC, where setHours(23,59) is half past five tomorrow
+  // morning here.
+  const todayKey = istTodayKey();
+  const startOfToday = istKeyToDate(todayKey);
+  const endOfToday = istKeyToDate(todayKey, 24, 0);
   const dueMap = new Map(tasks.map((t) => [t.id, t.dueAt]));
 
   const rows: TaskRowData[] = tasks.map((t) => ({
@@ -111,66 +122,86 @@ export default async function TasksPage() {
   const today = open.filter((r) => {
     if (r.overdue) return false;
     const due = dueMap.get(r.id);
-    return !!due && due <= endOfToday;
+    return !!due && due < endOfToday;
   });
   const later = open.filter(
     (r) => !r.overdue && r.dueAtLabel !== null && !today.includes(r)
   );
   const undated = open.filter((r) => r.dueAtLabel === null);
 
+  // Focus mode's list: what today is actually asking for. Overdue leads, since
+  // a task that slipped is today's problem too.
+  const focusTasks = [...overdue, ...today];
+  const doneToday = tasks.filter(
+    (t) =>
+      t.status === "DONE" &&
+      !!t.completedAt &&
+      t.completedAt >= startOfToday &&
+      t.completedAt < endOfToday
+  ).length;
+
   return (
     <div className="mx-auto w-full max-w-3xl">
-      <header className="mb-6">
-        <h1 className="text-2xl font-semibold">Tasks</h1>
-        <p className="mt-0.5 text-[13px] text-faint">
-          {open.length} open · {done.length} done
-        </p>
-      </header>
-
-      {ctx.permissions.has("ai.use") ? (
-        <div className="flex flex-col gap-2">
-          <SmartComposer
+      <FocusZone
+        todayTasks={focusTasks}
+        overdueCount={overdue.length}
+        doneToday={doneToday}
+        dateLabel={
+          formatIST(now, {
+            weekday: "long",
+            day: "numeric",
+            month: "long",
+          }) ?? ""
+        }
+        openCount={open.length}
+        doneCount={done.length}
+        allLabels={labelRows}
+      >
+        {ctx.permissions.has("ai.use") ? (
+          <div className="flex flex-col gap-2">
+            <SmartComposer
+              members={members}
+              currentUserId={userId}
+              labels={labelRows}
+              storageReady={storageReady}
+            />
+            <details>
+              <summary className="cursor-pointer text-[12px] text-faint transition-colors hover:text-foreground">
+                Add manually
+              </summary>
+              <div className="mt-2">
+                <TaskComposer
+                  members={members}
+                  currentUserId={userId}
+                  labels={labelRows}
+                  teams={teamRows}
+                  storageReady={storageReady}
+                />
+              </div>
+            </details>
+          </div>
+        ) : (
+          <TaskComposer
             members={members}
             currentUserId={userId}
             labels={labelRows}
+            teams={teamRows}
             storageReady={storageReady}
           />
-          <details>
-            <summary className="cursor-pointer text-[12px] text-faint transition-colors hover:text-foreground">
-              Add manually
-            </summary>
-            <div className="mt-2">
-              <TaskComposer
-                members={members}
-                currentUserId={userId}
-                labels={labelRows}
-                teams={teamRows}
-                storageReady={storageReady}
-              />
-            </div>
-          </details>
-        </div>
-      ) : (
-        <TaskComposer
-          members={members}
-          currentUserId={userId}
-          labels={labelRows}
-          teams={teamRows}
-          storageReady={storageReady}
-        />
-      )}
+        )}
 
-      {rows.length === 0 && (
-        <p className="mt-10 text-center text-[13px] text-faint">
-          No tasks yet. Describe one above in plain language.
-        </p>
-      )}
+        {rows.length === 0 && (
+          <p className="mt-10 text-center text-[13px] text-faint">
+            No tasks yet. Describe one above in plain language.
+          </p>
+        )}
 
-      <Section title="Overdue" tasks={overdue} allLabels={labelRows} />
-      <Section title="Today" tasks={today} allLabels={labelRows} />
-      <Section title="Upcoming" tasks={later} allLabels={labelRows} />
-      <Section title="No date" tasks={undated} allLabels={labelRows} />
-      <Section title="Done" tasks={done} allLabels={labelRows} />
+        <Section title="Overdue" tasks={overdue} allLabels={labelRows} />
+        <Section title="Today" tasks={today} allLabels={labelRows} />
+        <Section title="Upcoming" tasks={later} allLabels={labelRows} />
+        <Section title="No date" tasks={undated} allLabels={labelRows} />
+        <Section title="Done" tasks={done} allLabels={labelRows} />
+      </FocusZone>
     </div>
   );
 }
