@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useOptimistic, useState, useTransition } from "react";
 import Link from "next/link";
-import { Flag, Plus } from "lucide-react";
+import { Check, ChevronRight, Flag, Plus } from "lucide-react";
 import dynamic from "next/dynamic";
 import { useToast } from "@/components/ui/toast";
 import { setTaskStatus } from "@/server/actions/tasks";
@@ -90,9 +90,20 @@ export function TaskBoard({
   const [optimistic, moveOptimistic] = useOptimistic(
     tasks,
     (current: BoardTask[], move: { id: string; status: string }) =>
-      current.map((t) =>
-        t.id === move.id ? { ...t, status: move.status } : t
-      )
+      current.map((t) => {
+        if (t.id !== move.id) return t;
+
+        // The chips follow the card into its new column, or a task dropped on
+        // Completed keeps saying when it was due until the server copy lands.
+        // The real labels arrive with revalidatePath a moment later.
+        const done = move.status === "DONE";
+        return {
+          ...t,
+          status: move.status,
+          dueLabel: done ? null : t.dueLabel,
+          doneLabel: done ? "Done today" : null,
+        };
+      })
   );
 
   const [draggingId, setDraggingId] = useState<string | null>(null);
@@ -264,6 +275,10 @@ function Card({
   onOpen: () => void;
 }) {
   const accent = accentFor(task);
+  const [expanded, setExpanded] = useState(false);
+
+  const doneSubtasks = task.subtasks.filter((s) => s.done).length;
+  const totalSubtasks = task.subtasks.length;
 
   return (
     <article
@@ -331,7 +346,71 @@ function Card({
         </div>
       )}
 
-      {(task.dueLabel || task.assignees.length > 0) && (
+      {/* The group's own row. Collapsed it is a count and a bar, so a parent
+          card stays card-sized however many children it has; expanded it lists
+          them. Toggling is stopPropagation'd — the card underneath opens the
+          sheet on click, and this button is inside it. */}
+      {totalSubtasks > 0 && (
+        <div className="mt-1.5">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setExpanded((prev) => !prev);
+            }}
+            className="flex w-full items-center gap-1.5 rounded text-[10px] text-faint transition-colors hover:text-foreground"
+          >
+            <ChevronRight
+              size={10}
+              className={`shrink-0 transition-transform ${
+                expanded ? "rotate-90" : ""
+              }`}
+            />
+            <span className="tabular-nums">
+              {doneSubtasks}/{totalSubtasks} subtasks
+            </span>
+            <span className="ml-1 h-1 flex-1 overflow-hidden rounded-full bg-[color-mix(in_oklab,white_10%,transparent)]">
+              <span
+                className="block h-full rounded-full transition-all"
+                style={{
+                  width: `${(doneSubtasks / totalSubtasks) * 100}%`,
+                  backgroundColor: accent,
+                }}
+              />
+            </span>
+          </button>
+
+          {expanded && (
+            <ul className="mt-1.5 flex flex-col gap-1 border-l border-[color-mix(in_oklab,white_10%,transparent)] pl-2">
+              {task.subtasks.map((sub) => (
+                <li
+                  key={sub.id}
+                  className="flex items-start gap-1.5 text-[11px] leading-snug"
+                >
+                  <span
+                    className={`mt-[2px] flex h-3 w-3 shrink-0 items-center justify-center rounded-[3px] border ${
+                      sub.done
+                        ? "border-transparent bg-[var(--status-green)] text-black"
+                        : "border-[color-mix(in_oklab,white_18%,transparent)]"
+                    }`}
+                  >
+                    {sub.done && <Check size={8} strokeWidth={3} />}
+                  </span>
+                  <span
+                    className={
+                      sub.done ? "text-faint line-through" : "text-faint"
+                    }
+                  >
+                    {sub.title}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+
+      {(task.dueLabel || task.doneLabel || task.assignees.length > 0) && (
         <div className="mt-1.5 flex items-center gap-1.5">
           {task.dueLabel && (
             <span
@@ -342,6 +421,12 @@ function Card({
               }`}
             >
               {task.dueLabel}
+            </span>
+          )}
+
+          {task.doneLabel && (
+            <span className="chip h-[18px] border-[color-mix(in_oklab,var(--status-green)_35%,transparent)] bg-[color-mix(in_oklab,var(--status-green)_14%,transparent)] px-1.5 text-[10px] text-[color-mix(in_oklab,var(--status-green)_60%,white)]">
+              {task.doneLabel}
             </span>
           )}
 

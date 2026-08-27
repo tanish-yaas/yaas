@@ -7,6 +7,7 @@ import { buildTaskScope } from "@/server/services/tasks";
 import { TaskBoard } from "@/components/dashboard/task-board";
 import {
   columnForStatus,
+  type BoardSubtask,
   type BoardTask,
 } from "@/components/dashboard/board-columns";
 import {
@@ -81,6 +82,11 @@ export default async function DashboardPage() {
   const endOfDay = istKeyToDate(addDaysToKey(todayKey, 1));
   const endOfWeek = istKeyToDate(addDaysToKey(todayKey, 7));
 
+  // The Completed column is a recent-past window, not an archive: a card stays
+  // for the day it was finished and the two days after it, then rolls off at
+  // IST midnight. Everything is still on the tasks page under Done.
+  const doneSince = istKeyToDate(addDaysToKey(todayKey, -2));
+
   const mine = {
     organizationId: orgId,
     deletedAt: null,
@@ -132,7 +138,25 @@ export default async function DashboardPage() {
 
   const [boardRows, suggestions, insights, boardMembers] = await Promise.all([
     prisma.task.findMany({
-      where: { ...boardScope, status: { not: "CANCELLED" } },
+      where: {
+        ...boardScope,
+        status: { not: "CANCELLED" },
+        // AND, not a second OR: buildTaskScope already spends the OR key on
+        // "created by me or assigned to me", and spreading a sibling OR here
+        // would silently replace it and widen the board past the viewer.
+        AND: [
+          {
+            OR: [
+              { status: { not: "DONE" } },
+              { completedAt: { gte: doneSince } },
+              // Rows finished before completedAt was recorded still have an
+              // updatedAt, so they age out of the column instead of sitting
+              // there for good.
+              { completedAt: null, updatedAt: { gte: doneSince } },
+            ],
+          },
+        ],
+      },
       orderBy: [{ dueAt: { sort: "asc", nulls: "last" } }, { createdAt: "desc" }],
       take: 120,
       select: {
@@ -141,6 +165,8 @@ export default async function DashboardPage() {
         status: true,
         priority: true,
         dueAt: true,
+        completedAt: true,
+        parentTaskId: true,
         assignments: {
           select: { userId: true, user: { select: { name: true } } },
         },
@@ -179,18 +205,55 @@ export default async function DashboardPage() {
       : Promise.resolve([]),
   ]);
 
+  // A subtask is a line item of its parent, not a task in its own right, so it
+  // rides inside the parent's card instead of taking a slot on the board. One
+  // whose parent is out of view stays a card of its own — better a card without
+  // its group than work that vanishes.
+  const visibleIds = new Set(boardRows.map((t) => t.id));
+  const parentRows = boardRows.filter(
+    (t) => !t.parentTaskId || !visibleIds.has(t.parentTaskId)
+  );
+
+  // Fetched separately rather than read off boardRows: the 120-row cap and the
+  // Completed window both cut the list, and a card should show the whole set of
+  // children or none of it.
+  const subtaskRows =
+    parentRows.length > 0
+      ? await prisma.task.findMany({
+          where: {
+            organizationId: orgId,
+            deletedAt: null,
+            parentTaskId: { in: parentRows.map((t) => t.id) },
+          },
+          orderBy: [{ position: "asc" }, { createdAt: "asc" }],
+          select: { id: true, title: true, status: true, parentTaskId: true },
+        })
+      : [];
+
+  const subtasksByParent = new Map<string, BoardSubtask[]>();
+  for (const sub of subtaskRows) {
+    const list = subtasksByParent.get(sub.parentTaskId!) ?? [];
+    list.push({ id: sub.id, title: sub.title, done: sub.status === "DONE" });
+    subtasksByParent.set(sub.parentTaskId!, list);
+  }
+
   // Formatted here rather than in the client board: the app is pinned to IST
   // and the browser is not, so a client-side format would drift and mismatch
   // on hydration. daysBetweenKeys is positive when the due day is behind today.
-  const boardTasks: BoardTask[] = boardRows
+  const boardTasks: BoardTask[] = parentRows
     .filter((t) => columnForStatus(t.status) !== null)
     .map((t) => {
+      const done = t.status === "DONE";
+
       const daysLate = t.dueAt
         ? daysBetweenKeys(istDayKey(t.dueAt), todayKey)
         : null;
 
+      // A finished task has no deadline left to meet, so the due chip comes off
+      // and the day it was completed takes its place — which is also what makes
+      // the three-day window on this column legible.
       let dueLabel: string | null = null;
-      if (daysLate !== null) {
+      if (daysLate !== null && !done) {
         if (daysLate > 0) {
           dueLabel = `Due ${daysLate} ${daysLate === 1 ? "day" : "days"} ago`;
         } else if (daysLate === 0) {
@@ -202,6 +265,21 @@ export default async function DashboardPage() {
         }
       }
 
+      let doneLabel: string | null = null;
+      if (done) {
+        const daysAgo = t.completedAt
+          ? daysBetweenKeys(istDayKey(t.completedAt), todayKey)
+          : null;
+        doneLabel =
+          daysAgo === 0
+            ? "Done today"
+            : daysAgo === 1
+              ? "Done yesterday"
+              : daysAgo !== null && daysAgo > 1
+                ? `Done ${daysAgo} days ago`
+                : "Done";
+      }
+
       return {
         id: t.id,
         title: t.title,
@@ -209,12 +287,14 @@ export default async function DashboardPage() {
         priority: t.priority,
         blocked: t.status === "BLOCKED",
         dueLabel,
-        overdue: daysLate !== null && daysLate > 0 && t.status !== "DONE",
+        doneLabel,
+        overdue: daysLate !== null && daysLate > 0 && !done,
         labels: t.labels.map((tl) => tl.label),
         assigneeIds: t.assignments.map((a) => a.userId),
         assignees: t.assignments
           .map((a) => a.user.name?.split(" ")[0] ?? "")
           .filter(Boolean),
+        subtasks: subtasksByParent.get(t.id) ?? [],
       };
     });
 

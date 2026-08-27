@@ -76,6 +76,12 @@ export function accentFor(task: {
   return task.labels[0]?.color ?? PRIORITY_COLOR[task.priority] ?? "#8b8b94";
 }
 
+export type BoardSubtask = {
+  id: string;
+  title: string;
+  done: boolean;
+};
+
 export type BoardTask = {
   id: string;
   title: string;
@@ -84,9 +90,15 @@ export type BoardTask = {
   blocked: boolean;
   /** Drives the people filter. Empty for an unassigned task. */
   assigneeIds: string[];
-  /** Pre-formatted in IST by the server — see TaskBoard. */
+  /** Pre-formatted in IST by the server — see TaskBoard. Null once done: a
+      finished task has no deadline left to meet. */
   dueLabel: string | null;
+  /** "Done today" and friends, in place of the due chip on a finished card. */
+  doneLabel: string | null;
   overdue: boolean;
   labels: { id: string; name: string; color: string }[];
   assignees: string[];
+  /** Children of this task, folded into the card rather than loose on the
+      board. Empty for a task that has none, and for a subtask itself. */
+  subtasks: BoardSubtask[];
 };

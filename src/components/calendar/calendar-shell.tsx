@@ -71,7 +71,6 @@ export function CalendarShell({
   tasks,
   calendars,
   openTasks,
-  allLabels,
   members,
   workingHoursStart,
   workingHoursEnd,
@@ -84,7 +83,6 @@ export function CalendarShell({
   tasks: TaskItem[];
   calendars: CalendarOption[];
   openTasks: { id: string; title: string }[];
-  allLabels: { id: string; name: string; color: string }[];
   members: { userId: string; name: string }[];
   workingHoursStart: number;
   workingHoursEnd: number;
@@ -576,7 +574,6 @@ export function CalendarShell({
         tasks={panelKey ? visibleTasks.filter((t) => t.dayKey === panelKey) : []}
         calendars={calendars}
         openTasks={openTasks}
-        allLabels={allLabels}
         canCreate={canCreate}
         onClose={() => setPanelKey(null)}
         onCreate={handleCreate}

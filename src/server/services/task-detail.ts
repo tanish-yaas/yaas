@@ -73,6 +73,8 @@ export type TaskDetailData = {
   allMembers: { id: string; name: string; image: string | null }[];
   teamId: string | null;
   teams: { id: string; name: string; color: string }[];
+  /** Set when this task is itself a subtask, so the sheet can say whose. */
+  parent: { id: string; title: string } | null;
   subtasks: SubtaskRow[];
   blockedBy: DependencyRow[];
   blocks: DependencyRow[];
@@ -142,6 +144,7 @@ export async function getTaskDetail(
     where: { ...scope, id: taskId },
     include: {
       createdBy: { select: { name: true, email: true } },
+      parentTask: { select: { id: true, title: true } },
       assignments: {
         include: {
           user: { select: { id: true, name: true, email: true, image: true } },
@@ -309,6 +312,9 @@ export async function getTaskDetail(
       name: t.name,
       color: t.color ?? "#7C5CFF",
     })),
+    parent: task.parentTask
+      ? { id: task.parentTask.id, title: task.parentTask.title }
+      : null,
     subtasks: task.subtasks.map((s) => ({
       id: s.id,
       title: s.title,

@@ -217,8 +217,12 @@ export function TaskDetailSheet({
           >
             <header className="flex shrink-0 items-start justify-between gap-3 border-b border-border/60 px-5 py-4">
               <div className="min-w-0">
-                <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
-                  Task
+                {/* Says whose subtask this is when it is one — opened on its
+                    own, a line like "Book venue" means nothing without it. */}
+                <p className="truncate text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+                  {detail?.parent
+                    ? `Subtask of ${detail.parent.title}`
+                    : "Task"}
                 </p>
                 <p className="mt-0.5 truncate text-sm">
                   {detail?.title ?? "Loading…"}

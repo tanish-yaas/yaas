@@ -8,7 +8,6 @@ import { Stagger, StaggerItem } from "@/components/motion/fade-in";
 import { EmptyState } from "@/components/ui/empty-state";
 import { useHydrated } from "@/lib/use-hydrated";
 import { TaskRow, type TaskRowData } from "./task-row";
-import type { LabelOption } from "./label-picker";
 
 const KEY = "yaas.tasks.focus";
 const EASE = [0.16, 1, 0.3, 1] as const;
@@ -46,7 +45,6 @@ export function FocusZone({
   dateLabel,
   openCount,
   doneCount,
-  allLabels,
   children,
 }: {
   /** Everything today is asking for: overdue first, then due before midnight. */
@@ -58,7 +56,6 @@ export function FocusZone({
   dateLabel: string;
   openCount: number;
   doneCount: number;
-  allLabels: LabelOption[];
   /** The full, unfiltered page. Rendered whenever focus mode is off. */
   children: React.ReactNode;
 }) {
@@ -227,7 +224,7 @@ export function FocusZone({
                       key={task.id}
                       className="border-b border-border last:border-0"
                     >
-                      <TaskRow task={task} allLabels={allLabels} />
+                      <TaskRow task={task} />
                     </StaggerItem>
                   ))}
                 </Stagger>

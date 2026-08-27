@@ -201,12 +201,6 @@ export default async function CalendarPage({
       },
     }));
 
-  const labelRows = await prisma.label.findMany({
-    where: { organizationId: orgId },
-    orderBy: { name: "asc" },
-    select: { id: true, name: true, color: true },
-  });
-
   return (
     <CalendarShell
       view={view}
@@ -224,7 +218,6 @@ export default async function CalendarPage({
         shares: sharesByCalendar.get(c.id) ?? [],
       }))}
       openTasks={openTasks}
-      allLabels={labelRows}
       members={memberRows.map((m) => ({
         userId: m.userId,
         name: m.user.name ?? m.user.email ?? "Member",

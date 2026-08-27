@@ -9,19 +9,15 @@ import {
 } from "@/lib/dates";
 import { TaskComposer } from "@/components/tasks/task-composer";
 import { SmartComposer } from "@/components/tasks/smart-composer";
-import { TaskRow, type TaskRowData } from "@/components/tasks/task-row";
+import {
+  TaskRow,
+  type SubtaskRowData,
+  type TaskRowData,
+} from "@/components/tasks/task-row";
 import { FocusZone } from "@/components/tasks/focus-zone";
 import { isStorageConfigured } from "@/lib/storage";
 
-function Section({
-  title,
-  tasks,
-  allLabels,
-}: {
-  title: string;
-  tasks: TaskRowData[];
-  allLabels: { id: string; name: string; color: string }[];
-}) {
+function Section({ title, tasks }: { title: string; tasks: TaskRowData[] }) {
   if (tasks.length === 0) return null;
   return (
     <section className="mt-7">
@@ -31,7 +27,7 @@ function Section({
       </h2>
       <div className="border-t border-border">
         {tasks.map((t) => (
-          <TaskRow key={t.id} task={t} allLabels={allLabels} />
+          <TaskRow key={t.id} task={t} />
         ))}
       </div>
     </section>
@@ -100,7 +96,36 @@ export default async function TasksPage() {
   const endOfToday = istKeyToDate(todayKey, 24, 0);
   const dueMap = new Map(tasks.map((t) => [t.id, t.dueAt]));
 
-  const rows: TaskRowData[] = tasks.map((t) => ({
+  // A subtask is a line item of its parent, not a task in its own right: it
+  // hangs under the parent's row instead of landing in whichever section its
+  // (usually absent) due date puts it in. One whose parent is out of view stays
+  // a row of its own — better a row without its group than work that vanishes.
+  const visibleIds = new Set(tasks.map((t) => t.id));
+  const parents = tasks.filter(
+    (t) => !t.parentTaskId || !visibleIds.has(t.parentTaskId)
+  );
+
+  const subtasksByParent = new Map<string, SubtaskRowData[]>();
+  for (const t of tasks) {
+    if (!t.parentTaskId || !visibleIds.has(t.parentTaskId)) continue;
+    const list = subtasksByParent.get(t.parentTaskId) ?? [];
+    list.push({ id: t.id, title: t.title, done: t.status === "DONE" });
+    subtasksByParent.set(t.parentTaskId, list);
+  }
+
+  // The page's own sort is by status and priority, which for a set of children
+  // reads as shuffled — they belong in the order they were written.
+  const positionOf = new Map(tasks.map((t) => [t.id, t.position]));
+  const createdOf = new Map(tasks.map((t) => [t.id, t.createdAt.getTime()]));
+  for (const list of subtasksByParent.values()) {
+    list.sort(
+      (a, b) =>
+        (positionOf.get(a.id) ?? 0) - (positionOf.get(b.id) ?? 0) ||
+        (createdOf.get(a.id) ?? 0) - (createdOf.get(b.id) ?? 0)
+    );
+  }
+
+  const rows: TaskRowData[] = parents.map((t) => ({
     id: t.id,
     title: t.title,
     description: t.description ?? "",
@@ -108,10 +133,12 @@ export default async function TasksPage() {
     priority: t.priority,
     dueAtInput: toLocalInput(t.dueAt),
     dueAtLabel: formatIST(t.dueAt),
+    doneAtLabel: formatIST(t.completedAt),
     estimatedMinutes: t.estimatedMinutes ? String(t.estimatedMinutes) : "",
     overdue: !!t.dueAt && t.dueAt < now,
     assignees: t.assignments.map((a) => a.user.name ?? "").filter(Boolean),
     labels: t.labels.map((tl) => tl.label),
+    subtasks: subtasksByParent.get(t.id) ?? [],
   }));
 
   const open = rows.filter(
@@ -132,7 +159,9 @@ export default async function TasksPage() {
   // Focus mode's list: what today is actually asking for. Overdue leads, since
   // a task that slipped is today's problem too.
   const focusTasks = [...overdue, ...today];
-  const doneToday = tasks.filter(
+  // Parents only, like the list above it — otherwise the meter counts progress
+  // against tasks that are no longer rows of their own.
+  const doneToday = parents.filter(
     (t) =>
       t.status === "DONE" &&
       !!t.completedAt &&
@@ -155,7 +184,6 @@ export default async function TasksPage() {
         }
         openCount={open.length}
         doneCount={done.length}
-        allLabels={labelRows}
       >
         {ctx.permissions.has("ai.use") ? (
           <div className="flex flex-col gap-2">
@@ -196,11 +224,11 @@ export default async function TasksPage() {
           </p>
         )}
 
-        <Section title="Overdue" tasks={overdue} allLabels={labelRows} />
-        <Section title="Today" tasks={today} allLabels={labelRows} />
-        <Section title="Upcoming" tasks={later} allLabels={labelRows} />
-        <Section title="No date" tasks={undated} allLabels={labelRows} />
-        <Section title="Done" tasks={done} allLabels={labelRows} />
+        <Section title="Overdue" tasks={overdue} />
+        <Section title="Today" tasks={today} />
+        <Section title="Upcoming" tasks={later} />
+        <Section title="No date" tasks={undated} />
+        <Section title="Done" tasks={done} />
       </FocusZone>
     </div>
   );
