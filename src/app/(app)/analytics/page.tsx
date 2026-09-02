@@ -21,11 +21,10 @@ import { LoadChart } from "@/components/analytics/load-chart";
 import {
   BucketBars,
   MixBar,
-  rampFor,
   type Segment,
 } from "@/components/analytics/distribution";
 import { PeopleTable } from "@/components/analytics/people-table";
-import { SERIES, STATUS } from "@/components/analytics/palette";
+import { rampFor, SERIES, STATUS } from "@/components/analytics/palette";
 
 const WEEKDAY_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 

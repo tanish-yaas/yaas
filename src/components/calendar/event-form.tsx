@@ -1,4 +1,5 @@
 "use client";
+import { DateTimeField } from "@/components/ui/datetime-field";
 
 import { useState } from "react";
 import type { CalendarOption } from "./types";
@@ -68,12 +69,11 @@ export function EventForm({
           <span className="text-[11px] uppercase tracking-[0.12em] text-faint">
             Starts
           </span>
-          <input
-            type="datetime-local"
+          <DateTimeField
             value={values.startAt}
-            onChange={(e) => set("startAt", e.target.value)}
+            onChange={(v) => set("startAt", v)}
+            defaultHour={9}
             required
-            className={field}
           />
         </label>
 
@@ -81,12 +81,11 @@ export function EventForm({
           <span className="text-[11px] uppercase tracking-[0.12em] text-faint">
             Ends
           </span>
-          <input
-            type="datetime-local"
+          <DateTimeField
             value={values.endAt}
-            onChange={(e) => set("endAt", e.target.value)}
+            onChange={(v) => set("endAt", v)}
+            defaultHour={10}
             required
-            className={field}
           />
         </label>
       </div>

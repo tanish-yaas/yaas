@@ -16,6 +16,8 @@ export const createTaskSchema = z.object({
   title: z.string().trim().min(1, "Give the task a title").max(200),
   description: z.string().trim().max(5000).optional().or(z.literal("")),
   priority: z.enum(TASK_PRIORITIES),
+  /** When work starts. Optional — a task with only a deadline is a deadline. */
+  startAt: z.string().optional().or(z.literal("")),
   dueAt: z.string().optional().or(z.literal("")),
   estimatedMinutes: z.coerce.number().int().min(0).max(10000).optional(),
   assigneeIds: z.array(z.string().min(1)),

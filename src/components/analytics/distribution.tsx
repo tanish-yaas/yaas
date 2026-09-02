@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { inkOn, RAMP_4, RAMP_5 } from "./palette";
+import { inkOn } from "./palette";
 
 export type Segment = {
   key: string;
@@ -9,16 +9,6 @@ export type Segment = {
   count: number;
   color: string;
 };
-
-/**
- * Colours for an ordered set of categories — pipeline stages, priority, aging
- * buckets. One hue, light → dark, so the reader sees the order in the colour.
- * Ramps are capped at five steps; a sixth would put two adjacent steps under
- * the lightness-gap floor.
- */
-export function rampFor(count: number): readonly string[] {
-  return count <= 4 ? RAMP_4 : RAMP_5;
-}
 
 /**
  * Part-to-whole across ordered categories, in one bar.

@@ -22,6 +22,7 @@ export async function createTask(formData: FormData) {
     title: formData.get("title") ?? "",
     description: formData.get("description") ?? "",
     priority: formData.get("priority") ?? "MEDIUM",
+    startAt: formData.get("startAt") ?? "",
     dueAt: formData.get("dueAt") ?? "",
     estimatedMinutes: formData.get("estimatedMinutes") || undefined,
     assigneeIds: formData.getAll("assigneeIds").map(String),
@@ -33,6 +34,10 @@ export async function createTask(formData: FormData) {
 
   const d = parsed.data;
   const dueAt = fromLocalInput(d.dueAt);
+  // A start after its own deadline is not a stretch of work, so it is dropped
+  // rather than stored as a bar running backwards across the calendar.
+  const rawStart = fromLocalInput(d.startAt);
+  const startAt = rawStart && dueAt && rawStart > dueAt ? null : rawStart;
 
   const assigneeIds = d.assigneeIds.length > 0 ? d.assigneeIds : [userId];
 
@@ -80,6 +85,7 @@ export async function createTask(formData: FormData) {
         description: d.description || null,
         priority: d.priority,
         priorityScore: computePriorityScore(d.priority, dueAt),
+        startAt,
         dueAt,
         estimatedMinutes: d.estimatedMinutes ?? null,
         status: "TODO",
@@ -148,6 +154,7 @@ export async function updateTask(
     description: string;
     priority: string;
     status: string;
+    startAt: string;
     dueAt: string;
     estimatedMinutes: string;
   }
@@ -166,6 +173,8 @@ export async function updateTask(
   if (!parsedStatus.success) return { ok: false as const, error: "Bad status" };
 
   const dueAt = fromLocalInput(input.dueAt);
+  const rawStart = fromLocalInput(input.startAt);
+  const startAt = rawStart && dueAt && rawStart > dueAt ? null : rawStart;
 
   const estimate = input.estimatedMinutes
     ? Number(input.estimatedMinutes)
@@ -179,6 +188,7 @@ export async function updateTask(
         description: input.description.trim() || null,
         priority: input.priority as "LOW" | "MEDIUM" | "HIGH" | "URGENT",
         status: parsedStatus.data,
+        startAt,
         dueAt,
         estimatedMinutes:
           estimate !== null && Number.isFinite(estimate) ? estimate : null,

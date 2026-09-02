@@ -23,6 +23,8 @@ import {
   X,
 } from "lucide-react";
 import { relativeTime } from "@/lib/relative-time";
+import { DateTimeField } from "@/components/ui/datetime-field";
+import { APP_CONFIG } from "@/config/app";
 import { useToast } from "@/components/ui/toast";
 import { updateTask } from "@/server/actions/tasks";
 import {
@@ -501,12 +503,14 @@ function Fields({
   // text and date inputs commit on blur or Enter.
   const [title, setTitle] = useState(detail.title);
   const [dueAt, setDueAt] = useState(detail.dueAtInput);
+  const [startAt, setStartAt] = useState(detail.startAtInput);
   const [estimate, setEstimate] = useState(detail.estimatedMinutes);
   const [pending, startTransition] = useTransition();
 
   useEffect(() => setDescription(detail.description), [detail.description]);
   useEffect(() => setTitle(detail.title), [detail.title]);
   useEffect(() => setDueAt(detail.dueAtInput), [detail.dueAtInput]);
+  useEffect(() => setStartAt(detail.startAtInput), [detail.startAtInput]);
   useEffect(
     () => setEstimate(detail.estimatedMinutes),
     [detail.estimatedMinutes]
@@ -517,6 +521,7 @@ function Fields({
     priority: string;
     description: string;
     title: string;
+    startAt: string;
     dueAt: string;
     estimatedMinutes: string;
   }>;
@@ -537,6 +542,7 @@ function Fields({
         description: patch.description ?? description,
         priority: patch.priority ?? detail.priority,
         status: patch.status ?? detail.status,
+        startAt: patch.startAt ?? startAt,
         dueAt: patch.dueAt ?? dueAt,
         estimatedMinutes: patch.estimatedMinutes ?? estimate,
       });
@@ -627,19 +633,34 @@ function Fields({
           <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
             Due
           </span>
-          {/* datetime-local, so it round-trips through toLocalInput /
-              fromLocalInput — the server runs in UTC and a raw value lands
-              5.5 hours out. */}
-          <input
-            type="datetime-local"
+          {/* Still the "YYYY-MM-DDTHH:mm" that toLocalInput / fromLocalInput
+              speak — the server runs in UTC and a raw value lands 5.5h out. */}
+          <DateTimeField
             value={dueAt}
             disabled={!detail.canEdit}
-            onChange={(e) => setDueAt(e.target.value)}
-            onBlur={() => {
-              if (dueAt === detail.dueAtInput) return;
-              save({ dueAt });
+            onChange={setDueAt}
+            defaultHour={APP_CONFIG.defaultDueHour}
+            onCommit={(next) => {
+              if (next === detail.dueAtInput) return;
+              save({ dueAt: next });
             }}
-            className={field}
+          />
+        </label>
+
+        <label className="flex flex-col gap-1">
+          <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+            Start
+          </span>
+          {/* Gives the task a span on the calendar instead of one day. */}
+          <DateTimeField
+            value={startAt}
+            disabled={!detail.canEdit}
+            onChange={setStartAt}
+            defaultHour={9}
+            onCommit={(next) => {
+              if (next === detail.startAtInput) return;
+              save({ startAt: next });
+            }}
           />
         </label>
 

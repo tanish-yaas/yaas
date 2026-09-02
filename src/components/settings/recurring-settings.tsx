@@ -1,4 +1,5 @@
 "use client";
+import { DateTimeField } from "@/components/ui/datetime-field";
 
 import { useState, useTransition } from "react";
 import { Pause, Play, Plus, Repeat, Trash2, X } from "lucide-react";
@@ -300,11 +301,10 @@ export function RecurringSettings({
               <span className={sectionLabel}>
                 Starts
               </span>
-              <input
-                type="datetime-local"
+              <DateTimeField
                 value={startsAt}
-                onChange={(e) => setStartsAt(e.target.value)}
-                className={field}
+                onChange={setStartsAt}
+                defaultHour={9}
               />
             </label>
 
@@ -312,11 +312,10 @@ export function RecurringSettings({
               <span className={sectionLabel}>
                 Ends (optional)
               </span>
-              <input
-                type="datetime-local"
+              <DateTimeField
                 value={endsAt}
-                onChange={(e) => setEndsAt(e.target.value)}
-                className={field}
+                onChange={setEndsAt}
+                defaultHour={9}
               />
             </label>
           </div>

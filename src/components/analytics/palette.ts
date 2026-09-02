@@ -41,6 +41,20 @@ export const STATUS = {
 } as const;
 
 /**
+ * Colours for an ordered set of categories — pipeline stages, priority, aging
+ * buckets. One hue, light → dark, so the reader sees the order in the colour.
+ *
+ * Lives here rather than beside the chart that uses it because the analytics
+ * page is a Server Component and calls it while rendering. Exports of a
+ * "use client" module are client reference proxies on the server, and calling
+ * one throws — which is invisible to tsc and to `next build`, since the page
+ * is server-rendered on demand and never prerendered.
+ */
+export function rampFor(count: number): readonly string[] {
+  return count <= 4 ? RAMP_4 : RAMP_5;
+}
+
+/**
  * The ink for a label sitting ON a filled mark.
  *
  * Chosen by relative luminance rather than by eye: every ramp step and status

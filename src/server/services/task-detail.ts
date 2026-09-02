@@ -59,6 +59,8 @@ export type TaskDetailData = {
   description: string;
   status: string;
   priority: string;
+  /** "YYYY-MM-DDTHH:mm" for the editable fields; "" when unset. */
+  startAtInput: string;
   dueAtInput: string;
   dueAtLabel: string | null;
   estimatedMinutes: string;
@@ -276,6 +278,7 @@ export async function getTaskDetail(
     description: task.description ?? "",
     status: task.status,
     priority: task.priority,
+    startAtInput: toLocalInput(task.startAt),
     dueAtInput: toLocalInput(task.dueAt),
     dueAtLabel: formatIST(task.dueAt),
     estimatedMinutes: task.estimatedMinutes ? String(task.estimatedMinutes) : "",

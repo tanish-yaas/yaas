@@ -12,6 +12,9 @@ import {
   type VoiceClip,
 } from "./voice-recorder";
 
+import { DateTimeField } from "@/components/ui/datetime-field";
+import { APP_CONFIG } from "@/config/app";
+
 type Member = { userId: string; name: string };
 
 const field =
@@ -126,9 +129,16 @@ export function TaskComposer({
             </select>
           </div>
 
+          {/* Start is what makes a task a bar on the calendar rather than a
+              single day. Optional: without it the task is a deadline. */}
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs text-muted-foreground">Start</label>
+            <DateTimeField name="startAt" defaultHour={9} />
+          </div>
+
           <div className="flex flex-col gap-1.5">
             <label className="text-xs text-muted-foreground">Due</label>
-            <input type="datetime-local" name="dueAt" className={field} />
+            <DateTimeField name="dueAt" defaultHour={APP_CONFIG.defaultDueHour} />
           </div>
 
           {teams.length > 0 && (

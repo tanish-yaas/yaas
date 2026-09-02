@@ -1,4 +1,5 @@
 "use client";
+import { DateTimeField } from "@/components/ui/datetime-field";
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -181,34 +182,29 @@ export function EventPopover({
             </span>
           ) : (
             <div className="flex w-full items-center gap-1">
-              <input
-                type="datetime-local"
+              <DateTimeField
                 value={startAt}
                 disabled={saving}
-                onChange={(e) => setStartAt(e.target.value)}
-                onBlur={() => {
-                  if (startAt === toLocalInput(event.startAt)) return;
-                  patch({ startAt }, () =>
+                onChange={setStartAt}
+                defaultHour={9}
+                onCommit={(next) => {
+                  if (next === toLocalInput(event.startAt)) return;
+                  patch({ startAt: next }, () =>
                     setStartAt(toLocalInput(event.startAt))
                   );
                 }}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") e.currentTarget.blur();
-                }}
-                className={ghostField}
               />
               <span className="text-[13px] text-faint">→</span>
-              <input
-                type="datetime-local"
+              <DateTimeField
                 value={endAt}
                 disabled={saving}
-                onChange={(e) => setEndAt(e.target.value)}
-                onBlur={() => {
-                  if (endAt === toLocalInput(event.endAt)) return;
-                  patch({ endAt }, () => setEndAt(toLocalInput(event.endAt)));
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") e.currentTarget.blur();
+                onChange={setEndAt}
+                defaultHour={10}
+                onCommit={(next) => {
+                  if (next === toLocalInput(event.endAt)) return;
+                  patch({ endAt: next }, () =>
+                    setEndAt(toLocalInput(event.endAt))
+                  );
                 }}
                 className={ghostField}
               />

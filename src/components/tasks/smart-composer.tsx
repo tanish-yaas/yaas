@@ -1,4 +1,6 @@
 "use client";
+import { DateTimeField } from "@/components/ui/datetime-field";
+import { APP_CONFIG } from "@/config/app";
 
 import { useState, useTransition } from "react";
 import { Sparkles, X, HelpCircle } from "lucide-react";
@@ -335,11 +337,10 @@ export function SmartComposer({
 
         <div>
           <label className="mb-1.5 block text-[11px] text-faint">Due</label>
-          <input
-            type="datetime-local"
+          <DateTimeField
             value={dueAt}
-            onChange={(e) => setDueAt(e.target.value)}
-            className="field"
+            onChange={setDueAt}
+            defaultHour={APP_CONFIG.defaultDueHour}
           />
         </div>
 
