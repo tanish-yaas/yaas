@@ -3,36 +3,23 @@
 import {
   addDaysToKey,
   addMonthsToKey,
-  istDayKey,
   istKeyToDate,
   istMonthStartKey,
   istWeekStartKey,
 } from "@/lib/dates";
 import { EventChip, TaskChip } from "./event-chip";
+import { dayKeysForEvent, dayKeysForTask } from "./layout";
 import type { EventItem, TaskItem } from "./types";
 import type { AnchorRect } from "@/lib/ui-scale";
 
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const MAX_CHIPS = 3;
 
+/** `continues*` mark a slice as the middle or end of a bar, not its own thing. */
+type Span = { continuesBefore: boolean; continuesAfter: boolean };
 type Cell =
-  | { kind: "event"; sortAt: number; event: EventItem }
-  | { kind: "task"; sortAt: number; task: TaskItem };
-
-/** Every IST day an event touches, so multi-day events appear on each. */
-function dayKeysForEvent(event: EventItem): string[] {
-  const startKey = istDayKey(new Date(event.startAt));
-  // An event ending exactly at midnight belongs to the day before.
-  const endKey = istDayKey(new Date(new Date(event.endAt).getTime() - 1));
-
-  const keys = [startKey];
-  let cursor = startKey;
-  while (cursor < endKey && keys.length < 60) {
-    cursor = addDaysToKey(cursor, 1);
-    keys.push(cursor);
-  }
-  return keys;
-}
+  | ({ kind: "event"; sortAt: number; event: EventItem } & Span)
+  | ({ kind: "task"; sortAt: number; task: TaskItem } & Span);
 
 export function MonthView({
   anchorKey,
@@ -61,21 +48,34 @@ export function MonthView({
   };
 
   for (const event of events) {
-    for (const key of dayKeysForEvent(event)) {
+    const keys = dayKeysForEvent(event);
+    keys.forEach((key, i) =>
       push(key, {
         kind: "event",
         sortAt: event.allDay ? -1 : new Date(event.startAt).getTime(),
         event,
-      });
-    }
+        continuesBefore: i > 0,
+        continuesAfter: i < keys.length - 1,
+      })
+    );
   }
 
+  // A task with a start date is a stretch of work, so it draws across every day
+  // from its start to its deadline instead of appearing only on the day it is
+  // owed — by then it is too late for the calendar to have been useful.
   for (const task of tasks) {
-    push(task.dayKey, {
-      kind: "task",
-      sortAt: new Date(task.dueAt).getTime(),
-      task,
-    });
+    const keys = dayKeysForTask(task);
+    keys.forEach((key, i) =>
+      push(key, {
+        kind: "task",
+        // Sorted by where the bar starts, so a multi-day task keeps the same
+        // row across the days it covers instead of jumping up and down.
+        sortAt: new Date(task.startAt ?? task.dueAt).getTime(),
+        task,
+        continuesBefore: i > 0,
+        continuesAfter: i < keys.length - 1,
+      })
+    );
   }
 
   for (const list of byDay.values()) list.sort((a, b) => a.sortAt - b.sortAt);
@@ -136,12 +136,17 @@ export function MonthView({
                       key={`e-${item.event.id}-${i}`}
                       event={item.event}
                       onSelect={onSelectEvent}
+                      continuesBefore={item.continuesBefore}
+                      continuesAfter={item.continuesAfter}
                     />
                   ) : (
                     <TaskChip
                       key={`t-${item.task.id}-${i}`}
                       task={item.task}
+                      dayKey={key}
                       onSelect={onOpenDay}
+                      continuesBefore={item.continuesBefore}
+                      continuesAfter={item.continuesAfter}
                     />
                   )
                 )}

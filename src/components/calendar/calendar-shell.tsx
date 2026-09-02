@@ -41,7 +41,7 @@ import { CalendarPanel } from "./calendar-panel";
 import { EventPopover } from "./event-popover";
 import type { EventPatch } from "@/lib/validators/event";
 import { EventForm, type EventFormValues } from "./event-form";
-import { eventsOnDay } from "./layout";
+import { dayKeysForTask, eventsOnDay } from "./layout";
 import {
   CALENDAR_VIEWS,
   type CalendarOption,
@@ -571,7 +571,13 @@ export function CalendarShell({
       <DayPanel
         dayKey={panelKey}
         events={panelKey ? eventsOnDay(visibleEvents, panelKey) : []}
-        tasks={panelKey ? visibleTasks.filter((t) => t.dayKey === panelKey) : []}
+        tasks={
+          panelKey
+            ? visibleTasks.filter((t) =>
+                dayKeysForTask(t).includes(panelKey)
+              )
+            : []
+        }
         calendars={calendars}
         openTasks={openTasks}
         canCreate={canCreate}

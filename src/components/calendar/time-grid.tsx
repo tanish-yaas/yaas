@@ -8,7 +8,12 @@ import {
   istMinutesIntoDay,
   toLocalInput,
 } from "@/lib/dates";
-import { allDayEventsForDay, packColumns, slicesForDay } from "./layout";
+import {
+  allDayEventsForDay,
+  dayKeysForTask,
+  packColumns,
+  slicesForDay,
+} from "./layout";
 import { EventChip, TaskChip } from "./event-chip";
 import type { DraftSlot, EventItem, TaskItem } from "./types";
 import { toZoomed, zoomOf, type AnchorRect } from "@/lib/ui-scale";
@@ -286,10 +291,20 @@ export function TimeGrid({
                   onSelect={onSelectEvent}
                 />
               ))}
+              {/* Every task whose start→deadline bar crosses this day, not
+                  only the ones that come due on it. */}
               {tasks
-                .filter((t) => t.dayKey === key)
-                .map((task) => (
-                  <TaskChip key={task.id} task={task} onSelect={onOpenDay} />
+                .map((task) => ({ task, keys: dayKeysForTask(task) }))
+                .filter(({ keys }) => keys.includes(key))
+                .map(({ task, keys }) => (
+                  <TaskChip
+                    key={task.id}
+                    task={task}
+                    dayKey={key}
+                    onSelect={onOpenDay}
+                    continuesBefore={keys.indexOf(key) > 0}
+                    continuesAfter={keys.indexOf(key) < keys.length - 1}
+                  />
                 ))}
             </div>
           ))}

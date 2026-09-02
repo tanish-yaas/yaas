@@ -27,7 +27,11 @@ export type EventItem = {
 /** A task deadline, carried alongside the row data TaskRow already speaks. */
 export type TaskItem = {
   id: string;
+  /** ISO. The deadline — what the chip sorts by and what "due" means. */
   dueAt: string;
+  /** ISO, when the task has one. The day the bar starts stretching from. */
+  startAt: string | null;
+  /** The IST day of the deadline. */
   dayKey: string;
   row: TaskRowData;
 };

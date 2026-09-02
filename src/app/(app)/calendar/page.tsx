@@ -83,7 +83,26 @@ export default async function CalendarPage({
         })
       : Promise.resolve([]),
     prisma.task.findMany({
-      where: { ...taskScope, dueAt: { gte: rangeStart, lt: rangeEnd } },
+      where: {
+        ...taskScope,
+        // Anything overlapping the window, matching the event query above. A
+        // task now draws as a bar from its start date to its deadline, so one
+        // that began before the window or is due after it still crosses the
+        // visible days and has to come back.
+        //
+        // AND, not more keys on the object: buildTaskScope spends the OR key on
+        // "created by me or assigned to me", and a sibling OR here would
+        // replace it and widen the query past the viewer.
+        AND: [
+          { dueAt: { gte: rangeStart } },
+          {
+            OR: [
+              { startAt: { lt: rangeEnd } },
+              { startAt: null, dueAt: { lt: rangeEnd } },
+            ],
+          },
+        ],
+      },
       orderBy: { dueAt: "asc" },
       include: {
         assignments: { include: { user: { select: { name: true } } } },
@@ -185,6 +204,7 @@ export default async function CalendarPage({
     .map((t) => ({
       id: t.id,
       dueAt: t.dueAt!.toISOString(),
+      startAt: t.startAt ? t.startAt.toISOString() : null,
       dayKey: istDayKey(t.dueAt!),
       row: {
         id: t.id,

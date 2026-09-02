@@ -1,14 +1,16 @@
 "use client";
 
 import { CalendarDays } from "lucide-react";
-import { addDaysToKey, formatIST, istDayKey, istKeyToDate } from "@/lib/dates";
+import { addDaysToKey, formatIST, istKeyToDate } from "@/lib/dates";
 import { EmptyState } from "@/components/ui/empty-state";
+import { dayKeysForEvent, dayKeysForTask } from "./layout";
 import type { EventItem, TaskItem } from "./types";
 import { toZoomed, type AnchorRect } from "@/lib/ui-scale";
 
+type Span = { continuesBefore: boolean; continuesAfter: boolean };
 type Row =
-  | { kind: "event"; sortAt: number; event: EventItem }
-  | { kind: "task"; sortAt: number; task: TaskItem };
+  | ({ kind: "event"; sortAt: number; event: EventItem } & Span)
+  | ({ kind: "task"; sortAt: number; task: TaskItem } & Span);
 
 const PRIORITY_COLOR: Record<string, string> = {
   URGENT: "var(--status-red)",
@@ -41,20 +43,33 @@ export function AgendaView({
     else byDay.set(key, [row]);
   };
 
+  // Listed on every day it covers, not just the one it starts on: an agenda
+  // that drops a three-day event after day one is telling you the next two
+  // days are free.
   for (const event of events) {
-    push(istDayKey(new Date(event.startAt)), {
-      kind: "event",
-      sortAt: event.allDay ? -1 : new Date(event.startAt).getTime(),
-      event,
-    });
+    const keys = dayKeysForEvent(event);
+    keys.forEach((key, i) =>
+      push(key, {
+        kind: "event",
+        sortAt: event.allDay ? -1 : new Date(event.startAt).getTime(),
+        event,
+        continuesBefore: i > 0,
+        continuesAfter: i < keys.length - 1,
+      })
+    );
   }
 
   for (const task of tasks) {
-    push(task.dayKey, {
-      kind: "task",
-      sortAt: new Date(task.dueAt).getTime(),
-      task,
-    });
+    const keys = dayKeysForTask(task);
+    keys.forEach((key, i) =>
+      push(key, {
+        kind: "task",
+        sortAt: new Date(task.startAt ?? task.dueAt).getTime(),
+        task,
+        continuesBefore: i > 0,
+        continuesAfter: i < keys.length - 1,
+      })
+    );
   }
 
   const dayKeys = Array.from({ length: days }, (_, i) =>
@@ -125,15 +140,29 @@ export function AgendaView({
                           style={{ backgroundColor: row.event.color }}
                         />
                         <span className="w-24 shrink-0 text-[11px] tabular-nums text-faint">
-                          {row.event.allDay
+                          {/* On the days a run passes through, the original
+                              start–end pair would be a lie about this day. Each
+                              slice says what it actually is. */}
+                          {row.event.allDay ||
+                          (row.continuesBefore && row.continuesAfter)
                             ? "All day"
-                            : `${formatIST(new Date(row.event.startAt), {
-                                hour: "2-digit",
-                                minute: "2-digit",
-                              })} – ${formatIST(new Date(row.event.endAt), {
-                                hour: "2-digit",
-                                minute: "2-digit",
-                              })}`}
+                            : row.continuesBefore
+                              ? `Until ${formatIST(new Date(row.event.endAt), {
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                })}`
+                              : row.continuesAfter
+                                ? `From ${formatIST(
+                                    new Date(row.event.startAt),
+                                    { hour: "2-digit", minute: "2-digit" }
+                                  )}`
+                                : `${formatIST(new Date(row.event.startAt), {
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                  })} – ${formatIST(new Date(row.event.endAt), {
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                  })}`}
                         </span>
                         <span className="min-w-0 flex-1">
                           <span className="block truncate text-[13px]">
@@ -170,11 +199,15 @@ export function AgendaView({
                           }}
                         />
                         <span className="w-24 shrink-0 text-[11px] tabular-nums text-faint">
-                          Due{" "}
-                          {formatIST(new Date(row.task.dueAt), {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
+                          {/* "Due 17:00" on a day three days before the
+                              deadline reads as today's problem. Only the last
+                              day of the bar is the day it is owed. */}
+                          {row.continuesAfter
+                            ? "In progress"
+                            : `Due ${formatIST(new Date(row.task.dueAt), {
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              })}`}
                         </span>
                         <span
                           className={`min-w-0 flex-1 truncate text-[13px] ${

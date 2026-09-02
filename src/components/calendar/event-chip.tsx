@@ -11,16 +11,35 @@ const PRIORITY_COLOR: Record<string, string> = {
   LOW: "var(--text-faint)",
 };
 
+/**
+ * Squared-off ends on the days a bar runs through, so a multi-day event reads
+ * as one continuous stretch across the week rather than a row of separate
+ * pills that happen to share a title.
+ */
+function spanShape(continuesBefore?: boolean, continuesAfter?: boolean) {
+  return `${continuesBefore ? "rounded-l-none border-l-0" : ""} ${
+    continuesAfter ? "rounded-r-none border-r-0" : ""
+  }`;
+}
+
 export function EventChip({
   event,
   onSelect,
+  continuesBefore,
+  continuesAfter,
 }: {
   event: EventItem;
   onSelect: (event: EventItem, rect: AnchorRect) => void;
+  /** This chip is a middle or end slice of a multi-day event. */
+  continuesBefore?: boolean;
+  continuesAfter?: boolean;
 }) {
-  const time = event.allDay
-    ? null
-    : formatIST(new Date(event.startAt), { hour: "2-digit", minute: "2-digit" });
+  // The time belongs to the day the event actually starts. Repeating it on
+  // every day of a three-day event would claim it starts again each morning.
+  const time =
+    event.allDay || continuesBefore
+      ? null
+      : formatIST(new Date(event.startAt), { hour: "2-digit", minute: "2-digit" });
 
   return (
     <button
@@ -37,7 +56,10 @@ export function EventChip({
           ? event.title
           : `${event.title} — ${event.ownerName}'s calendar`
       }
-      className="flex w-full items-center gap-1 truncate rounded-full border px-1.5 py-0.5 text-left text-[10px] font-medium leading-tight transition-[filter] hover:brightness-125"
+      className={`flex w-full items-center gap-1 truncate rounded-full border px-1.5 py-0.5 text-left text-[10px] font-medium leading-tight transition-[filter] hover:brightness-125 ${spanShape(
+        continuesBefore,
+        continuesAfter
+      )}`}
       style={{
         borderColor: `color-mix(in oklab, ${event.color} 45%, transparent)`,
         backgroundColor: `color-mix(in oklab, ${event.color} 18%, transparent)`,
@@ -53,9 +75,17 @@ export function EventChip({
 export function TaskChip({
   task,
   onSelect,
+  dayKey,
+  continuesBefore,
+  continuesAfter,
 }: {
   task: TaskItem;
   onSelect: (dayKey: string) => void;
+  /** The day this chip sits on — which is what clicking it should open. */
+  dayKey?: string;
+  /** This chip is a middle or end slice of a task that spans several days. */
+  continuesBefore?: boolean;
+  continuesAfter?: boolean;
 }) {
   const done = task.row.status === "DONE" || task.row.status === "CANCELLED";
 
@@ -71,21 +101,31 @@ export function TaskChip({
       type="button"
       onClick={(e) => {
         e.stopPropagation();
-        onSelect(task.dayKey);
+        onSelect(dayKey ?? task.dayKey);
       }}
-      title={task.row.title}
+      title={
+        continuesAfter
+          ? `${task.row.title} — due ${task.row.dueAtLabel ?? ""}`.trim()
+          : task.row.title
+      }
       className={`flex w-full items-center gap-1 truncate rounded-full border px-1.5 py-0.5 text-left text-[10px] font-medium leading-tight transition-[filter] hover:brightness-125 ${
         done ? "opacity-45 line-through" : ""
-      }`}
+      } ${spanShape(continuesBefore, continuesAfter)}`}
       style={{
         borderColor: `color-mix(in oklab, ${color} 45%, transparent)`,
         backgroundColor: `color-mix(in oklab, ${color} 14%, transparent)`,
         color: `color-mix(in oklab, ${color} 88%, white)`,
       }}
     >
+      {/* Filled on the deadline itself, hollow on the run-up to it — the bar
+          says "this is being worked on", the solid mark says "this is when it
+          is owed". */}
       <span
-        className="h-1.5 w-1.5 shrink-0 rounded-[2px]"
-        style={{ backgroundColor: color }}
+        className="h-1.5 w-1.5 shrink-0 rounded-[2px] border"
+        style={{
+          borderColor: color,
+          backgroundColor: continuesAfter ? "transparent" : color,
+        }}
       />
       <span className="truncate">{task.row.title}</span>
     </button>

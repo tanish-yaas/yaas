@@ -1,5 +1,5 @@
-import { istKeyToDate } from "@/lib/dates";
-import type { EventItem } from "./types";
+import { addDaysToKey, istDayKey, istKeyToDate } from "@/lib/dates";
+import type { EventItem, TaskItem } from "./types";
 
 export type DaySlice = {
   event: EventItem;
@@ -17,6 +17,52 @@ export type PositionedEvent = DaySlice & {
 };
 
 const DAY_MS = 86_400_000;
+
+/** A bar can cross a lot of days; past this it is data entry gone wrong. */
+const MAX_SPAN_DAYS = 60;
+
+/** Every IST day between two instants, inclusive of both ends. */
+function spanKeys(startMs: number, endMs: number): string[] {
+  const startKey = istDayKey(new Date(Math.min(startMs, endMs)));
+  const endKey = istDayKey(new Date(Math.max(startMs, endMs)));
+
+  const keys = [startKey];
+  let cursor = startKey;
+  while (cursor < endKey && keys.length < MAX_SPAN_DAYS) {
+    cursor = addDaysToKey(cursor, 1);
+    keys.push(cursor);
+  }
+  return keys;
+}
+
+/** Every IST day an event touches, so a multi-day event appears on each. */
+export function dayKeysForEvent(event: EventItem): string[] {
+  // An event ending exactly at midnight belongs to the day before, not to a
+  // day it occupies no time in.
+  return spanKeys(
+    new Date(event.startAt).getTime(),
+    new Date(event.endAt).getTime() - 1
+  );
+}
+
+/**
+ * Every IST day a task covers, start date through deadline.
+ *
+ * A task with no start date is a deadline rather than a stretch of work, so it
+ * stays on its one day — inventing a bar back to the creation date would fill
+ * the month with tasks nobody scheduled.
+ */
+export function dayKeysForTask(task: TaskItem): string[] {
+  const due = new Date(task.dueAt).getTime();
+  if (!task.startAt) return [istDayKey(new Date(due))];
+
+  // A start after its own deadline is bad data, not a bar running backwards
+  // from the deadline into next week. Fall back to the day it is owed.
+  const start = new Date(task.startAt).getTime();
+  if (start > due) return [istDayKey(new Date(due))];
+
+  return spanKeys(start, due);
+}
 
 /**
  * The timed events touching one IST day, clipped to that day's window so a
