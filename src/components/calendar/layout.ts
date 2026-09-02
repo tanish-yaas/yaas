@@ -46,20 +46,21 @@ export function dayKeysForEvent(event: EventItem): string[] {
 }
 
 /**
- * Every IST day a task covers, start date through deadline.
+ * Every IST day a task covers, from when the work starts to its deadline.
  *
- * A task with no start date is a deadline rather than a stretch of work, so it
- * stays on its one day — inventing a bar back to the creation date would fill
- * the month with tasks nobody scheduled.
+ * "Complete the deck by Friday" is not a Friday problem — it is a problem from
+ * the moment it exists until Friday, and the bar says so. An explicit start
+ * date wins; without one the task starts when it was created.
  */
 export function dayKeysForTask(task: TaskItem): string[] {
   const due = new Date(task.dueAt).getTime();
-  if (!task.startAt) return [istDayKey(new Date(due))];
+  const start = new Date(task.startAt ?? task.createdAt).getTime();
 
   // A start after its own deadline is bad data, not a bar running backwards
   // from the deadline into next week. Fall back to the day it is owed.
-  const start = new Date(task.startAt).getTime();
-  if (start > due) return [istDayKey(new Date(due))];
+  if (!Number.isFinite(start) || start > due) {
+    return [istDayKey(new Date(due))];
+  }
 
   return spanKeys(start, due);
 }

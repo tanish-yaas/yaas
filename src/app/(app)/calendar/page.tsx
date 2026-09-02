@@ -98,7 +98,8 @@ export default async function CalendarPage({
           {
             OR: [
               { startAt: { lt: rangeEnd } },
-              { startAt: null, dueAt: { lt: rangeEnd } },
+              // No explicit start, so the bar begins at createdAt.
+              { startAt: null, createdAt: { lt: rangeEnd } },
             ],
           },
         ],
@@ -205,6 +206,7 @@ export default async function CalendarPage({
       id: t.id,
       dueAt: t.dueAt!.toISOString(),
       startAt: t.startAt ? t.startAt.toISOString() : null,
+      createdAt: t.createdAt.toISOString(),
       dayKey: istDayKey(t.dueAt!),
       row: {
         id: t.id,

@@ -13,7 +13,6 @@ import {
   Bell,
   Settings,
   Users,
-  BarChart3,
   Loader2,
 } from "lucide-react";
 import { runSearch } from "@/server/actions/search";
@@ -24,11 +23,10 @@ const NAV = [
   { id: "n1", label: "Dashboard", href: "/", icon: <LayoutDashboard size={14} />, kw: "home overview" },
   { id: "n2", label: "Tasks", href: "/tasks", icon: <CheckSquare size={14} />, kw: "todo work" },
   { id: "n3", label: "Calendar", href: "/calendar", icon: <Calendar size={14} />, kw: "events schedule" },
-  { id: "n4", label: "Analytics", href: "/analytics", icon: <BarChart3 size={14} />, kw: "reports stats charts metrics insights" },
-  { id: "n5", label: "Assistant", href: "/assistant", icon: <Sparkles size={14} />, kw: "ai chat ask" },
-  { id: "n6", label: "Notifications", href: "/notifications", icon: <Bell size={14} />, kw: "alerts activity" },
-  { id: "n7", label: "Members", href: "/admin/members", icon: <Users size={14} />, kw: "team people" },
-  { id: "n8", label: "Settings", href: "/settings", icon: <Settings size={14} />, kw: "profile reminders" },
+  { id: "n4", label: "Assistant", href: "/assistant", icon: <Sparkles size={14} />, kw: "ai chat ask" },
+  { id: "n5", label: "Notifications", href: "/notifications", icon: <Bell size={14} />, kw: "alerts activity" },
+  { id: "n6", label: "Members", href: "/admin/members", icon: <Users size={14} />, kw: "team people" },
+  { id: "n7", label: "Settings", href: "/settings", icon: <Settings size={14} />, kw: "profile reminders" },
 ];
 
 const KIND_ICON: Record<string, React.ReactNode> = {

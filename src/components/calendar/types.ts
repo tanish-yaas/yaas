@@ -29,8 +29,10 @@ export type TaskItem = {
   id: string;
   /** ISO. The deadline — what the chip sorts by and what "due" means. */
   dueAt: string;
-  /** ISO, when the task has one. The day the bar starts stretching from. */
+  /** ISO, when the task has one. An explicit start wins over createdAt. */
   startAt: string | null;
+  /** ISO. When the task appeared — where its bar starts if nothing else says. */
+  createdAt: string;
   /** The IST day of the deadline. */
   dayKey: string;
   row: TaskRowData;

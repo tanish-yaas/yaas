@@ -7,7 +7,6 @@ import {
   Users,
   Sparkles,
   Bell,
-  BarChart3,
   PanelLeftClose,
 } from "lucide-react";
 import { NavLink } from "./nav-link";
@@ -16,15 +15,12 @@ import { DiaryPin } from "@/components/diary/diary-pin";
 
 export function Sidebar({
   canApprove,
-  canViewReports,
   pendingCount,
   todayKey,
   canPush,
   onToggle,
 }: {
   canApprove: boolean;
-  /** Reporting is its own permission — see the analytics page. */
-  canViewReports: boolean;
   pendingCount: number;
   /** Today in IST — the page pinned at the bottom. */
   todayKey: string;
@@ -56,11 +52,6 @@ export function Sidebar({
         <NavLink href="/calendar" label="Calendar">
           <Calendar size={15} />
         </NavLink>
-        {canViewReports && (
-          <NavLink href="/analytics" label="Analytics">
-            <BarChart3 size={15} />
-          </NavLink>
-        )}
         <NavLink href="/assistant" label="Assistant">
           <Sparkles size={15} />
         </NavLink>

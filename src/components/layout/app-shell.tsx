@@ -12,7 +12,6 @@ const KEY = "yaas.sidebar.collapsed";
 export function AppShell({
   orgName,
   canApprove,
-  canViewReports,
   pendingCount,
   todayKey,
   canPush,
@@ -21,8 +20,6 @@ export function AppShell({
 }: {
   orgName: string;
   canApprove: boolean;
-  /** Whether the analytics tab appears in the nav. */
-  canViewReports: boolean;
   pendingCount: number;
   /** Today in IST, for the pinned page and the diary window. */
   todayKey: string;
@@ -59,7 +56,6 @@ export function AppShell({
         {ready && !collapsed && (
           <Sidebar
             canApprove={canApprove}
-            canViewReports={canViewReports}
             pendingCount={pendingCount}
             todayKey={todayKey}
             canPush={canPush}
