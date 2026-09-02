@@ -8,18 +8,20 @@ import {
   istWeekStartKey,
 } from "@/lib/dates";
 import { EventChip, TaskChip } from "./event-chip";
-import { dayKeysForEvent, dayKeysForTask } from "./layout";
+import { assignLanes, dayKeysForEvent, dayKeysForTask } from "./layout";
 import type { EventItem, TaskItem } from "./types";
 import type { AnchorRect } from "@/lib/ui-scale";
 
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-const MAX_CHIPS = 3;
 
-/** `continues*` mark a slice as the middle or end of a bar, not its own thing. */
-type Span = { continuesBefore: boolean; continuesAfter: boolean };
-type Cell =
-  | ({ kind: "event"; sortAt: number; event: EventItem } & Span)
-  | ({ kind: "task"; sortAt: number; task: TaskItem } & Span);
+/** A run of days one event or task occupies, and where it sits in the stack. */
+type Bar = { id: string; keys: string[]; sortAt: number } & (
+  | { kind: "event"; event: EventItem }
+  | { kind: "task"; task: TaskItem }
+);
+
+/** How many lanes a day cell shows before the rest collapse into "+N more". */
+const MAX_LANES = 3;
 
 export function MonthView({
   anchorKey,
@@ -40,45 +42,50 @@ export function MonthView({
   const monthEnd = addMonthsToKey(monthStart, 1);
   const gridStart = istWeekStartKey(monthStart);
 
-  const byDay = new Map<string, Cell[]>();
-  const push = (key: string, cell: Cell) => {
-    const list = byDay.get(key);
-    if (list) list.push(cell);
-    else byDay.set(key, [cell]);
-  };
+  // One bar per event and per task, with the days it covers. Lanes are handed
+  // out across the whole grid rather than per week, so a run that crosses a
+  // Sunday keeps its row on the other side too.
+  const bars: Bar[] = [
+    ...events.map((event) => ({
+      kind: "event" as const,
+      id: `e-${event.id}`,
+      keys: dayKeysForEvent(event),
+      sortAt: event.allDay ? -1 : new Date(event.startAt).getTime(),
+      event,
+    })),
+    // A task is a stretch of work, not a point: it draws from where it starts
+    // to the day it is owed, rather than appearing only on the deadline.
+    ...tasks.map((task) => ({
+      kind: "task" as const,
+      id: `t-${task.id}`,
+      keys: dayKeysForTask(task),
+      sortAt: new Date(task.startAt ?? task.createdAt).getTime(),
+      task,
+    })),
+  ];
 
-  for (const event of events) {
-    const keys = dayKeysForEvent(event);
-    keys.forEach((key, i) =>
-      push(key, {
-        kind: "event",
-        sortAt: event.allDay ? -1 : new Date(event.startAt).getTime(),
-        event,
-        continuesBefore: i > 0,
-        continuesAfter: i < keys.length - 1,
-      })
-    );
+  const lanes = assignLanes(bars);
+
+  // dayKey -> lane -> the bar sitting in it that day.
+  const byDay = new Map<string, Map<number, Bar>>();
+  for (const bar of bars) {
+    const lane = lanes.get(bar.id) ?? 0;
+    for (const key of bar.keys) {
+      const row = byDay.get(key) ?? new Map<number, Bar>();
+      row.set(lane, bar);
+      byDay.set(key, row);
+    }
   }
 
-  // A task with a start date is a stretch of work, so it draws across every day
-  // from its start to its deadline instead of appearing only on the day it is
-  // owed — by then it is too late for the calendar to have been useful.
-  for (const task of tasks) {
-    const keys = dayKeysForTask(task);
-    keys.forEach((key, i) =>
-      push(key, {
-        kind: "task",
-        // Sorted by where the bar starts, so a multi-day task keeps the same
-        // row across the days it covers instead of jumping up and down.
-        sortAt: new Date(task.startAt ?? task.dueAt).getTime(),
-        task,
-        continuesBefore: i > 0,
-        continuesAfter: i < keys.length - 1,
-      })
-    );
-  }
-
-  for (const list of byDay.values()) list.sort((a, b) => a.sortAt - b.sortAt);
+  // Only as many rows as some day actually fills. Always reserving MAX_LANES
+  // would pad every cell in an empty month with rows nothing sits in.
+  const laneCount = Math.min(
+    MAX_LANES,
+    Math.max(
+      0,
+      ...[...byDay.values()].flatMap((row) => [...row.keys()]).map((l) => l + 1)
+    )
+  );
 
   const days = Array.from({ length: 42 }, (_, i) => addDaysToKey(gridStart, i));
 
@@ -97,7 +104,8 @@ export function MonthView({
 
       <div className="grid min-h-0 flex-1 grid-cols-7 grid-rows-6">
         {days.map((key, index) => {
-          const items = byDay.get(key) ?? [];
+          const row = byDay.get(key) ?? new Map<number, Bar>();
+          const hidden = [...row.keys()].filter((lane) => lane >= MAX_LANES).length;
           const inMonth = key >= monthStart && key < monthEnd;
           const isToday = key === todayKey;
           const dayNumber = istKeyToDate(key, 12).getUTCDate();
@@ -129,29 +137,54 @@ export function MonthView({
                 </span>
               </div>
 
-              <div className="flex min-h-0 flex-col gap-0.5 overflow-hidden">
-                {items.slice(0, MAX_CHIPS).map((item, i) =>
-                  item.kind === "event" ? (
+              {/* -mx-1.5 cancels the cell's padding so a bar reaches both
+                  edges and meets its neighbour across the cell border, instead
+                  of breaking into a dotted line of separate pills. */}
+              <div className="-mx-1.5 flex min-h-0 flex-col gap-0.5 overflow-hidden">
+                {Array.from({ length: laneCount }, (_, lane) => {
+                  const bar = row.get(lane);
+
+                  // An empty lane still takes its row, or every bar below it
+                  // shifts up on the days above it happen to be free — which is
+                  // the staircase this is here to prevent. Same box as a chip,
+                  // so the heights cannot drift apart.
+                  if (!bar) {
+                    return (
+                      <span
+                        key={lane}
+                        aria-hidden
+                        className="invisible rounded-full border px-1.5 py-0.5 text-[10px] font-medium leading-tight"
+                      >
+                        &nbsp;
+                      </span>
+                    );
+                  }
+
+                  const at = bar.keys.indexOf(key);
+                  const continuesBefore = at > 0;
+                  const continuesAfter = at < bar.keys.length - 1;
+
+                  return bar.kind === "event" ? (
                     <EventChip
-                      key={`e-${item.event.id}-${i}`}
-                      event={item.event}
+                      key={lane}
+                      event={bar.event}
                       onSelect={onSelectEvent}
-                      continuesBefore={item.continuesBefore}
-                      continuesAfter={item.continuesAfter}
+                      continuesBefore={continuesBefore}
+                      continuesAfter={continuesAfter}
                     />
                   ) : (
                     <TaskChip
-                      key={`t-${item.task.id}-${i}`}
-                      task={item.task}
+                      key={lane}
+                      task={bar.task}
                       dayKey={key}
                       onSelect={onOpenDay}
-                      continuesBefore={item.continuesBefore}
-                      continuesAfter={item.continuesAfter}
+                      continuesBefore={continuesBefore}
+                      continuesAfter={continuesAfter}
                     />
-                  )
-                )}
+                  );
+                })}
 
-                {items.length > MAX_CHIPS && (
+                {hidden > 0 && (
                   <span
                     onClick={(e) => {
                       e.stopPropagation();
@@ -159,7 +192,7 @@ export function MonthView({
                     }}
                     className="cursor-pointer px-1.5 text-[10px] text-faint transition-colors hover:text-foreground"
                   >
-                    +{items.length - MAX_CHIPS} more
+                    +{hidden} more
                   </span>
                 )}
               </div>

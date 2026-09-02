@@ -93,22 +93,6 @@ export function slicesForDay(events: EventItem[], dayKey: string): DaySlice[] {
   return slices;
 }
 
-/** All-day events touching a day, plus anything spanning it end to end. */
-export function allDayEventsForDay(
-  events: EventItem[],
-  dayKey: string
-): EventItem[] {
-  const dayStart = istKeyToDate(dayKey).getTime();
-  const dayEnd = dayStart + DAY_MS;
-
-  return events.filter((event) => {
-    if (!event.allDay) return false;
-    const start = new Date(event.startAt).getTime();
-    const end = new Date(event.endAt).getTime();
-    return end > dayStart && start < dayEnd;
-  });
-}
-
 /** Everything touching a day — timed and all-day alike — in start order. */
 export function eventsOnDay(events: EventItem[], dayKey: string): EventItem[] {
   const dayStart = istKeyToDate(dayKey).getTime();
@@ -165,4 +149,50 @@ export function packColumns(slices: DaySlice[]): PositionedEvent[] {
 
   flush();
   return result;
+}
+
+
+/**
+ * Give every bar a row it keeps for the whole of its run.
+ *
+ * Each day used to sort its own chips, so a bar that shared Monday with two
+ * finished tasks and Wednesday with none sat third, then second, then first —
+ * a staircase, when the thing it is describing is one continuous stretch. A
+ * lane is picked once per bar and held across every day it covers, so it reads
+ * as a line.
+ *
+ * Greedy, in the order bars start: the lowest lane that is free on *every* day
+ * the bar touches. That is what keeps two bars off each other while letting a
+ * short one sit above a long one it never meets.
+ */
+export function assignLanes<T extends { id: string; keys: string[]; sortAt: number }>(
+  items: T[]
+): Map<string, number> {
+  const ordered = [...items].sort(
+    (a, b) =>
+      // Earliest first, so a run already in progress keeps the lane it had.
+      (a.keys[0] ?? "").localeCompare(b.keys[0] ?? "") ||
+      // Then longest, so the bars that cross the most days settle at the top
+      // and the short ones fill in around them.
+      b.keys.length - a.keys.length ||
+      a.sortAt - b.sortAt ||
+      a.id.localeCompare(b.id)
+  );
+
+  const lanes = new Map<string, number>();
+  const taken = new Map<string, Set<number>>();
+
+  for (const item of ordered) {
+    let lane = 0;
+    while (item.keys.some((key) => taken.get(key)?.has(lane))) lane += 1;
+
+    lanes.set(item.id, lane);
+    for (const key of item.keys) {
+      const set = taken.get(key) ?? new Set<number>();
+      set.add(lane);
+      taken.set(key, set);
+    }
+  }
+
+  return lanes;
 }

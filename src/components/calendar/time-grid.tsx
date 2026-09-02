@@ -9,7 +9,8 @@ import {
   toLocalInput,
 } from "@/lib/dates";
 import {
-  allDayEventsForDay,
+  assignLanes,
+  dayKeysForEvent,
   dayKeysForTask,
   packColumns,
   slicesForDay,
@@ -17,6 +18,12 @@ import {
 import { EventChip, TaskChip } from "./event-chip";
 import type { DraftSlot, EventItem, TaskItem } from "./types";
 import { toZoomed, zoomOf, type AnchorRect } from "@/lib/ui-scale";
+
+/** One run in the all-day strip: an all-day event, or a task's start→due bar. */
+type StripBar = { id: string; keys: string[]; sortAt: number } & (
+  | { kind: "event"; event: EventItem }
+  | { kind: "task"; task: TaskItem }
+);
 
 const HOUR_HEIGHT = 52;
 const PX_PER_MINUTE = HOUR_HEIGHT / 60;
@@ -238,6 +245,49 @@ export function TimeGrid({
 
   const columns = { gridTemplateColumns: `repeat(${dayKeys.length}, minmax(0, 1fr))` };
 
+  // The all-day strip carries the same runs the month grid does, so it gets the
+  // same lanes: a bar holds one row for the whole week rather than sliding up
+  // as the days around it empty out. Timed events are not in here — they are
+  // positioned by the hour in the grid below.
+  const stripBars: StripBar[] = [
+    ...events
+      .filter((event) => event.allDay)
+      .map((event) => ({
+        kind: "event" as const,
+        id: `e-${event.id}`,
+        keys: dayKeysForEvent(event),
+        sortAt: -1,
+        event,
+      })),
+    ...tasks.map((task) => ({
+      kind: "task" as const,
+      id: `t-${task.id}`,
+      keys: dayKeysForTask(task),
+      sortAt: new Date(task.startAt ?? task.createdAt).getTime(),
+      task,
+    })),
+  ];
+
+  const stripLanes = assignLanes(stripBars);
+
+  const stripByDay = new Map<string, Map<number, StripBar>>();
+  for (const bar of stripBars) {
+    const lane = stripLanes.get(bar.id) ?? 0;
+    for (const key of bar.keys) {
+      const row = stripByDay.get(key) ?? new Map<number, StripBar>();
+      row.set(lane, bar);
+      stripByDay.set(key, row);
+    }
+  }
+
+  // Only as tall as the days on screen need; a run passing outside the week
+  // still reserves its lane but must not pad the strip for days nobody sees.
+  const stripLaneCount = dayKeys.reduce(
+    (max, key) =>
+      Math.max(max, ...[...(stripByDay.get(key)?.keys() ?? [-1])].map((l) => l + 1)),
+    0
+  );
+
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
       {/* Day headers */}
@@ -284,28 +334,46 @@ export function TimeGrid({
               key={key}
               className="flex min-h-9 flex-col gap-0.5 border-l border-[color-mix(in_oklab,white_6%,transparent)] px-1 py-1"
             >
-              {allDayEventsForDay(events, key).map((event) => (
-                <EventChip
-                  key={event.id}
-                  event={event}
-                  onSelect={onSelectEvent}
-                />
-              ))}
-              {/* Every task whose start→deadline bar crosses this day, not
-                  only the ones that come due on it. */}
-              {tasks
-                .map((task) => ({ task, keys: dayKeysForTask(task) }))
-                .filter(({ keys }) => keys.includes(key))
-                .map(({ task, keys }) => (
+              {Array.from({ length: stripLaneCount }, (_, lane) => {
+                const bar = stripByDay.get(key)?.get(lane);
+
+                // An empty lane holds its row, or the bars under it climb on
+                // the days above them are free — the staircase again.
+                if (!bar) {
+                  return (
+                    <span
+                      key={lane}
+                      aria-hidden
+                      className="invisible rounded-full border px-1.5 py-0.5 text-[10px] font-medium leading-tight"
+                    >
+                      &nbsp;
+                    </span>
+                  );
+                }
+
+                const at = bar.keys.indexOf(key);
+                const continuesBefore = at > 0;
+                const continuesAfter = at < bar.keys.length - 1;
+
+                return bar.kind === "event" ? (
+                  <EventChip
+                    key={lane}
+                    event={bar.event}
+                    onSelect={onSelectEvent}
+                    continuesBefore={continuesBefore}
+                    continuesAfter={continuesAfter}
+                  />
+                ) : (
                   <TaskChip
-                    key={task.id}
-                    task={task}
+                    key={lane}
+                    task={bar.task}
                     dayKey={key}
                     onSelect={onOpenDay}
-                    continuesBefore={keys.indexOf(key) > 0}
-                    continuesAfter={keys.indexOf(key) < keys.length - 1}
+                    continuesBefore={continuesBefore}
+                    continuesAfter={continuesAfter}
                   />
-                ))}
+                );
+              })}
             </div>
           ))}
         </div>
