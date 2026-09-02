@@ -63,8 +63,9 @@ export function Topbar({
         <span className="shrink-0 whitespace-nowrap text-[12px] text-faint">
           {new Intl.DateTimeFormat("en-GB", {
             weekday: "long",
-            day: "numeric",
-            month: "long",
+            day: "2-digit",
+            month: "2-digit",
+            year: "numeric",
             timeZone: APP_CONFIG.timezone,
           }).format(new Date())}
         </span>

@@ -32,8 +32,9 @@ export type Proposal =
 
 export function buildTools(ctx: ChatContext) {
   const fmt = new Intl.DateTimeFormat("en-GB", {
-    day: "numeric",
-    month: "short",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
     timeZone: ctx.timezone,

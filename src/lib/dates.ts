@@ -149,19 +149,61 @@ export function localInputFromKey(key: string, minutes: number): string {
   return `${day}T${pad(Math.floor(rest / 60))}:${pad(rest % 60)}`;
 }
 
-/** Human-readable date and time in IST. */
+// ---------------------------------------------------------------------------
+// Display formatting
+//
+// The app shows exactly one date shape: dd/mm/yyyy. Not "2 Sep", not
+// "Sep 2, 2026" — one shape, everywhere, so a date never has to be parsed by
+// eye. formatIST enforces it rather than trusting every call site to pass the
+// right options, which is how the app ended up with four shapes to begin with.
+// ---------------------------------------------------------------------------
+
+/** dd/mm/yyyy. The only way this app renders a calendar date. */
+const NUMERIC_DATE = {
+  day: "2-digit",
+  month: "2-digit",
+  year: "numeric",
+} as const satisfies Intl.DateTimeFormatOptions;
+
+const DATE_AND_TIME = {
+  ...NUMERIC_DATE,
+  hour: "2-digit",
+  minute: "2-digit",
+} as const satisfies Intl.DateTimeFormatOptions;
+
+/**
+ * Human-readable date and time in IST — "02/09/2026, 17:00".
+ *
+ * Whatever day/month/year shape a caller asks for, the result is dd/mm/yyyy:
+ * a request for `day` pulls in the numeric month and the year with it. Options
+ * that name no day are left alone, so a month heading ("September 2026"), a
+ * weekday strip ("Tue") and a bare time ("17:00") still work.
+ */
 export function formatIST(
   date: Date | null | undefined,
-  options: Intl.DateTimeFormatOptions = {
-    day: "numeric",
-    month: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-  }
+  options: Intl.DateTimeFormatOptions = DATE_AND_TIME
 ): string | null {
   if (!date) return null;
   return new Intl.DateTimeFormat("en-GB", {
     ...options,
+    ...(options.day === undefined ? {} : NUMERIC_DATE),
     timeZone: APP_CONFIG.timezone,
   }).format(date);
+}
+
+/** "02/09/2026" — the date alone. */
+export function formatDateIST(date: Date | null | undefined): string | null {
+  return formatIST(date, NUMERIC_DATE);
+}
+
+/** "02/09/2026" from an IST day key, with no Date round trip. */
+export function formatDayKey(key: string): string {
+  const [y, m, d] = key.split("-");
+  return `${d}/${m}/${y}`;
+}
+
+/** "02/09" — a day key for an axis tick, where the year is in the heading. */
+export function formatDayKeyShort(key: string): string {
+  const [, m, d] = key.split("-");
+  return `${d}/${m}`;
 }

@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { computePriorityScore } from "@/server/services/tasks";
+import { formatDayKey } from "@/lib/dates";
 
 const DAY_MS = 86_400_000;
 const SUGGESTION_TTL_DAYS = 7;
@@ -150,7 +151,7 @@ export async function runIntelligence(organizationId: string) {
         userId,
         taskId: lightest.id,
         type: "WORKLOAD_REBALANCE",
-        reason: `${new Date(day).toDateString().slice(0, 10)} is about ${overBy}h over capacity. Moving "${lightest.title}" would ease it.`,
+        reason: `${formatDayKey(day)} is about ${overBy}h over capacity. Moving "${lightest.title}" would ease it.`,
         payload: {
           taskId: lightest.id,
           apply: { action: "set_due", dueAt: moveTo.toISOString() },

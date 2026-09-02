@@ -24,6 +24,7 @@ export default async function AppLayout({
   const orgId = ctx.membership.organizationId;
   const userId = ctx.session.user.id;
   const canApprove = ctx.permissions.has("member.approve");
+  const canViewReports = ctx.permissions.has("report.view_own");
 
   // Only the sidebar's pending badge is awaited here — it is one count, and it
   // decides what the nav renders. Everything the topbar needs streams in behind
@@ -38,6 +39,7 @@ export default async function AppLayout({
     <AppShell
       orgName={ctx.membership.organization.name}
       canApprove={canApprove}
+      canViewReports={canViewReports}
       pendingCount={pendingCount}
       todayKey={istTodayKey()}
       canPush={ctx.permissions.has("ai.use")}

@@ -19,8 +19,9 @@ export function relativeTime(iso: string | Date): string {
   if (weeks < 5) return `${weeks}w ago`;
 
   return new Intl.DateTimeFormat("en-GB", {
-    day: "numeric",
-    month: "short",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
     timeZone: "Asia/Kolkata",
   }).format(date);
 }
