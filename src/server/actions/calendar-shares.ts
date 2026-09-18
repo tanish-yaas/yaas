@@ -1,8 +1,7 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { requirePermission } from "@/server/rbac/guard";
+import { requirePermission, revalidateWorkspace } from "@/server/rbac/guard";
 
 type AccessLevel = "VIEW" | "COMMENT" | "EDIT" | "FULL_ACCESS";
 
@@ -73,7 +72,7 @@ export async function shareCalendar(
     },
   });
 
-  revalidatePath("/calendar");
+  revalidateWorkspace("/calendar");
   return { ok: true as const };
 }
 
@@ -95,6 +94,6 @@ export async function revokeCalendarShare(shareId: string) {
 
   await prisma.calendarShare.delete({ where: { id: shareId } });
 
-  revalidatePath("/calendar");
+  revalidateWorkspace("/calendar");
   return { ok: true as const };
 }

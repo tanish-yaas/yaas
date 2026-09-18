@@ -2,6 +2,7 @@
 
 import { useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { useWorkspaceLink } from "@/components/workspace/use-workspace";
 import { CheckCheck, X, Bell } from "lucide-react";
 import {
   markRead,
@@ -28,6 +29,7 @@ export function NotificationList({
 }) {
   const [pending, startTransition] = useTransition();
   const router = useRouter();
+  const link = useWorkspaceLink();
 
   if (notifications.length === 0) {
     return (
@@ -81,7 +83,7 @@ export function NotificationList({
               onClick={() =>
                 startTransition(async () => {
                   if (n.unread) await markRead(n.id);
-                  if (n.taskId) router.push("/tasks");
+                  if (n.taskId) router.push(link("/tasks"));
                   else router.refresh();
                 })
               }

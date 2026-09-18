@@ -1,8 +1,7 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { requirePermission } from "@/server/rbac/guard";
+import { requirePermission, revalidateWorkspace } from "@/server/rbac/guard";
 import { fromLocalInput } from "@/lib/dates";
 import { APP_CONFIG } from "@/config/app";
 import {
@@ -13,8 +12,7 @@ import {
 } from "@/server/services/recurring";
 
 function refresh() {
-  revalidatePath("/settings");
-  revalidatePath("/tasks");
+  revalidateWorkspace("/settings", "/tasks");
 }
 
 export type RecurringInput = {

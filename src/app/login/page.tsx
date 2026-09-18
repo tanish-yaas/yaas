@@ -93,8 +93,8 @@ export default function LoginPage() {
             className="nova-rise mt-3.5 text-[11px] leading-relaxed text-faint"
             style={{ animationDelay: "220ms" }}
           >
-            One sign-in for your whole workspace. New here? Signing in puts you
-            in the queue for an admin to approve.
+            One sign-in for every workspace you&apos;re in. New here?
+            You&apos;ll create one or enter an invite code next.
           </p>
         </div>
       </section>

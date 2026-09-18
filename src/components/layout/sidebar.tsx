@@ -11,15 +11,21 @@ import {
 } from "lucide-react";
 import { NavLink } from "./nav-link";
 import { BrandLockup } from "./brand";
+import { wsPath } from "@/server/workspace/paths";
 import { DiaryPin } from "@/components/diary/diary-pin";
 
 export function Sidebar({
+  workspaceSlug,
+  orgName,
   canApprove,
   pendingCount,
   todayKey,
   canPush,
   onToggle,
 }: {
+  /** Prefix for every link below. The workspace is in the URL, not in state. */
+  workspaceSlug: string;
+  orgName: string;
   canApprove: boolean;
   pendingCount: number;
   /** Today in IST — the page pinned at the bottom. */
@@ -31,7 +37,7 @@ export function Sidebar({
   return (
     <aside className="focus-dim group/sidebar hidden w-60 shrink-0 flex-col overflow-y-auto border-r border-border bg-[color-mix(in_oklab,var(--sidebar)_84%,transparent)] px-2.5 py-3 backdrop-blur-xl md:flex">
       <div className="mb-6 flex items-start gap-1 px-1">
-        <BrandLockup size={38} className="min-w-0 flex-1" />
+        <BrandLockup size={38} subtitle={orgName} className="min-w-0 flex-1" />
         <button
           type="button"
           onClick={onToggle}
@@ -43,19 +49,19 @@ export function Sidebar({
       </div>
 
       <nav className="flex flex-col gap-px">
-        <NavLink href="/" label="Dashboard">
+        <NavLink href={wsPath(workspaceSlug, "/")} label="Dashboard" exact>
           <LayoutDashboard size={15} />
         </NavLink>
-        <NavLink href="/tasks" label="Tasks">
+        <NavLink href={wsPath(workspaceSlug, "/tasks")} label="Tasks">
           <CheckSquare size={15} />
         </NavLink>
-        <NavLink href="/calendar" label="Calendar">
+        <NavLink href={wsPath(workspaceSlug, "/calendar")} label="Calendar">
           <Calendar size={15} />
         </NavLink>
-        <NavLink href="/assistant" label="Assistant">
+        <NavLink href={wsPath(workspaceSlug, "/assistant")} label="Assistant">
           <Sparkles size={15} />
         </NavLink>
-        <NavLink href="/notifications" label="Notifications">
+        <NavLink href={wsPath(workspaceSlug, "/notifications")} label="Notifications">
           <Bell size={15} />
         </NavLink>
       </nav>
@@ -66,7 +72,11 @@ export function Sidebar({
             Admin
           </p>
           <nav className="flex flex-col gap-px">
-            <NavLink href="/admin/members" label="Members" badge={pendingCount}>
+            <NavLink
+              href={wsPath(workspaceSlug, "/admin/members")}
+              label="Members"
+              badge={pendingCount}
+            >
               <Users size={15} />
             </NavLink>
           </nav>

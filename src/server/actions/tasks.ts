@@ -1,16 +1,13 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { requirePermission } from "@/server/rbac/guard";
+import { requirePermission, revalidateWorkspace } from "@/server/rbac/guard";
 import { createTaskSchema, statusSchema } from "@/lib/validators/task";
 import { computePriorityScore, canMutateTask } from "@/server/services/tasks";
 import { fromLocalInput } from "@/lib/dates";
 
 function refresh() {
-  revalidatePath("/tasks");
-  revalidatePath("/");
-  revalidatePath("/calendar");
+  revalidateWorkspace("/tasks", "/", "/calendar");
 }
 
 export async function createTask(formData: FormData) {

@@ -1,8 +1,7 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { requireContext } from "@/server/rbac/guard";
+import { requireContext, revalidateWorkspace } from "@/server/rbac/guard";
 
 export async function markRead(notificationId: string) {
   const ctx = await requireContext();
@@ -17,8 +16,7 @@ export async function markRead(notificationId: string) {
     data: { readAt: new Date() },
   });
 
-  revalidatePath("/notifications");
-  revalidatePath("/");
+  revalidateWorkspace("/notifications", "/");
   return { ok: true as const };
 }
 
@@ -34,8 +32,7 @@ export async function markAllRead() {
     data: { readAt: new Date() },
   });
 
-  revalidatePath("/notifications");
-  revalidatePath("/");
+  revalidateWorkspace("/notifications", "/");
   return { ok: true as const, count };
 }
 
@@ -51,7 +48,6 @@ export async function archiveNotification(notificationId: string) {
     data: { archivedAt: new Date(), readAt: new Date() },
   });
 
-  revalidatePath("/notifications");
-  revalidatePath("/");
+  revalidateWorkspace("/notifications", "/");
   return { ok: true as const };
 }

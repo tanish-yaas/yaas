@@ -1,15 +1,13 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { requireContext, requirePermission } from "@/server/rbac/guard";
+import { requireContext, requirePermission, revalidateWorkspace } from "@/server/rbac/guard";
 import { buildTaskScope, canMutateTask } from "@/server/services/tasks";
 
 const MAX_DEPTH = 50;
 
 function refresh() {
-  revalidatePath("/tasks");
-  revalidatePath("/");
+  revalidateWorkspace("/tasks", "/");
 }
 
 /**

@@ -1,8 +1,7 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { requireContext, requirePermission } from "@/server/rbac/guard";
+import { requireContext, requirePermission, revalidateWorkspace } from "@/server/rbac/guard";
 import { getTaskDetail, type TaskDetailData } from "@/server/services/task-detail";
 import { buildTaskScope, canMutateTask } from "@/server/services/tasks";
 import {
@@ -14,9 +13,7 @@ import {
 } from "@/lib/storage";
 
 function refresh() {
-  revalidatePath("/tasks");
-  revalidatePath("/");
-  revalidatePath("/calendar");
+  revalidateWorkspace("/tasks", "/", "/calendar");
 }
 
 /** Confirm the task is inside the caller's scope before touching anything. */

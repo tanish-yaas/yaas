@@ -1,9 +1,12 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { requirePermission } from "@/server/rbac/guard";
+import { requirePermission, revalidateWorkspace } from "@/server/rbac/guard";
 import { ROLE_NAMES } from "@/server/rbac/permissions";
+import {
+  claimDefaultWorkspace,
+  ensureWorkspaceMemberSetup,
+} from "@/server/workspace/provision";
 
 export async function approveMember(formData: FormData) {
   const ctx = await requirePermission("member.approve");
@@ -13,9 +16,10 @@ export async function approveMember(formData: FormData) {
   const member = await prisma.organizationMember.findFirst({
     where: {
       id: memberId,
-      organizationId: ctx.membership!.organizationId,
+      organizationId: ctx.membership.organizationId,
       status: "PENDING",
     },
+    include: { organization: { select: { name: true } } },
   });
   if (!member) return;
 
@@ -36,7 +40,9 @@ export async function approveMember(formData: FormData) {
         userId: member.userId,
         type: "MEMBER_APPROVED",
         title: "You're in",
-        body: "An admin approved your access to the workspace.",
+        // Named, not "the workspace": this notification can arrive while the
+        // reader is sitting in a different one.
+        body: `An admin approved your access to ${member.organization.name}.`,
       },
     });
 
@@ -52,7 +58,13 @@ export async function approveMember(formData: FormData) {
     });
   });
 
-  revalidatePath("/admin/members");
+  // Approval is this member's first moment of actually being in the workspace,
+  // so it is where they get a calendar and their digests — the same furniture
+  // an invite code hands over at redemption.
+  await ensureWorkspaceMemberSetup(member.userId, member.organizationId);
+  await claimDefaultWorkspace(member.userId, member.organizationId);
+
+  revalidateWorkspace("/admin/members");
 }
 
 /**
@@ -119,7 +131,7 @@ export async function changeMemberRole(memberId: string, roleKey: string) {
     });
   });
 
-  revalidatePath("/admin/members");
+  revalidateWorkspace("/admin/members");
   return { ok: true as const };
 }
 
@@ -155,5 +167,5 @@ export async function deactivateMember(formData: FormData) {
     });
   });
 
-  revalidatePath("/admin/members");
+  revalidateWorkspace("/admin/members");
 }

@@ -10,6 +10,7 @@ import { DiaryDock } from "@/components/diary/diary-dock";
 const KEY = "yaas.sidebar.collapsed";
 
 export function AppShell({
+  workspaceSlug,
   orgName,
   canApprove,
   pendingCount,
@@ -18,6 +19,7 @@ export function AppShell({
   topbar,
   children,
 }: {
+  workspaceSlug: string;
   orgName: string;
   canApprove: boolean;
   pendingCount: number;
@@ -55,6 +57,8 @@ export function AppShell({
       <div className="relative z-10 flex h-full overflow-hidden">
         {ready && !collapsed && (
           <Sidebar
+            workspaceSlug={workspaceSlug}
+            orgName={orgName}
             canApprove={canApprove}
             pendingCount={pendingCount}
             todayKey={todayKey}

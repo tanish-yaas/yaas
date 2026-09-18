@@ -16,6 +16,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { runSearch } from "@/server/actions/search";
+import { wsPath } from "@/server/workspace/paths";
 import { Avatar } from "@/components/ui/avatar";
 import type { SearchResult } from "@/server/services/search";
 
@@ -35,7 +36,7 @@ const KIND_ICON: Record<string, React.ReactNode> = {
   person: <User size={14} />,
 };
 
-export function CommandPalette() {
+export function CommandPalette({ workspaceSlug }: { workspaceSlug: string }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
@@ -97,12 +98,15 @@ export function CommandPalette() {
     ...results.map((r) => ({ href: r.href })),
   ];
 
+  // Every href in NAV and in a search result is written workspace-relative
+  // ("/tasks"), and is resolved against the workspace in the URL here — one
+  // place, rather than in the search service and the nav list separately.
   const go = useCallback(
     (href: string) => {
       setOpen(false);
-      router.push(href);
+      router.push(wsPath(workspaceSlug, href));
     },
-    [router]
+    [router, workspaceSlug]
   );
 
   const panel = (

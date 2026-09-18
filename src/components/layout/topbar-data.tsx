@@ -5,6 +5,7 @@ import {
   getUnreadCount,
 } from "@/server/services/notifications";
 import { Topbar } from "@/components/layout/topbar";
+import type { WorkspaceOption } from "@/components/workspace/workspace-switcher";
 import type { SuggestionHintRow } from "@/components/layout/suggestion-hint";
 import type { SuggestionPayload } from "@/server/services/intelligence";
 
@@ -18,22 +19,26 @@ import type { SuggestionPayload } from "@/server/services/intelligence";
  */
 export async function TopbarData({
   orgId,
+  workspaceSlug,
   userId,
   displayName,
   roleName,
   image,
   avatarUrl,
+  workspaces,
 }: {
   orgId: string;
+  workspaceSlug: string;
   userId: string;
   displayName: string;
   roleName: string;
   image?: string | null;
   avatarUrl?: string | null;
+  workspaces: WorkspaceOption[];
 }) {
   const now = new Date();
 
-  const [unreadCount, notifications, suggestionRows] = await Promise.all([
+  const [unreadCount, notifications, suggestionRows, settings] = await Promise.all([
     getUnreadCount(orgId, userId),
     getRecentNotifications(orgId, userId, 15),
     prisma.aISuggestion.findMany({
@@ -46,6 +51,12 @@ export async function TopbarData({
       orderBy: [{ confidence: "desc" }, { createdAt: "desc" }],
       take: 5,
       select: { id: true, type: true, reason: true, payload: true },
+    }),
+    // Read here rather than in the layout: it only feeds the switcher's
+    // "Default" line, and the layout is what the page is waiting on.
+    prisma.userSettings.findUnique({
+      where: { userId },
+      select: { defaultOrganizationId: true },
     }),
   ]);
 
@@ -67,6 +78,9 @@ export async function TopbarData({
       notifications={notifications}
       suggestions={suggestions}
       todayKey={istTodayKey()}
+      workspaceSlug={workspaceSlug}
+      workspaces={workspaces}
+      defaultWorkspaceId={settings?.defaultOrganizationId ?? null}
     />
   );
 }
@@ -77,6 +91,8 @@ export function TopbarFallback() {
     <div className="ml-auto flex items-center gap-2">
       <div className="h-8 w-8 rounded-full bg-[color-mix(in_oklab,white_6%,transparent)]" />
       <div className="h-8 w-8 rounded-full bg-[color-mix(in_oklab,white_6%,transparent)]" />
+      <span className="mx-1 h-5 w-px bg-border" />
+      <div className="h-9 w-[70px] rounded-lg bg-[color-mix(in_oklab,white_6%,transparent)] md:w-[180px]" />
     </div>
   );
 }

@@ -5,13 +5,14 @@ import { getCurrentContext } from "@/server/auth/session";
 import { Avatar } from "@/components/ui/avatar";
 import { buildTaskScope } from "@/server/services/tasks";
 import { formatIST } from "@/lib/dates";
+import { wsPath } from "@/server/workspace/paths";
 
 export default async function PersonPage({
   params,
 }: {
-  params: Promise<{ userId: string }>;
+  params: Promise<{ userId: string; workspace: string }>;
 }) {
-  const { userId } = await params;
+  const { userId, workspace } = await params;
   const ctx = await getCurrentContext();
   if (!ctx?.membership) return null;
 
@@ -89,7 +90,7 @@ export default async function PersonPage({
 
           {isSelf && (
             <Link
-              href="/settings"
+              href={wsPath(workspace, "/settings")}
               className="shrink-0 rounded-full border border-[color-mix(in_oklab,white_12%,transparent)] px-3 py-1.5 text-[12px] text-faint transition-colors hover:text-foreground"
             >
               Edit profile

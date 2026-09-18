@@ -10,6 +10,11 @@ import {
 } from "./suggestion-hint";
 import { Avatar } from "@/components/ui/avatar";
 import { DiaryTrigger } from "@/components/diary/diary-dock";
+import {
+  WorkspaceSwitcher,
+  type WorkspaceOption,
+} from "@/components/workspace/workspace-switcher";
+import { wsPath } from "@/server/workspace/paths";
 import type { NotificationRow } from "@/server/services/notifications";
 
 /** Server-rendered, like every other date in the app — the browser is not on
@@ -37,6 +42,9 @@ export function Topbar({
   notifications,
   suggestions,
   todayKey,
+  workspaceSlug,
+  workspaces,
+  defaultWorkspaceId,
 }: {
   displayName: string;
   roleName: string;
@@ -48,10 +56,16 @@ export function Topbar({
   suggestions: SuggestionHintRow[];
   /** Today in IST — the page the diary opens on. */
   todayKey: string;
+  /** The workspace every link in this bar has to stay inside. */
+  workspaceSlug: string;
+  workspaces: WorkspaceOption[];
+  defaultWorkspaceId: string | null;
 }) {
+  const current =
+    workspaces.find((w) => w.slug === workspaceSlug) ?? workspaces[0];
   return (
     <>
-      <CommandPalette />
+      <CommandPalette workspaceSlug={workspaceSlug} />
 
       {/* Moved off the dashboard, where it cost a whole heading block plus its
           own line for the date. Here it fills bar space that was empty anyway.
@@ -84,7 +98,7 @@ export function Topbar({
         />
 
         <Link
-          href={`/people/${userId}`}
+          href={wsPath(workspaceSlug, `/people/${userId}`)}
           className="pill"
           title={`${displayName} · ${roleName}`}
         >
@@ -100,7 +114,11 @@ export function Topbar({
         {/* Sat at the bottom of the sidebar before. Next to the profile it is
             with the rest of the "about you" controls, and it stays reachable
             when the sidebar is collapsed. */}
-        <Link href="/settings" title="Settings" className="icon-btn">
+        <Link
+          href={wsPath(workspaceSlug, "/settings")}
+          title="Settings"
+          className="icon-btn"
+        >
           <Settings size={14} />
         </Link>
 
@@ -114,6 +132,20 @@ export function Topbar({
             <LogOut size={14} />
           </button>
         </form>
+
+        {/* Far right, past the divider: the YAAS mark is both the brand and
+            the way out of this workspace, which is where Slack, Linear and
+            Notion all put it. The sidebar lockup says where you are; this says
+            where else you could be. */}
+        <span className="mx-1 h-5 w-px bg-border" />
+
+        {current && (
+          <WorkspaceSwitcher
+            current={current}
+            workspaces={workspaces}
+            defaultWorkspaceId={defaultWorkspaceId}
+          />
+        )}
       </div>
     </>
   );

@@ -1,8 +1,7 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { requireContext } from "@/server/rbac/guard";
+import { requireContext, revalidateWorkspace } from "@/server/rbac/guard";
 import { canMutateTask, computePriorityScore } from "@/server/services/tasks";
 import type { SuggestionPayload } from "@/server/services/intelligence";
 
@@ -54,8 +53,7 @@ export async function acceptSuggestion(suggestionId: string) {
     data: { status: "ACCEPTED", acceptedAt: new Date() },
   });
 
-  revalidatePath("/");
-  revalidatePath("/tasks");
+  revalidateWorkspace("/", "/tasks");
   return { ok: true as const };
 }
 
@@ -72,6 +70,6 @@ export async function dismissSuggestion(suggestionId: string) {
     data: { status: "DISMISSED", dismissedAt: new Date() },
   });
 
-  revalidatePath("/");
+  revalidateWorkspace("/");
   return { ok: true as const };
 }

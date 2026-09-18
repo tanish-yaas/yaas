@@ -1,15 +1,11 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { requirePermission } from "@/server/rbac/guard";
+import { requirePermission, revalidateWorkspace } from "@/server/rbac/guard";
 import { canMutateTask } from "@/server/services/tasks";
 
 function refresh() {
-  revalidatePath("/admin/members");
-  revalidatePath("/tasks");
-  revalidatePath("/calendar");
-  revalidatePath("/");
+  revalidateWorkspace("/admin/members", "/tasks", "/calendar", "/");
 }
 
 function slugify(input: string) {

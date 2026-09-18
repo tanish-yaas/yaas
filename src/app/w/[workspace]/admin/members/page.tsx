@@ -7,6 +7,14 @@ import {
   type TeamRow,
 } from "@/components/teams/team-manager";
 import { RoleSelect } from "@/components/members/role-select";
+import {
+  InviteCodes,
+  type InviteRow,
+} from "@/components/members/invite-codes";
+import { formatCode } from "@/server/workspace/codes";
+import { wsPath } from "@/server/workspace/paths";
+import { formatIST } from "@/lib/dates";
+import { headers } from "next/headers";
 
 function SectionPanel({
   title,
@@ -41,16 +49,23 @@ function Empty({ title, hint }: { title: string; hint: string }) {
 
 const separator = "border-t border-[color-mix(in_oklab,white_6%,transparent)]";
 
-export default async function MembersPage() {
+export default async function MembersPage({
+  params,
+}: {
+  params: Promise<{ workspace: string }>;
+}) {
+  const { workspace } = await params;
   const ctx = await getCurrentContext();
   if (!ctx?.membership) return null;
-  if (!ctx.permissions.has("member.approve")) redirect("/");
+  if (!ctx.permissions.has("member.approve")) redirect(wsPath(workspace));
 
   const canDeactivate = ctx.permissions.has("member.deactivate");
   const canAssignRole = ctx.permissions.has("member.assign_role");
   const orgId = ctx.membership.organizationId;
 
-  const [members, teams] = await Promise.all([
+  const canInvite = ctx.permissions.has("member.invite");
+
+  const [members, teams, invites] = await Promise.all([
     prisma.organizationMember.findMany({
       where: { organizationId: orgId },
       include: { user: true, role: true },
@@ -67,7 +82,39 @@ export default async function MembersPage() {
         _count: { select: { tasks: true } },
       },
     }),
+    canInvite
+      ? prisma.organizationInvite.findMany({
+          where: { organizationId: orgId, revokedAt: null },
+          include: { role: { select: { name: true } } },
+          orderBy: { createdAt: "desc" },
+          take: 30,
+        })
+      : Promise.resolve([]),
   ]);
+
+  const now = new Date();
+
+  const inviteRows: InviteRow[] = invites.map((invite) => ({
+    id: invite.id,
+    code: formatCode(invite.code),
+    label: invite.label,
+    roleName: invite.role.name,
+    email: invite.email,
+    maxUses: invite.maxUses,
+    useCount: invite.useCount,
+    expiresLabel: invite.expiresAt
+      ? formatIST(invite.expiresAt, { day: "numeric", month: "short" })
+      : null,
+    expired: !!invite.expiresAt && invite.expiresAt < now,
+    spent: invite.maxUses !== null && invite.useCount >= invite.maxUses,
+  }));
+
+  // The origin the admin is actually looking at, so a copied link works from
+  // a preview deployment and from localhost, not only from the canonical host.
+  const requestHeaders = await headers();
+  const host = requestHeaders.get("x-forwarded-host") ?? requestHeaders.get("host");
+  const protocol = requestHeaders.get("x-forwarded-proto") ?? "https";
+  const joinUrlBase = host ? `${protocol}://${host}` : "";
 
   const teamRows: TeamRow[] = teams.map((t) => ({
     id: t.id,
@@ -98,7 +145,7 @@ export default async function MembersPage() {
         {pending.length === 0 ? (
           <Empty
             title="No one waiting for approval"
-            hint="New sign-ups land here until an admin lets them in."
+            hint="People who ask to join by handle land here. An invite code skips the queue."
           />
         ) : (
           <ul>
@@ -124,6 +171,14 @@ export default async function MembersPage() {
           </ul>
         )}
       </SectionPanel>
+
+      {canInvite && (
+        <InviteCodes
+          invites={inviteRows}
+          canGrantAdmin={canAssignRole}
+          joinUrlBase={joinUrlBase}
+        />
+      )}
 
       <SectionPanel title="Active" count={active.length}>
         {active.length === 0 ? (

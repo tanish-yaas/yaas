@@ -6,18 +6,27 @@ import { usePathname } from "next/navigation";
 export function NavLink({
   href,
   label,
+  exact,
   collapsed,
   badge,
   children,
 }: {
   href: string;
   label: string;
+  /**
+   * Match the path exactly. The workspace root (/w/acme) is a prefix of every
+   * other route in the workspace, so a prefix match would leave Dashboard lit
+   * while you are on Tasks.
+   */
+  exact?: boolean;
   collapsed?: boolean;
   badge?: number;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
-  const active = href === "/" ? pathname === "/" : pathname.startsWith(href);
+  const active = exact
+    ? pathname === href
+    : pathname === href || pathname.startsWith(`${href}/`);
 
   return (
     <Link

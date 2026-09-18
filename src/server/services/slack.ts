@@ -2,6 +2,7 @@ import { generateObject } from "ai";
 import { google } from "@ai-sdk/google";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
+import { inboundWorkspaceFor } from "@/server/workspace/provision";
 import { postSlackMessage, getSlackUserEmail } from "@/lib/slack/provider";
 import { parseTaskInput } from "@/server/services/ai-parser";
 import { runChat } from "@/server/services/ai-chat";
@@ -115,8 +116,15 @@ async function resolveSender(slackUserId: string): Promise<Sender | null> {
   });
   if (!user) return null;
 
-  const membership = await prisma.organizationMember.findFirst({
-    where: { userId: user.id, status: "ACTIVE" },
+  // Which workspace a Slack message files into is the user's default, not
+  // whichever membership the database returns first. The permissions then have
+  // to be the ones they hold *there* — a Manager in one workspace and a Member
+  // in another must not borrow the wrong set.
+  const target = await inboundWorkspaceFor(user.id);
+  if (!target) return null;
+
+  const membership = await prisma.organizationMember.findUnique({
+    where: { id: target.id },
     include: {
       role: { include: { permissions: { include: { permission: true } } } },
     },

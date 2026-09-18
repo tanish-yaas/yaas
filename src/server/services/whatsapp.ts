@@ -1,5 +1,6 @@
 import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
+import { inboundWorkspaceFor } from "@/server/workspace/provision";
 import { getWhatsAppProvider } from "@/lib/whatsapp/provider";
 import { parseTaskInput } from "@/server/services/ai-parser";
 import { computePriorityScore } from "@/server/services/tasks";
@@ -123,13 +124,16 @@ async function tryLinkNumber(message: InboundMessage): Promise<boolean> {
     where: { identifier: token.identifier },
   });
 
-  const membership = await prisma.organizationMember.findFirst({
-    where: { userId, status: "ACTIVE" },
-  });
+  const membership = await inboundWorkspaceFor(userId);
 
+  // Name the workspace in the confirmation. Someone in three of them needs to
+  // know which one their texts will land in before they start texting, and
+  // this is the only moment we have their attention.
   await reply(
     message.from,
-    "Linked. Send me anything you need to do and I'll turn it into a task.\n\nTry: \"call the supplier tomorrow at 3\"",
+    membership
+      ? `Linked to ${membership.organization.name}. Send me anything you need to do and I'll turn it into a task.\n\nTry: "call the supplier tomorrow at 3"`
+      : "Linked. Join a workspace in Nova and I'll start turning your messages into tasks.",
     membership?.organizationId ?? null
   );
 
@@ -153,9 +157,7 @@ export async function handleInbound(message: InboundMessage) {
     return;
   }
 
-  const membership = await prisma.organizationMember.findFirst({
-    where: { userId: profile.userId, status: "ACTIVE" },
-  });
+  const membership = await inboundWorkspaceFor(profile.userId);
 
   if (!membership) {
     await reply(message.from, "Your workspace access isn't active.", null);

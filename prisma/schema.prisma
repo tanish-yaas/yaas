@@ -21,6 +21,13 @@ enum MemberStatus {
   DEACTIVATED
 }
 
+enum JoinMethod {
+  FOUNDED
+  INVITE_CODE
+  REQUEST
+  DOMAIN
+}
+
 enum TeamRole {
   LEAD
   MEMBER
@@ -224,6 +231,7 @@ model User {
   settings UserSettings?
 
   ownedOrganizations  Organization[]       @relation("OrganizationOwner")
+  createdInvites      OrganizationInvite[] @relation("OrganizationInviteCreator")
   organizationMembers OrganizationMember[] @relation("OrganizationMemberUser")
   approvedMemberships OrganizationMember[] @relation("OrganizationMemberApprover")
   teamMemberships     TeamMember[]
@@ -397,6 +405,7 @@ model Organization {
   members  OrganizationMember[]
   roles    Role[]
   teams    Team[]
+  invites  OrganizationInvite[]
   settings OrganizationSettings?
 
   calendars      Calendar[]
@@ -448,25 +457,29 @@ model OrganizationMember {
   status         MemberStatus @default(PENDING)
 
   title         String?
-  invitedAt     DateTime? @map("invited_at")
-  joinedAt      DateTime? @map("joined_at")
-  approvedById  String?   @map("approved_by_id")
-  approvedAt    DateTime? @map("approved_at")
-  deactivatedAt DateTime? @map("deactivated_at")
+  joinMethod    JoinMethod @default(REQUEST) @map("join_method")
+  inviteId      String?    @map("invite_id")
+  invitedAt     DateTime?  @map("invited_at")
+  joinedAt      DateTime?  @map("joined_at")
+  approvedById  String?    @map("approved_by_id")
+  approvedAt    DateTime?  @map("approved_at")
+  deactivatedAt DateTime?  @map("deactivated_at")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  user         User         @relation("OrganizationMemberUser", fields: [userId], references: [id], onDelete: Cascade)
-  role         Role         @relation(fields: [roleId], references: [id], onDelete: Restrict)
-  approvedBy   User?        @relation("OrganizationMemberApprover", fields: [approvedById], references: [id], onDelete: SetNull)
+  organization Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User                @relation("OrganizationMemberUser", fields: [userId], references: [id], onDelete: Cascade)
+  role         Role                @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  approvedBy   User?               @relation("OrganizationMemberApprover", fields: [approvedById], references: [id], onDelete: SetNull)
+  invite       OrganizationInvite? @relation(fields: [inviteId], references: [id], onDelete: SetNull)
 
   @@unique([organizationId, userId])
   @@index([organizationId])
   @@index([userId])
   @@index([roleId])
   @@index([approvedById])
+  @@index([inviteId])
   @@index([organizationId, status])
   @@map("organization_members")
 }
@@ -485,6 +498,7 @@ model Role {
   organization   Organization?          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   permissions    RolePermission[]
   members        OrganizationMember[]
+  invites        OrganizationInvite[]
   defaultForOrgs OrganizationSettings[] @relation("OrganizationSettingsDefaultRole")
 
   @@unique([organizationId, key])
@@ -525,6 +539,56 @@ model RolePermission {
   @@index([roleId])
   @@index([permissionId])
   @@map("role_permissions")
+}
+
+// ---------------------------------------------------------------------------
+// Invites
+// ---------------------------------------------------------------------------
+
+/// A shareable code that lets someone into one workspace. The role is baked in
+/// at creation, so handing out a code is the same decision as approving a
+/// member — which is why redeeming one joins you ACTIVE rather than PENDING.
+///
+/// Codes are revoked, never deleted: `organization_members.invite_id` points
+/// back here, and an admin asking "who did Priya's code let in?" six months
+/// later should still get an answer.
+model OrganizationInvite {
+  id             String @id @default(cuid())
+  organizationId String @map("organization_id")
+  roleId         String @map("role_id")
+  createdById    String @map("created_by_id")
+
+  /// Stored uppercase and unpadded (NOVA7K2PXM). The dashes users see are a
+  /// display concern — normalise on the way in so "nova-7k2p-xm" also works.
+  code String @unique
+
+  /// What this code is for, in the admin's words: "Design contractors".
+  label String?
+
+  /// Null means unlimited. Redemption checks useCount < maxUses.
+  maxUses  Int? @map("max_uses")
+  useCount Int  @default(0) @map("use_count")
+
+  /// Only this address may redeem it, lowercased. Null means anyone with the
+  /// code. This is what turns a link into a personal invitation.
+  email String?
+
+  expiresAt DateTime? @map("expires_at")
+  revokedAt DateTime? @map("revoked_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  organization Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  role         Role                 @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  createdBy    User                 @relation("OrganizationInviteCreator", fields: [createdById], references: [id], onDelete: Cascade)
+  redemptions  OrganizationMember[]
+
+  @@index([organizationId])
+  @@index([roleId])
+  @@index([createdById])
+  @@index([organizationId, revokedAt])
+  @@map("organization_invites")
 }
 
 // ---------------------------------------------------------------------------
@@ -587,7 +651,10 @@ model OrganizationSettings {
   workingHoursStart Int    @default(9) @map("working_hours_start")
   workingHoursEnd   Int    @default(17) @map("working_hours_end")
 
+  /// Whether someone who knows the workspace handle but has no invite code may
+  /// ask to be let in. Off means the only way in is a code.
   allowSelfSignup Boolean  @default(false) @map("allow_self_signup")
+  /// Applies to handle requests only. An invite code is itself the approval.
   requireApproval Boolean  @default(true) @map("require_approval")
   allowedDomains  String[] @default([]) @map("allowed_domains")
   defaultRoleId   String?  @map("default_role_id")

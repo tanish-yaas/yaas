@@ -2,13 +2,24 @@
 
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { requireContext } from "@/server/rbac/guard";
+import { auth } from "@/auth";
 import { onboardingSchema } from "@/lib/validators/onboarding";
+import { ensureWorkspaceMemberSetup } from "@/server/workspace/provision";
+import { wsPath } from "@/server/workspace/paths";
 
 export async function completeOnboarding(formData: FormData) {
-  const ctx = await requireContext();
-  const userId = ctx.session.user.id;
-  const orgId = ctx.membership!.organizationId;
+  // Deliberately not requireContext(). This form lives at /onboarding, above
+  // /w, so there is no workspace on the request for the guard to resolve and
+  // it would refuse every submission. What it sets — a name, working hours, a
+  // WhatsApp number — belongs to the person and is the same in every
+  // workspace, so an account is the only thing it needs.
+  const session = await auth();
+  if (!session?.user?.id) redirect("/login");
+  const userId = session.user.id;
+
+  // Which workspace sent them here, carried through the form. Used to furnish
+  // that one workspace and to land them back in it.
+  const next = String(formData.get("next") ?? "").trim();
 
   const parsed = onboardingSchema.safeParse({
     displayName: formData.get("displayName") ?? "",
@@ -23,7 +34,9 @@ export async function completeOnboarding(formData: FormData) {
 
   if (!parsed.success) {
     const message = parsed.error.issues[0]?.message ?? "Invalid input";
-    redirect(`/onboarding?error=${encodeURIComponent(message)}`);
+    redirect(
+      `/onboarding?error=${encodeURIComponent(message)}${next ? `&next=${encodeURIComponent(next)}` : ""}`
+    );
   }
 
   const d = parsed.data;
@@ -36,80 +49,53 @@ export async function completeOnboarding(formData: FormData) {
     });
     if (taken) {
       redirect(
-        `/onboarding?error=${encodeURIComponent("That WhatsApp number is already linked to another account")}`
+        `/onboarding?error=${encodeURIComponent("That WhatsApp number is already linked to another account")}${next ? `&next=${encodeURIComponent(next)}` : ""}`
       );
     }
   }
 
-  await prisma.$transaction(async (tx) => {
-    await tx.profile.upsert({
-      where: { userId },
-      update: {
-        displayName: d.displayName,
-        jobTitle: d.jobTitle || null,
-        whatsappNumber,
-        whatsappOptIn: d.whatsappOptIn,
-        timezone: d.timezone,
-        workingHoursStart: d.workingHoursStart,
-        workingHoursEnd: d.workingHoursEnd,
-        workingDays: d.workingDays,
-      },
-      create: {
-        userId,
-        displayName: d.displayName,
-        jobTitle: d.jobTitle || null,
-        whatsappNumber,
-        whatsappOptIn: d.whatsappOptIn,
-        timezone: d.timezone,
-        workingHoursStart: d.workingHoursStart,
-        workingHoursEnd: d.workingHoursEnd,
-        workingDays: d.workingDays,
-      },
-    });
-
-    const existingCalendar = await tx.calendar.findFirst({
-      where: { ownerId: userId, organizationId: orgId, type: "PERSONAL" },
-      select: { id: true },
-    });
-
-    if (!existingCalendar) {
-      await tx.calendar.create({
-        data: {
-          organizationId: orgId,
-          ownerId: userId,
-          name: `${d.displayName}'s Calendar`,
-          type: "PERSONAL",
-          timezone: d.timezone,
-          isDefault: true,
-          color: "#7C5CFF",
-        },
-      });
-    }
-
-    await tx.reminderSchedule.createMany({
-      data: [
-        {
-          organizationId: orgId,
-          userId,
-          type: "MORNING_DIGEST",
-          channel: "IN_APP",
-          timeOfDay: "08:00",
-          timezone: d.timezone,
-          daysOfWeek: d.workingDays,
-        },
-        {
-          organizationId: orgId,
-          userId,
-          type: "EVENING_REVIEW",
-          channel: "IN_APP",
-          timeOfDay: "18:00",
-          timezone: d.timezone,
-          daysOfWeek: d.workingDays,
-        },
-      ],
-      skipDuplicates: true,
-    });
+  await prisma.profile.upsert({
+    where: { userId },
+    update: {
+      displayName: d.displayName,
+      jobTitle: d.jobTitle || null,
+      whatsappNumber,
+      whatsappOptIn: d.whatsappOptIn,
+      timezone: d.timezone,
+      workingHoursStart: d.workingHoursStart,
+      workingHoursEnd: d.workingHoursEnd,
+      workingDays: d.workingDays,
+    },
+    create: {
+      userId,
+      displayName: d.displayName,
+      jobTitle: d.jobTitle || null,
+      whatsappNumber,
+      whatsappOptIn: d.whatsappOptIn,
+      timezone: d.timezone,
+      workingHoursStart: d.workingHoursStart,
+      workingHoursEnd: d.workingHoursEnd,
+      workingDays: d.workingDays,
+    },
   });
+
+  // Verified against live membership: `next` came from the form and is a
+  // handle anyone could type.
+  const membership = next
+    ? await prisma.organizationMember.findFirst({
+        where: {
+          userId,
+          status: "ACTIVE",
+          organization: { slug: next, deletedAt: null },
+        },
+        select: { organizationId: true, organization: { select: { slug: true } } },
+      })
+    : null;
+
+  if (membership) {
+    await ensureWorkspaceMemberSetup(userId, membership.organizationId);
+    redirect(wsPath(membership.organization.slug));
+  }
 
   redirect("/");
 }

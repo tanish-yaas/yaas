@@ -1,9 +1,8 @@
 "use server";
 
 import crypto from "crypto";
-import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { requirePermission } from "@/server/rbac/guard";
+import { requirePermission, revalidateWorkspace } from "@/server/rbac/guard";
 
 export async function generateLinkCode() {
   const ctx = await requirePermission("whatsapp.link");
@@ -24,7 +23,7 @@ export async function generateLinkCode() {
     data: { identifier, token: code, expires },
   });
 
-  revalidatePath("/settings");
+  revalidateWorkspace("/settings");
   return { ok: true as const, code, expiresAt: expires.toISOString() };
 }
 
@@ -46,6 +45,6 @@ export async function unlinkWhatsApp() {
     where: { identifier: `whatsapp:${userId}` },
   });
 
-  revalidatePath("/settings");
+  revalidateWorkspace("/settings");
   return { ok: true as const };
 }

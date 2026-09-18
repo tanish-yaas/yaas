@@ -16,7 +16,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   },
   events: {
     async createUser({ user }) {
-      if (user.id) await bootstrapUser(user.id, user.email);
+      if (user.id) await bootstrapUser(user.id);
     },
   },
   ...authConfig,

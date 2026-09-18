@@ -1,8 +1,7 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { requirePermission, checkRate } from "@/server/rbac/guard";
+import { requirePermission, checkRate, revalidateWorkspace } from "@/server/rbac/guard";
 import { LIMITS } from "@/lib/rate-limit";
 import { runChat, type ChatTurn } from "@/server/services/ai-chat";
 import { computePriorityScore, canMutateTask } from "@/server/services/tasks";
@@ -162,8 +161,7 @@ export async function applyProposal(proposal: Proposal) {
       });
     });
 
-    revalidatePath("/tasks");
-    revalidatePath("/");
+    revalidateWorkspace("/tasks", "/");
     return { ok: true as const, applied: 1 };
   }
 
@@ -213,7 +211,6 @@ export async function applyProposal(proposal: Proposal) {
     applied += 1;
   }
 
-  revalidatePath("/tasks");
-  revalidatePath("/");
+  revalidateWorkspace("/tasks", "/");
   return { ok: true as const, applied };
 }

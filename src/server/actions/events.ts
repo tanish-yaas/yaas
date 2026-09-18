@@ -1,8 +1,7 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { requirePermission } from "@/server/rbac/guard";
+import { requirePermission, revalidateWorkspace } from "@/server/rbac/guard";
 import {
   eventInputSchema,
   eventPatchSchema,
@@ -103,7 +102,7 @@ export async function createCalendarEvent(input: EventInput) {
     },
   });
 
-  revalidatePath("/calendar");
+  revalidateWorkspace("/calendar");
   return { ok: true as const, id: event.id };
 }
 
@@ -185,7 +184,7 @@ export async function updateCalendarEvent(eventId: string, input: EventPatch) {
 
   await prisma.calendarEvent.update({ where: { id: eventId }, data });
 
-  revalidatePath("/calendar");
+  revalidateWorkspace("/calendar");
   return { ok: true as const };
 }
 
@@ -209,7 +208,7 @@ export async function resizeEvent(eventId: string, newEndLocal: string) {
     data: { endAt: newEnd },
   });
 
-  revalidatePath("/calendar");
+  revalidateWorkspace("/calendar");
   return { ok: true };
 }
 
@@ -226,7 +225,7 @@ export async function deleteEvent(eventId: string) {
     data: { deletedAt: new Date() },
   });
 
-  revalidatePath("/calendar");
+  revalidateWorkspace("/calendar");
   return { ok: true };
 }
 
@@ -251,6 +250,6 @@ export async function moveEvent(eventId: string, newStartLocal: string) {
     },
   });
 
-  revalidatePath("/calendar");
+  revalidateWorkspace("/calendar");
   return { ok: true };
 }

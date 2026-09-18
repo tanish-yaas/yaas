@@ -1,8 +1,7 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { requireContext } from "@/server/rbac/guard";
+import { requireContext, revalidateWorkspace } from "@/server/rbac/guard";
 import { computeNextSendAt } from "@/server/services/reminders";
 
 export async function updateReminderSchedule(
@@ -38,7 +37,7 @@ export async function updateReminderSchedule(
     },
   });
 
-  revalidatePath("/settings");
+  revalidateWorkspace("/settings");
   return { ok: true as const };
 }
 
@@ -66,6 +65,6 @@ export async function ensureWeeklySchedule() {
     },
   });
 
-  revalidatePath("/settings");
+  revalidateWorkspace("/settings");
   return { ok: true as const };
 }

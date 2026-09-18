@@ -23,9 +23,10 @@ async function main() {
 
   console.log(`Seeded ${entries.length} permissions.`);
 
-  // Roles are wired up once, when the first organization is bootstrapped. Any
-  // permission added to the codebase after that never reaches an existing
-  // role, so re-link them here. Additive only — nothing is revoked.
+  // Roles are wired up per workspace, when it is created. Any permission added
+  // to the codebase after that never reaches a role that already exists, so
+  // re-link them here across every workspace. Additive only — nothing is
+  // revoked.
   const roles = await prisma.role.findMany({
     where: { key: { in: Object.keys(ROLE_PERMISSIONS) } },
     select: { id: true, key: true, organizationId: true },

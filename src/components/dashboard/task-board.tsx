@@ -1,4 +1,8 @@
 "use client";
+import {
+  useWorkspaceLink,
+  useWorkspaceKey,
+} from "@/components/workspace/use-workspace";
 
 import { useEffect, useMemo, useOptimistic, useState, useTransition } from "react";
 import Link from "next/link";
@@ -48,6 +52,8 @@ export function TaskBoard({
   members?: BoardMember[];
   selfId: string;
 }) {
+  const link = useWorkspaceLink();
+  const peopleKey = useWorkspaceKey(PEOPLE_KEY);
   const { push } = useToast();
   const [, startTransition] = useTransition();
 
@@ -57,7 +63,7 @@ export function TaskBoard({
 
   useEffect(() => {
     try {
-      const stored = window.localStorage.getItem(PEOPLE_KEY);
+      const stored = window.localStorage.getItem(peopleKey);
       if (stored) {
         const ids = JSON.parse(stored) as string[];
         if (Array.isArray(ids) && ids.length > 0) setPeople(new Set(ids));
@@ -65,12 +71,12 @@ export function TaskBoard({
     } catch {
       // A corrupt store just means the default selection stands.
     }
-  }, []);
+  }, [peopleKey]);
 
   function persist(next: Set<string>) {
     setPeople(next);
     try {
-      window.localStorage.setItem(PEOPLE_KEY, JSON.stringify([...next]));
+      window.localStorage.setItem(peopleKey, JSON.stringify([...next]));
     } catch {
       // Non-fatal — the selection still applies for this session.
     }
@@ -240,7 +246,7 @@ export function TaskBoard({
             </div>
 
             <Link
-              href="/tasks"
+              href={link("/tasks")}
               className="mt-1.5 flex items-center gap-1.5 rounded-lg px-1.5 py-1.5 text-[12px] text-faint transition-colors hover:bg-[color-mix(in_oklab,white_5%,transparent)] hover:text-foreground"
             >
               <Plus size={12} />

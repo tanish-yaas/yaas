@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getCurrentContext } from "@/server/auth/session";
 import { completeOnboarding } from "@/server/actions/onboarding";
+import { wsPath } from "@/server/workspace/paths";
 import { APP_CONFIG } from "@/config/app";
 
 const DAYS = [
@@ -19,15 +20,19 @@ const inputClass =
 export default async function OnboardingPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; next?: string }>;
 }) {
-  const { error } = await searchParams;
-  const ctx = await getCurrentContext();
+  const { error, next } = await searchParams;
+
+  // Workspace-agnostic now. This screen asks for a display name and working
+  // hours, which belong to the person and travel with them into every
+  // workspace they join — so it no longer needs a membership to run, only an
+  // account. `next` is the workspace that sent them here, so finishing lands
+  // them where they were going rather than on the switcher.
+  const ctx = await getCurrentContext(next);
 
   if (!ctx) redirect("/login");
-  if (!ctx.membership || ctx.membership.status === "PENDING") redirect("/pending");
-  if (ctx.membership.status === "DEACTIVATED") redirect("/login");
-  if (ctx.profile) redirect("/");
+  if (ctx.profile) redirect(next ? wsPath(next) : "/");
 
   const localTime = new Intl.DateTimeFormat("en-GB", {
     timeZone: APP_CONFIG.timezone,
@@ -58,6 +63,7 @@ export default async function OnboardingPage({
           )}
 
           <form action={completeOnboarding} className="flex flex-col gap-5">
+            <input type="hidden" name="next" value={next ?? ""} />
             <div className="flex flex-col gap-1.5">
               <label
                 htmlFor="displayName"

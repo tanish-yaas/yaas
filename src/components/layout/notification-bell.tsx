@@ -4,6 +4,7 @@ import { useState, useEffect, useTransition } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useWorkspaceLink } from "@/components/workspace/use-workspace";
 import { Bell, CheckCheck } from "lucide-react";
 import { markRead, markAllRead } from "@/server/actions/notifications";
 import { relativeTime } from "@/lib/relative-time";
@@ -27,6 +28,7 @@ export function NotificationBell({
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
   const router = useRouter();
+  const link = useWorkspaceLink();
 
   // No mounted guard needed: the portal only renders once `open` is true, and
   // that can only come from a click, which only ever happens on the client.
@@ -87,7 +89,7 @@ export function NotificationBell({
                       if (unread) await markRead(n.id);
                       if (n.taskId) {
                         setOpen(false);
-                        router.push("/tasks");
+                        router.push(link("/tasks"));
                       } else {
                         router.refresh();
                       }
@@ -127,7 +129,7 @@ export function NotificationBell({
         </div>
 
         <Link
-          href="/notifications"
+          href={link("/notifications")}
           onClick={() => setOpen(false)}
           className="block border-t border-border px-3 py-2 text-center text-[12px] text-faint transition-colors hover:text-foreground"
         >

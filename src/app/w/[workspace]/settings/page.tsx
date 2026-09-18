@@ -17,6 +17,7 @@ import {
   RecurringSettings,
   type RecurringRow,
 } from "@/components/settings/recurring-settings";
+import { WorkspaceSettings } from "@/components/settings/workspace-settings";
 import { describeRRule } from "@/server/services/recurring";
 import { formatIST } from "@/lib/dates";
 
@@ -31,7 +32,8 @@ export default async function SettingsPage() {
 
   const orgId = ctx.membership?.organizationId;
 
-  const [uiScale, schedules, labels, recurring, memberRows] = await Promise.all([
+  const [uiScale, schedules, labels, recurring, memberRows, orgSettings] =
+    await Promise.all([
     getUiScale(),
     prisma.reminderSchedule.findMany({
       where: { userId: ctx.session.user.id },
@@ -57,7 +59,13 @@ export default async function SettingsPage() {
           orderBy: { createdAt: "asc" },
         })
       : Promise.resolve([]),
-  ]);
+    orgId
+      ? prisma.organizationSettings.findUnique({
+          where: { organizationId: orgId },
+          select: { allowSelfSignup: true },
+        })
+      : Promise.resolve(null),
+    ]);
 
   const canManageAnyLabel = ctx.permissions.has("org.settings");
 
@@ -104,6 +112,16 @@ export default async function SettingsPage() {
   const whatsappReady =
     ctx.profile.whatsappVerified && !!ctx.profile.whatsappNumber;
 
+  const owner = ctx.membership
+    ? await prisma.user.findUnique({
+        where: { id: ctx.membership.organization.ownerId },
+        select: { name: true, email: true, profile: { select: { displayName: true } } },
+      })
+    : null;
+
+  const ownerName =
+    owner?.profile?.displayName ?? owner?.name ?? owner?.email ?? "an admin";
+
   return (
     <div className="mx-auto w-full max-w-2xl">
       <header className="mb-7">
@@ -112,6 +130,18 @@ export default async function SettingsPage() {
       </header>
 
       <div className="flex flex-col gap-4">
+        {ctx.membership && (
+          <WorkspaceSettings
+            name={ctx.membership.organization.name}
+            handle={ctx.membership.organization.slug}
+            allowRequests={orgSettings?.allowSelfSignup ?? false}
+            memberCount={memberRows.length}
+            canEdit={ctx.permissions.has("org.settings")}
+            canLeave={ctx.membership.organization.ownerId !== ctx.session.user.id}
+            ownerName={ownerName}
+          />
+        )}
+
         <IdentitySettings
           displayName={ctx.profile.displayName ?? ""}
           jobTitle={ctx.profile.jobTitle ?? ""}

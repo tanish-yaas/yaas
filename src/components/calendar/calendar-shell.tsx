@@ -3,6 +3,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
+import {
+  useWorkspaceLink,
+  useWorkspaceKey,
+} from "@/components/workspace/use-workspace";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   CalendarPlus,
@@ -90,6 +94,8 @@ export function CalendarShell({
   canShare: boolean;
 }) {
   const router = useRouter();
+  const link = useWorkspaceLink();
+  const hiddenKey = useWorkspaceKey(HIDDEN_KEY);
   const { push } = useToast();
 
   const [mounted, setMounted] = useState(false);
@@ -114,12 +120,12 @@ export function CalendarShell({
   // than on the shared Calendar row.
   useEffect(() => {
     try {
-      const stored = window.localStorage.getItem(HIDDEN_KEY);
+      const stored = window.localStorage.getItem(hiddenKey);
       if (stored) setHiddenCalendars(new Set(JSON.parse(stored) as string[]));
     } catch {
       // A corrupt or unavailable store just means everything stays visible.
     }
-  }, []);
+  }, [hiddenKey]);
 
   function toggleCalendar(calendarId: string) {
     // Computed outside the updater. React may call an updater more than once
@@ -131,7 +137,7 @@ export function CalendarShell({
     setHiddenCalendars(next);
 
     try {
-      window.localStorage.setItem(HIDDEN_KEY, JSON.stringify([...next]));
+      window.localStorage.setItem(hiddenKey, JSON.stringify([...next]));
     } catch {
       // Non-fatal — the toggle still applies for this session.
     }
@@ -153,7 +159,7 @@ export function CalendarShell({
 
   const navigate = useCallback(
     (nextView: CalendarView, nextKey: string) => {
-      router.push(`/calendar?view=${nextView}&date=${nextKey}`, {
+      router.push(link(`/calendar?view=${nextView}&date=${nextKey}`), {
         scroll: false,
       });
     },

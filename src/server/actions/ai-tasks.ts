@@ -1,8 +1,7 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { requirePermission, checkRate } from "@/server/rbac/guard";
+import { requirePermission, checkRate, revalidateWorkspace } from "@/server/rbac/guard";
 import { LIMITS } from "@/lib/rate-limit";
 import { parseTaskInput } from "@/server/services/ai-parser";
 import { transcribeAudio } from "@/server/services/transcribe";
@@ -261,9 +260,7 @@ export async function applyParsedTask(
     return task.id;
   });
 
-  revalidatePath("/tasks");
-  revalidatePath("/");
-  revalidatePath("/calendar");
+  revalidateWorkspace("/tasks", "/", "/calendar");
   // Returned so the composer can attach a voice note to the row it just made.
   return { ok: true, taskId: created };
 }

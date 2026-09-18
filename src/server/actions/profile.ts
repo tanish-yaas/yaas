@@ -1,8 +1,7 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { requireContext } from "@/server/rbac/guard";
+import { requireContext, revalidateWorkspace } from "@/server/rbac/guard";
 import { computeNextSendAt } from "@/server/services/reminders";
 import { avatarKeyOf } from "@/lib/avatars";
 import { TIMEZONES } from "@/lib/timezones";
@@ -46,8 +45,7 @@ export async function updateTimezone(timezone: string) {
     }
   });
 
-  revalidatePath("/settings");
-  revalidatePath("/");
+  revalidateWorkspace("/settings", "/");
   return { ok: true as const };
 }
 
@@ -94,9 +92,9 @@ export async function updateProfile(input: {
     },
   });
 
-  revalidatePath("/settings");
-  revalidatePath("/");
-  revalidatePath(`/people/${userId}`);
+  // The route pattern, not this one person's path: mixing a literal id into a
+  // path that already carries [workspace] matches no cache entry at all.
+  revalidateWorkspace("/settings", "/", "/people/[userId]");
   return { ok: true as const };
 }
 
@@ -124,6 +122,6 @@ export async function updateWorkingHours(input: {
     },
   });
 
-  revalidatePath("/settings");
+  revalidateWorkspace("/settings");
   return { ok: true as const };
 }

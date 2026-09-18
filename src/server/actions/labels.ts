@@ -1,8 +1,7 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { requirePermission } from "@/server/rbac/guard";
+import { requirePermission, revalidateWorkspace } from "@/server/rbac/guard";
 import { canMutateTask } from "@/server/services/tasks";
 import { theme } from "@/config/theme";
 
@@ -10,9 +9,7 @@ const PALETTE = theme.labelPalette;
 const HEX = /^#[0-9a-fA-F]{6}$/;
 
 function refresh() {
-  revalidatePath("/tasks");
-  revalidatePath("/settings");
-  revalidatePath("/");
+  revalidateWorkspace("/tasks", "/settings", "/");
 }
 
 export async function createLabel(rawName: string, color: string) {
