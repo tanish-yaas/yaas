@@ -24,22 +24,29 @@ export function BrandLockup({
   product = "Nova",
   badge = "BETA",
   subtitle = "Workspace",
+  subtitleLines = 2,
   className = "",
 }: {
   size?: number;
   product?: string;
   badge?: string | null;
   subtitle?: string | null;
+  /** The subtitle is a workspace name, so its length is anyone's guess. Two
+      lines keeps a long one readable in the sidebar; one keeps the topbar's
+      height fixed. */
+  subtitleLines?: 1 | 2;
   className?: string;
 }) {
+  // Spans throughout, not div and p: the lockup is also the workspace
+  // switcher's button, and a button may only hold phrasing content.
   return (
-    <div className={`flex items-center gap-3.5 ${className}`}>
+    <span className={`flex items-center gap-3.5 ${className}`}>
       <YaasMark size={size} className="shrink-0" />
 
       <span className="h-9 w-px shrink-0 bg-border-strong" />
 
-      <div className="leading-tight">
-        <div className="flex items-center gap-2">
+      <span className="block min-w-0 leading-tight">
+        <span className="flex items-center gap-2">
           <span className="text-[17px] font-semibold tracking-tight">
             {product}
           </span>
@@ -48,13 +55,17 @@ export function BrandLockup({
               {badge}
             </span>
           )}
-        </div>
+        </span>
         {subtitle && (
-          <p className="mt-1 text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+          <span
+            className={`mt-1 text-[10px] uppercase tracking-[0.2em] text-muted-foreground ${
+              subtitleLines === 1 ? "block truncate" : "line-clamp-2 break-words"
+            }`}
+          >
             {subtitle}
-          </p>
+          </span>
         )}
-      </div>
-    </div>
+      </span>
+    </span>
   );
 }

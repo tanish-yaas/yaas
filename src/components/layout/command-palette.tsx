@@ -217,10 +217,24 @@ export function CommandPalette({ workspaceSlug }: { workspaceSlug: string }) {
 
   return (
     <>
-      <button type="button" onClick={() => setOpen(true)} className="pill">
-        <Search size={14} />
-        <span className="hidden sm:inline">Search tasks, events, people</span>
-        <kbd className="ml-1 hidden rounded border border-border-strong px-1.5 py-px text-[10px] md:inline">
+      {/* Sized by the topbar's width (@container/topbar), not the viewport's:
+          the whole label with its shortcut when the bar has room, "Search"
+          when it is tighter, the icon alone at the narrowest. Always one line
+          and always whole — it steps down rather than wrapping or truncating. */}
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        title="Search tasks, events, people (⌘K)"
+        className="pill shrink-0"
+      >
+        <Search size={14} className="shrink-0" />
+        <span className="hidden @xl/topbar:block @3xl/topbar:hidden">
+          Search
+        </span>
+        <span className="hidden @3xl/topbar:block">
+          Search tasks, events, people
+        </span>
+        <kbd className="ml-1 hidden shrink-0 rounded border border-border-strong px-1.5 py-px text-[10px] @3xl/topbar:inline">
           ⌘K
         </kbd>
       </button>

@@ -9,7 +9,10 @@ import {
 import { istTodayKey } from "@/lib/dates";
 import { AppShell } from "@/components/layout/app-shell";
 import { TopbarData, TopbarFallback } from "@/components/layout/topbar-data";
-import type { WorkspaceOption } from "@/components/workspace/workspace-switcher";
+import type {
+  WorkspaceMenuData,
+  WorkspaceOption,
+} from "@/components/workspace/workspace-switcher";
 import { wsPath } from "@/server/workspace/paths";
 
 export default async function WorkspaceLayout({
@@ -60,16 +63,22 @@ export default async function WorkspaceLayout({
   const userId = ctx.session.user.id;
   const canApprove = ctx.permissions.has("member.approve");
 
-  // Only the sidebar's pending badge is awaited here — it is one count, and it
-  // decides what the nav renders. Everything the topbar needs streams in behind
-  // Suspense so the shell and the route's loading.tsx paint immediately.
-  const [pendingCount, memberships] = await Promise.all([
+  // Only what the sidebar renders is awaited here: the pending badge and the
+  // workspace switcher at its top. Each is one narrow query, run side by side.
+  // Everything the topbar needs streams in behind Suspense so the shell and
+  // the route's loading.tsx paint immediately.
+  const [pendingCount, memberships, settings] = await Promise.all([
     canApprove
       ? prisma.organizationMember.count({
           where: { organizationId: orgId, status: "PENDING" },
         })
       : Promise.resolve(0),
     listMemberships(userId),
+    // Only feeds the switcher's "Default" line.
+    prisma.userSettings.findUnique({
+      where: { userId },
+      select: { defaultOrganizationId: true },
+    }),
   ]);
 
   // Workspaces you can open lead; ones you are still waiting on sit at the
@@ -90,10 +99,27 @@ export default async function WorkspaceLayout({
           : wsPath(m.organization.slug),
     }));
 
+  // Built from the membership this request already resolved, not looked up in
+  // the list: the list is for the menu, and this page is only rendering
+  // because that membership exists.
+  const workspaceMenu: WorkspaceMenuData = {
+    current: {
+      id: orgId,
+      name: ctx.membership.organization.name,
+      slug: workspace,
+      logoUrl: ctx.membership.organization.logoUrl,
+      roleName: ctx.membership.role.name,
+      pending: false,
+      href: wsPath(workspace),
+    },
+    workspaces,
+    defaultWorkspaceId: settings?.defaultOrganizationId ?? null,
+  };
+
   return (
     <AppShell
       workspaceSlug={workspace}
-      orgName={ctx.membership.organization.name}
+      workspaceMenu={workspaceMenu}
       canApprove={canApprove}
       pendingCount={pendingCount}
       todayKey={istTodayKey()}
@@ -108,7 +134,6 @@ export default async function WorkspaceLayout({
             roleName={ctx.membership.role.name}
             image={ctx.session.user.image}
             avatarUrl={ctx.profile.avatarUrl}
-            workspaces={workspaces}
           />
         </Suspense>
       }

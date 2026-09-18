@@ -189,12 +189,21 @@ export function SuggestionHint({
         type="button"
         onClick={() => setOpen((v) => !v)}
         title={top.reason}
-        className="pill min-w-0 max-w-[22rem]"
+        // The one thing in the bar that shrinks. Everything else holds its
+        // width, because flexbox hands every shrinkable item a share of the
+        // squeeze — even a fraction of a pixel puts an ellipsis on a label.
+        // This sentence was going to be truncated anyway. Its width cap sits
+        // on the sentence, not the pill: capped on the pill, flexbox shrinks
+        // from the sentence's full length and spends the squeeze above the
+        // cap, where it changes nothing on screen.
+        className="pill min-w-0"
       >
         <span className="shrink-0" style={{ color: accentOf(top.type) }}>
           {iconOf(top.type)}
         </span>
-        <span className="hidden min-w-0 truncate sm:block">{top.reason}</span>
+        <span className="hidden min-w-0 max-w-[18rem] truncate @xl/topbar:block">
+          {top.reason}
+        </span>
         {rest > 0 && (
           <span className="shrink-0 tabular-nums text-faint">+{rest}</span>
         )}

@@ -3,15 +3,18 @@
 import { useState, useEffect } from "react";
 import { PanelLeft } from "lucide-react";
 import { Sidebar } from "./sidebar";
-import { BrandLockup } from "./brand";
 import { OrbitField } from "@/components/visual/orbit-field";
 import { DiaryDock } from "@/components/diary/diary-dock";
+import {
+  WorkspaceSwitcher,
+  type WorkspaceMenuData,
+} from "@/components/workspace/workspace-switcher";
 
 const KEY = "yaas.sidebar.collapsed";
 
 export function AppShell({
   workspaceSlug,
-  orgName,
+  workspaceMenu,
   canApprove,
   pendingCount,
   todayKey,
@@ -20,7 +23,7 @@ export function AppShell({
   children,
 }: {
   workspaceSlug: string;
-  orgName: string;
+  workspaceMenu: WorkspaceMenuData;
   canApprove: boolean;
   pendingCount: number;
   /** Today in IST, for the pinned page and the diary window. */
@@ -58,7 +61,7 @@ export function AppShell({
         {ready && !collapsed && (
           <Sidebar
             workspaceSlug={workspaceSlug}
-            orgName={orgName}
+            workspaceMenu={workspaceMenu}
             canApprove={canApprove}
             pendingCount={pendingCount}
             todayKey={todayKey}
@@ -72,7 +75,12 @@ export function AppShell({
             <OrbitField variant="backdrop" />
           </div>
 
-          <div className="focus-dim relative z-10 flex h-14 shrink-0 items-center gap-3 border-b border-border px-4">
+          {/* A size container, so the bar's contents step down by the room the
+              bar actually has. Viewport breakpoints could not: the interface
+              scale is `zoom` on the root, which media queries never see, so at
+              Large every item grew while sm/md/lg still thought there was space
+              — and the search pill's label wrapped onto a second line. */}
+          <div className="focus-dim @container/topbar relative z-10 flex h-14 shrink-0 items-center gap-3 border-b border-border px-4">
             {ready && collapsed && (
               <>
                 <button
@@ -83,8 +91,21 @@ export function AppShell({
                 >
                   <PanelLeft size={15} />
                 </button>
-                <BrandLockup size={30} subtitle={null} className="shrink-0" />
+                <WorkspaceSwitcher
+                  {...workspaceMenu}
+                  compact
+                  className="max-w-[16rem] shrink-0"
+                />
               </>
+            )}
+            {/* Below md there is no sidebar at all, so the switcher would have
+                nowhere to live without this copy. */}
+            {ready && !collapsed && (
+              <WorkspaceSwitcher
+                {...workspaceMenu}
+                compact
+                className="max-w-[16rem] shrink-0 md:hidden"
+              />
             )}
             {topbar}
           </div>

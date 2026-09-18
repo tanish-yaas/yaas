@@ -10,13 +10,16 @@ import {
   PanelLeftClose,
 } from "lucide-react";
 import { NavLink } from "./nav-link";
-import { BrandLockup } from "./brand";
 import { wsPath } from "@/server/workspace/paths";
 import { DiaryPin } from "@/components/diary/diary-pin";
+import {
+  WorkspaceSwitcher,
+  type WorkspaceMenuData,
+} from "@/components/workspace/workspace-switcher";
 
 export function Sidebar({
   workspaceSlug,
-  orgName,
+  workspaceMenu,
   canApprove,
   pendingCount,
   todayKey,
@@ -25,7 +28,8 @@ export function Sidebar({
 }: {
   /** Prefix for every link below. The workspace is in the URL, not in state. */
   workspaceSlug: string;
-  orgName: string;
+  /** The lockup at the top is the workspace switcher. */
+  workspaceMenu: WorkspaceMenuData;
   canApprove: boolean;
   pendingCount: number;
   /** Today in IST — the page pinned at the bottom. */
@@ -36,13 +40,13 @@ export function Sidebar({
 }) {
   return (
     <aside className="focus-dim group/sidebar hidden w-60 shrink-0 flex-col overflow-y-auto border-r border-border bg-[color-mix(in_oklab,var(--sidebar)_84%,transparent)] px-2.5 py-3 backdrop-blur-xl md:flex">
-      <div className="mb-6 flex items-start gap-1 px-1">
-        <BrandLockup size={38} subtitle={orgName} className="min-w-0 flex-1" />
+      <div className="mb-5 flex items-center gap-1">
+        <WorkspaceSwitcher {...workspaceMenu} className="flex-1" />
         <button
           type="button"
           onClick={onToggle}
           title="Collapse sidebar"
-          className="mt-1 flex h-6 w-6 shrink-0 items-center justify-center rounded text-faint opacity-0 transition-all hover:bg-[var(--card-hover)] hover:text-foreground group-hover/sidebar:opacity-100"
+          className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-faint opacity-0 transition-all hover:bg-[var(--card-hover)] hover:text-foreground group-hover/sidebar:opacity-100"
         >
           <PanelLeftClose size={14} />
         </button>

@@ -361,12 +361,15 @@ h3 {
   background: color-mix(in oklab, white 4%, transparent);
 }
 
-/* Translucent pill — search, chips, controls */
+/* Translucent pill — search, chips, controls. One line, always: the height is
+   fixed, so a label that wraps spills out of the pill instead of growing it.
+   Squeezed for room, a pill's label truncates or steps down; it never wraps. */
 .pill {
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
   height: 34px;
+  white-space: nowrap;
   padding: 0 0.875rem;
   border-radius: 999px;
   border: 1px solid color-mix(in oklab, white 11%, transparent);

@@ -10,10 +10,6 @@ import {
 } from "./suggestion-hint";
 import { Avatar } from "@/components/ui/avatar";
 import { DiaryTrigger } from "@/components/diary/diary-dock";
-import {
-  WorkspaceSwitcher,
-  type WorkspaceOption,
-} from "@/components/workspace/workspace-switcher";
 import { wsPath } from "@/server/workspace/paths";
 import type { NotificationRow } from "@/server/services/notifications";
 
@@ -43,8 +39,6 @@ export function Topbar({
   suggestions,
   todayKey,
   workspaceSlug,
-  workspaces,
-  defaultWorkspaceId,
 }: {
   displayName: string;
   roleName: string;
@@ -58,20 +52,21 @@ export function Topbar({
   todayKey: string;
   /** The workspace every link in this bar has to stay inside. */
   workspaceSlug: string;
-  workspaces: WorkspaceOption[];
-  defaultWorkspaceId: string | null;
 }) {
-  const current =
-    workspaces.find((w) => w.slug === workspaceSlug) ?? workspaces[0];
+  // Everything below steps down on the bar's own width — @container/topbar in
+  // the app shell — not the viewport's. Order of what gives way: the greeting,
+  // then the search label, then the profile name and diary label, and last
+  // the suggestion text. Between steps only the suggestion shrinks; the rest
+  // hold their width, so no label ever ends in an ellipsis.
   return (
     <>
       <CommandPalette workspaceSlug={workspaceSlug} />
 
       {/* Moved off the dashboard, where it cost a whole heading block plus its
-          own line for the date. Here it fills bar space that was empty anyway.
-          Hidden below lg so it never squeezes the search field. */}
-      <div className="hidden min-w-0 shrink items-baseline gap-2 lg:flex">
-        <span className="truncate text-[13px]">
+          own line for the date. Here it fills bar space that was empty anyway,
+          and is the first thing to go when the bar gets tight. */}
+      <div className="hidden shrink-0 items-baseline gap-2 whitespace-nowrap @6xl/topbar:flex">
+        <span className="text-[13px]">
           {greeting(APP_CONFIG.timezone)}, {displayName.split(" ")[0]}
         </span>
         <span className="shrink-0 whitespace-nowrap text-[12px] text-faint">
@@ -87,7 +82,7 @@ export function Topbar({
 
       <SuggestionHint suggestions={suggestions} />
 
-      <div className="ml-auto flex items-center gap-2">
+      <div className="ml-auto flex shrink-0 items-center gap-2">
         {/* Was in the tasks header, where it was only ever one tab's tool. A
             day's notes belong to the day, not to a page. */}
         <DiaryTrigger todayKey={todayKey} />
@@ -99,7 +94,7 @@ export function Topbar({
 
         <Link
           href={wsPath(workspaceSlug, `/people/${userId}`)}
-          className="pill"
+          className="pill shrink-0"
           title={`${displayName} · ${roleName}`}
         >
           <Avatar
@@ -108,7 +103,9 @@ export function Topbar({
             name={displayName}
             size={20}
           />
-          <span className="hidden sm:block">{displayName}</span>
+          <span className="hidden max-w-[10rem] truncate @2xl/topbar:block">
+            {displayName}
+          </span>
         </Link>
 
         {/* Sat at the bottom of the sidebar before. Next to the profile it is
@@ -133,19 +130,8 @@ export function Topbar({
           </button>
         </form>
 
-        {/* Far right, past the divider: the YAAS mark is both the brand and
-            the way out of this workspace, which is where Slack, Linear and
-            Notion all put it. The sidebar lockup says where you are; this says
-            where else you could be. */}
-        <span className="mx-1 h-5 w-px bg-border" />
-
-        {current && (
-          <WorkspaceSwitcher
-            current={current}
-            workspaces={workspaces}
-            defaultWorkspaceId={defaultWorkspaceId}
-          />
-        )}
+        {/* The workspace switcher lived here, past a divider. It is the brand
+            lockup at the top of the sidebar now — see WorkspaceSwitcher. */}
       </div>
     </>
   );

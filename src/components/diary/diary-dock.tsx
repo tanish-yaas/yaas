@@ -26,7 +26,7 @@ export function DiaryTrigger({ todayKey }: { todayKey: string }) {
       className="pill"
     >
       <BookOpen size={14} />
-      <span className="hidden sm:block">Diary</span>
+      <span className="hidden @2xl/topbar:block">Diary</span>
     </button>
   );
 }
