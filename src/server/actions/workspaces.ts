@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { auth } from "@/auth";
+import { currentSession } from "@/server/auth/current-session";
 import {
   requireContext,
   requirePermission,
@@ -13,10 +13,13 @@ import { createWorkspace } from "@/server/workspace/provision";
 import { joinWithCode, requestToJoin } from "@/server/workspace/join";
 import { normaliseCode } from "@/server/workspace/codes";
 import { toHandle, wsPath, WS } from "@/server/workspace/paths";
+import { DELETE_WORKSPACE_PHRASE } from "@/server/workspace/confirm";
+import { purgeWorkspace, workspaceFileKeys } from "@/server/workspace/purge";
+import { removeObjects } from "@/lib/storage";
 
 /** Signed in, but not yet anywhere. Everything on /welcome runs through here. */
 async function requireUser() {
-  const session = await auth();
+  const session = await currentSession();
   if (!session?.user?.id) redirect("/login");
   return session.user;
 }
@@ -252,5 +255,78 @@ export async function leaveWorkspace() {
     });
   }
 
+  redirect("/");
+}
+
+/**
+ * Delete the workspace, for real: every row it owns and every file its tasks
+ * carry. The one hard delete in the app — everywhere else sets deletedAt —
+ * because the point of deleting a whole workspace is that it stops taking up
+ * space, and a soft-deleted one would sit in every table forever.
+ *
+ * The owner only, and only with the workspace's name and the confirmation
+ * sentence typed out. Both are checked here again: the dialog greys its
+ * button out until they match, but a form can be posted without it.
+ */
+export async function deleteWorkspace(formData: FormData) {
+  const ctx = await requireContext();
+  const userId = ctx.session.user.id;
+  const org = ctx.membership.organization;
+
+  if (org.ownerId !== userId) {
+    return {
+      ok: false as const,
+      error: "Only the owner can delete this workspace",
+    };
+  }
+
+  const typedName = String(formData.get("confirmName") ?? "").trim();
+  const typedPhrase = String(formData.get("confirmPhrase") ?? "")
+    .trim()
+    .toLowerCase();
+
+  if (typedName !== org.name.trim()) {
+    return { ok: false as const, error: "The workspace name doesn't match" };
+  }
+  if (typedPhrase !== DELETE_WORKSPACE_PHRASE) {
+    return {
+      ok: false as const,
+      error: `Type "${DELETE_WORKSPACE_PHRASE}" to confirm`,
+    };
+  }
+
+  const files = await workspaceFileKeys([org.id]);
+
+  await prisma.$transaction(
+    async (tx) => {
+      await purgeWorkspace(tx, org.id);
+
+      // The one row that outlives it: who deleted what, and when. A few
+      // hundred bytes, unattached to any workspace.
+      await tx.auditLog.create({
+        data: {
+          organizationId: null,
+          actorId: userId,
+          actorEmail: ctx.session.user.email,
+          action: "DELETE",
+          entityType: "Organization",
+          entityId: org.id,
+          before: { name: org.name, slug: org.slug, files: files.length },
+        },
+      });
+    },
+    // The default interactive-transaction timeout is 5s, and a workspace with
+    // a few years of history cascades through a lot of rows.
+    { timeout: 60_000, maxWait: 10_000 }
+  );
+
+  // After the commit, not inside it: storage cannot roll back, so the files go
+  // only once the rows that reference them are certainly gone.
+  await removeObjects(files);
+
+  revalidatePath(WS, "layout");
+
+  // / sends them to another workspace they belong to, or to /welcome when this
+  // was the only one.
   redirect("/");
 }

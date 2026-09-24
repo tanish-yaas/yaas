@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { auth } from "@/auth";
+import { currentSession } from "@/server/auth/current-session";
 import { onboardingSchema } from "@/lib/validators/onboarding";
 import { ensureWorkspaceMemberSetup } from "@/server/workspace/provision";
 import { wsPath } from "@/server/workspace/paths";
@@ -13,7 +13,7 @@ export async function completeOnboarding(formData: FormData) {
   // it would refuse every submission. What it sets — a name, working hours, a
   // WhatsApp number — belongs to the person and is the same in every
   // workspace, so an account is the only thing it needs.
-  const session = await auth();
+  const session = await currentSession();
   if (!session?.user?.id) redirect("/login");
   const userId = session.user.id;
 

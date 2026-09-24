@@ -18,8 +18,14 @@ import {
   type RecurringRow,
 } from "@/components/settings/recurring-settings";
 import { WorkspaceSettings } from "@/components/settings/workspace-settings";
+import { DangerZone } from "@/components/settings/danger-zone";
 import { describeRRule } from "@/server/services/recurring";
 import { formatIST } from "@/lib/dates";
+import { formatCode } from "@/server/workspace/codes";
+import { findWorkspaceCode } from "@/server/workspace/invites";
+import { accountDeletionSummary } from "@/server/account/deletion";
+import { requestOrigin } from "@/server/workspace/origin";
+import { wsPath } from "@/server/workspace/paths";
 
 export default async function SettingsPage() {
   const ctx = await getCurrentContext();
@@ -31,9 +37,40 @@ export default async function SettingsPage() {
   const slackReady = !!process.env.SLACK_BOT_TOKEN;
 
   const orgId = ctx.membership?.organizationId;
+  const canInvite = !!orgId && ctx.permissions.has("member.invite");
+  const isOwner =
+    !!ctx.membership &&
+    ctx.membership.organization.ownerId === ctx.session.user.id;
 
-  const [uiScale, schedules, labels, recurring, memberRows, orgSettings] =
-    await Promise.all([
+  // What deleting would take with it, for the owner's confirmation dialog.
+  // Counted here, in the same batch as everything else, rather than when the
+  // dialog opens — that would be a round trip between the click and the text.
+  const deletionCounts =
+    isOwner && orgId
+      ? Promise.all([
+          prisma.task.count({ where: { organizationId: orgId, deletedAt: null } }),
+          prisma.calendarEvent.count({
+            where: { organizationId: orgId, deletedAt: null },
+          }),
+          prisma.attachment.count({
+            where: { organizationId: orgId, deletedAt: null },
+          }),
+        ])
+      : Promise.resolve(null);
+
+  const [
+    uiScale,
+    schedules,
+    labels,
+    recurring,
+    memberRows,
+    orgSettings,
+    workspaceCode,
+    counts,
+    origin,
+    deletion,
+    owner,
+  ] = await Promise.all([
     getUiScale(),
     prisma.reminderSchedule.findMany({
       where: { userId: ctx.session.user.id },
@@ -63,6 +100,24 @@ export default async function SettingsPage() {
       ? prisma.organizationSettings.findUnique({
           where: { organizationId: orgId },
           select: { allowSelfSignup: true },
+        })
+      : Promise.resolve(null),
+    canInvite ? findWorkspaceCode(orgId) : Promise.resolve(null),
+    deletionCounts,
+    canInvite ? requestOrigin() : Promise.resolve(""),
+    // Everyone can delete their own account, so this is read on every visit.
+    accountDeletionSummary(ctx.session.user.id),
+    // In the batch rather than after it: it only needs the owner's id, which
+    // the membership already carries, and waiting on the rest first cost a
+    // whole extra round trip on every visit.
+    ctx.membership
+      ? prisma.user.findUnique({
+          where: { id: ctx.membership.organization.ownerId },
+          select: {
+            name: true,
+            email: true,
+            profile: { select: { displayName: true } },
+          },
         })
       : Promise.resolve(null),
     ]);
@@ -112,13 +167,6 @@ export default async function SettingsPage() {
   const whatsappReady =
     ctx.profile.whatsappVerified && !!ctx.profile.whatsappNumber;
 
-  const owner = ctx.membership
-    ? await prisma.user.findUnique({
-        where: { id: ctx.membership.organization.ownerId },
-        select: { name: true, email: true, profile: { select: { displayName: true } } },
-      })
-    : null;
-
   const ownerName =
     owner?.profile?.displayName ?? owner?.name ?? owner?.email ?? "an admin";
 
@@ -139,6 +187,26 @@ export default async function SettingsPage() {
             canEdit={ctx.permissions.has("org.settings")}
             canLeave={ctx.membership.organization.ownerId !== ctx.session.user.id}
             ownerName={ownerName}
+            canInvite={canInvite}
+            invite={
+              workspaceCode
+                ? {
+                    id: workspaceCode.id,
+                    code: formatCode(workspaceCode.code),
+                    useCount: workspaceCode.useCount,
+                    createdLabel: formatIST(workspaceCode.createdAt, {
+                      day: "numeric",
+                      month: "short",
+                    }),
+                  }
+                : null
+            }
+            joinUrlBase={origin}
+            membersHref={
+              ctx.permissions.has("member.approve")
+                ? wsPath(ctx.membership.organization.slug, "/admin/members")
+                : null
+            }
           />
         )}
 
@@ -187,6 +255,39 @@ export default async function SettingsPage() {
             sandboxMode={sandboxMode}
           />
         )}
+
+        {/* Last — the same place GitHub and Vercel keep theirs, as far from
+            the everyday controls as it can get. The workspace row is the
+            owner's alone; the account row is everyone's. */}
+        <DangerZone
+          workspace={
+            ctx.membership && isOwner && counts
+              ? {
+                  name: ctx.membership.organization.name,
+                  taskCount: counts[0],
+                  eventCount: counts[1],
+                  fileCount: counts[2],
+                  otherMemberCount: Math.max(0, memberRows.length - 1),
+                }
+              : null
+          }
+          account={{
+            email: ctx.session.user.email ?? "",
+            soloOwned: deletion.soloOwned.map((w) => ({
+              name: w.name,
+              slug: w.slug,
+            })),
+            sharedOwned: deletion.sharedOwned.map((w) => ({
+              name: w.name,
+              slug: w.slug,
+              otherMembers: w.otherMembers,
+            })),
+            memberOf: deletion.memberOf.map((w) => ({
+              name: w.name,
+              slug: w.slug,
+            })),
+          }}
+        />
       </div>
     </div>
   );

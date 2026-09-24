@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { auth } from "@/auth";
+import { currentSession } from "@/server/auth/current-session";
 import { getDefaultWorkspace } from "@/server/auth/session";
 import { wsPath } from "@/server/workspace/paths";
 
@@ -12,7 +12,7 @@ import { wsPath } from "@/server/workspace/paths";
  * /pending; everyone else lands in their default.
  */
 export default async function RootPage() {
-  const session = await auth();
+  const session = await currentSession();
   if (!session?.user?.id) redirect("/login");
 
   const membership = await getDefaultWorkspace(session.user.id);

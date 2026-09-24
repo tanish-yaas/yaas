@@ -125,3 +125,23 @@ export async function removeObject(storageKey: string): Promise<void> {
     headers: headers(cfg.key),
   }).catch(() => undefined);
 }
+
+/**
+ * Remove many objects, a thousand per call — the storage API's batch limit.
+ * Best effort, like removeObject: by the time this runs the rows that pointed
+ * at these files are gone, so a failed call leaves an orphaned file behind,
+ * never a broken page.
+ */
+export async function removeObjects(storageKeys: string[]): Promise<void> {
+  const cfg = config();
+  if (!cfg || storageKeys.length === 0) return;
+
+  for (let i = 0; i < storageKeys.length; i += 1000) {
+    await fetch(`${cfg.url}/storage/v1/object/${BUCKET}`, {
+      method: "DELETE",
+      headers: headers(cfg.key, { "Content-Type": "application/json" }),
+      // "prefixes" is the API's name for the list of object paths to delete.
+      body: JSON.stringify({ prefixes: storageKeys.slice(i, i + 1000) }),
+    }).catch(() => undefined);
+  }
+}

@@ -6,6 +6,7 @@ import { updateWorkspace, leaveWorkspace } from "@/server/actions/workspaces";
 import { toHandle } from "@/server/workspace/paths";
 import { useToast } from "@/components/ui/toast";
 import { SettingsPanel } from "./settings-panel";
+import { InviteCode, type WorkspaceCode } from "./invite-code";
 
 const field =
   "w-full rounded-lg border border-border bg-secondary/60 px-3 py-2 text-[13px] outline-none transition-colors focus:border-brand-violet";
@@ -18,6 +19,10 @@ export function WorkspaceSettings({
   canEdit,
   canLeave,
   ownerName,
+  invite,
+  canInvite,
+  joinUrlBase,
+  membersHref,
 }: {
   name: string;
   handle: string;
@@ -28,6 +33,13 @@ export function WorkspaceSettings({
   /** False for the owner, who has to hand the workspace over first. */
   canLeave: boolean;
   ownerName: string;
+  /** The standing invite code, for members who may invite. Null for the rest,
+      and for a workspace that has not made one yet. */
+  invite: WorkspaceCode | null;
+  canInvite: boolean;
+  joinUrlBase: string;
+  /** Set when the viewer can open the Members page. */
+  membersHref: string | null;
 }) {
   const [name, setName] = useState(initialName);
   const [handle, setHandle] = useState(initialHandle);
@@ -133,6 +145,18 @@ export function WorkspaceSettings({
           <p className="text-[13px]">{initialName}</p>
           <p className="text-[12px] text-faint">/w/{initialHandle}</p>
         </div>
+      )}
+
+      {/* Under the workspace's own details, which is where someone looks for
+          "how do I get my team in here". The Members page still holds the
+          narrower kinds of code. */}
+      {canInvite && (
+        <InviteCode
+          workspaceName={initialName}
+          invite={invite}
+          joinUrlBase={joinUrlBase}
+          membersHref={membersHref}
+        />
       )}
 
       {canLeave && (

@@ -3,6 +3,10 @@
 import { prisma } from "@/lib/prisma";
 import { requirePermission, revalidateWorkspace } from "@/server/rbac/guard";
 import { generateCode, formatCode } from "@/server/workspace/codes";
+import {
+  WORKSPACE_CODE_LABEL,
+  workspaceCodeWhere,
+} from "@/server/workspace/invites";
 import { ROLE_NAMES } from "@/server/rbac/permissions";
 
 /** How long "expires in" options run for, in days. Null is "no expiry". */
@@ -100,11 +104,115 @@ export async function createInvite(formData: FormData) {
     },
   });
 
-  revalidateWorkspace("/admin/members");
+  revalidateWorkspace("/admin/members", "/settings");
 
   // Returned, not just revalidated: the admin is about to paste this
   // somewhere, and making them hunt for the new row in the list is a worse
   // first second than handing it straight back.
+  return { ok: true as const, code: formatCode(invite.code) };
+}
+
+/**
+ * Mint the workspace's standing code — Member, no expiry, no use limit — for
+ * the Settings page, where a workspace with no code yet offers to make one.
+ */
+export async function createWorkspaceCode() {
+  const ctx = await requirePermission("member.invite");
+  const orgId = ctx.membership.organizationId;
+
+  const role = await prisma.role.findFirst({
+    where: { organizationId: orgId, key: "MEMBER" },
+    select: { id: true },
+  });
+  if (!role) return { ok: false as const, error: "Role not set up here" };
+
+  const invite = await prisma.$transaction(async (tx) => {
+    const created = await tx.organizationInvite.create({
+      data: {
+        organizationId: orgId,
+        roleId: role.id,
+        createdById: ctx.session.user.id,
+        code: generateCode(),
+        label: WORKSPACE_CODE_LABEL,
+      },
+    });
+
+    await tx.auditLog.create({
+      data: {
+        organizationId: orgId,
+        actorId: ctx.session.user.id,
+        actorEmail: ctx.session.user.email,
+        action: "INVITE",
+        entityType: "OrganizationInvite",
+        entityId: created.id,
+        after: { role: "MEMBER", standing: true },
+      },
+    });
+
+    return created;
+  });
+
+  revalidateWorkspace("/settings", "/admin/members");
+  return { ok: true as const, code: formatCode(invite.code) };
+}
+
+/**
+ * Swap the standing code for a new one, for when it has been posted somewhere
+ * it should not have been. The old code stops working at once; everyone who
+ * already joined through it stays.
+ *
+ * Only ever replaces a standing code, and always with a Member one. The id
+ * comes from the client, and without the check this would turn any code —
+ * an admin one, say — into a Member code with no expiry and no limit.
+ */
+export async function resetWorkspaceCode(inviteId: string) {
+  const ctx = await requirePermission("member.invite");
+  const orgId = ctx.membership.organizationId;
+
+  const current = await prisma.organizationInvite.findFirst({
+    where: { ...workspaceCodeWhere(orgId), id: inviteId },
+    select: { id: true, roleId: true },
+  });
+  if (!current) {
+    return {
+      ok: false as const,
+      error: "That code has already changed — refresh the page",
+    };
+  }
+
+  const invite = await prisma.$transaction(async (tx) => {
+    await tx.organizationInvite.update({
+      where: { id: current.id },
+      data: { revokedAt: new Date() },
+    });
+
+    const created = await tx.organizationInvite.create({
+      data: {
+        organizationId: orgId,
+        roleId: current.roleId,
+        createdById: ctx.session.user.id,
+        code: generateCode(),
+        label: WORKSPACE_CODE_LABEL,
+      },
+    });
+
+    await tx.auditLog.create({
+      data: {
+        organizationId: orgId,
+        actorId: ctx.session.user.id,
+        actorEmail: ctx.session.user.email,
+        action: "UPDATE",
+        entityType: "OrganizationInvite",
+        entityId: created.id,
+        before: { replaced: current.id },
+        after: { role: "MEMBER", standing: true },
+      },
+    });
+
+    return created;
+  });
+
+  revalidateWorkspace("/settings", "/admin/members");
   return { ok: true as const, code: formatCode(invite.code) };
 }
 
@@ -142,6 +250,6 @@ export async function revokeInvite(inviteId: string) {
     });
   });
 
-  revalidateWorkspace("/admin/members");
+  revalidateWorkspace("/admin/members", "/settings");
   return { ok: true as const };
 }

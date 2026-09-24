@@ -14,7 +14,7 @@ import {
 import { formatCode } from "@/server/workspace/codes";
 import { wsPath } from "@/server/workspace/paths";
 import { formatIST } from "@/lib/dates";
-import { headers } from "next/headers";
+import { requestOrigin } from "@/server/workspace/origin";
 
 function SectionPanel({
   title,
@@ -109,12 +109,7 @@ export default async function MembersPage({
     spent: invite.maxUses !== null && invite.useCount >= invite.maxUses,
   }));
 
-  // The origin the admin is actually looking at, so a copied link works from
-  // a preview deployment and from localhost, not only from the canonical host.
-  const requestHeaders = await headers();
-  const host = requestHeaders.get("x-forwarded-host") ?? requestHeaders.get("host");
-  const protocol = requestHeaders.get("x-forwarded-proto") ?? "https";
-  const joinUrlBase = host ? `${protocol}://${host}` : "";
+  const joinUrlBase = await requestOrigin();
 
   const teamRows: TeamRow[] = teams.map((t) => ({
     id: t.id,

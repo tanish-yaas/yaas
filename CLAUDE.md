@@ -6,7 +6,11 @@
 - Every DB query is scoped by organizationId. Task queries go through buildTaskScope().
   Calendar queries go through getVisibleCalendarIds().
 - Every mutation starts with requireContext() or requirePermission(key) from src/server/rbac/guard.ts.
-- Deletes are soft: set deletedAt, never remove rows.
+- Deletes are soft: set deletedAt, never remove rows. One deliberate exception: deleting a whole
+  workspace (deleteWorkspace in src/server/actions/workspaces.ts) removes its rows and files for
+  real, so a deleted workspace stops taking up space. Don't make it soft.
+- Vercel deploys never run migrations. A commit that adds one needs `migrate deploy` run against
+  production (DIRECT_URL inline — ~/yaas has no .env) before it is pushed.
 - AI proposes, users confirm. AI tools must never write directly to the database.
 - Prisma client generates to src/generated/prisma, not @prisma/client.
 - Overlays (dropdowns, modals) must portal to document.body — backdrop-filter parents trap fixed positioning.

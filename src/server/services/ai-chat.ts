@@ -1,4 +1,6 @@
 import { generateText, stepCountIs } from "ai";
+import { isTransientModelError } from "@/lib/ai/errors";
+import { withModelFallback } from "@/lib/ai/model-health";
 import { google } from "@ai-sdk/google";
 import { AI_CONFIG } from "@/config/ai";
 import { buildTools, type ChatContext, type Proposal } from "@/lib/ai/tools";
@@ -43,19 +45,29 @@ export async function runChat(params: {
   }).format(new Date());
 
   try {
-    const result = await generateText({
-      model: google(AI_CONFIG.model),
-      system: systemPrompt(params.ctx, nowLabel),
-      tools: buildTools(params.ctx),
-      stopWhen: stepCountIs(6),
-      messages: [
-        ...params.history.map((t) => ({
-          role: t.role,
-          content: t.content,
-        })),
-        { role: "user" as const, content: params.message },
-      ],
-    });
+    // Same policy the parser uses: no SDK retry, switch model instead. The
+    // assistant used to take the SDK default of two retries against the model
+    // that was already overloaded, which is seconds of waiting that could
+    // never succeed.
+    const result = await withModelFallback(
+      AI_CONFIG,
+      (modelId) =>
+        generateText({
+          model: google(modelId),
+          system: systemPrompt(params.ctx, nowLabel),
+          tools: buildTools(params.ctx),
+          stopWhen: stepCountIs(6),
+          maxRetries: 0,
+          messages: [
+            ...params.history.map((t) => ({
+              role: t.role,
+              content: t.content,
+            })),
+            { role: "user" as const, content: params.message },
+          ],
+        }),
+      isTransientModelError
+    );
 
     const proposals: Proposal[] = [];
 

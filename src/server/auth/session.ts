@@ -1,6 +1,6 @@
 import { cache } from "react";
 import { headers } from "next/headers";
-import { auth } from "@/auth";
+import { currentSession } from "@/server/auth/current-session";
 import { prisma } from "@/lib/prisma";
 import { WORKSPACE_HEADER } from "@/server/workspace/paths";
 
@@ -85,7 +85,7 @@ export const getDefaultWorkspace = cache(async (userId: string) => {
  * single signature.
  */
 export const getCurrentContext = cache(async (slugOverride?: string) => {
-  const session = await auth();
+  const session = await currentSession();
   if (!session?.user?.id) return null;
 
   const userId = session.user.id;

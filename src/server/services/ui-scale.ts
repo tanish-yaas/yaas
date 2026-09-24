@@ -1,5 +1,5 @@
 import { cache } from "react";
-import { auth } from "@/auth";
+import { currentSession } from "@/server/auth/current-session";
 import { prisma } from "@/lib/prisma";
 import { DEFAULT_UI_SCALE, isUiScale, type UiScale } from "@/lib/ui-scale";
 
@@ -15,7 +15,7 @@ import { DEFAULT_UI_SCALE, isUiScale, type UiScale } from "@/lib/ui-scale";
  */
 export const getUiScale = cache(async (): Promise<UiScale> => {
   try {
-    const session = await auth();
+    const session = await currentSession();
     if (!session?.user?.id) return DEFAULT_UI_SCALE;
 
     const settings = await prisma.userSettings.findUnique({
