@@ -4,6 +4,7 @@ import {
   LayoutDashboard,
   CheckSquare,
   Calendar,
+  ClipboardList,
   Users,
   Sparkles,
   Bell,
@@ -34,7 +35,8 @@ export function Sidebar({
   pendingCount: number;
   /** Today in IST — the page pinned at the bottom. */
   todayKey: string;
-  /** Whether this member may run the parser behind the pin's push buttons. */
+  /** Whether this member may run the parser behind the pin's push buttons.
+      Also what puts Deliverables in the nav — it is one model call. */
   canPush: boolean;
   onToggle: () => void;
 }) {
@@ -65,6 +67,11 @@ export function Sidebar({
         <NavLink href={wsPath(workspaceSlug, "/assistant")} label="Assistant">
           <Sparkles size={15} />
         </NavLink>
+        {canPush && (
+          <NavLink href={wsPath(workspaceSlug, "/deliverables")} label="Deliverables">
+            <ClipboardList size={15} />
+          </NavLink>
+        )}
         <NavLink href={wsPath(workspaceSlug, "/notifications")} label="Notifications">
           <Bell size={15} />
         </NavLink>

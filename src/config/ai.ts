@@ -16,6 +16,14 @@ export const AI_CONFIG = {
   model: "gemini-3.5-flash-lite",
   fallbackModel: "gemini-flash-lite-latest",
 
+  // The monthly deliverables report reads a whole month of spreadsheet rows at
+  // once and has to hold dozens of videos straight. The lite pair above is
+  // tuned for one-line parses and starts dropping rows at that size, so this
+  // one job gets the bigger model. A moving alias on purpose: it should follow
+  // whatever Google currently ships as their best flash model, and the pinned
+  // lite model above is the fallback if the alias ever stops resolving.
+  reportModel: "gemini-flash-latest",
+
   promptVersion: "task-parse-v3",
 
   maxInputChars: 2000,

@@ -53,6 +53,9 @@ export const LIMITS = {
   // dictated note is one recording rather than something you retry in a burst.
   aiTranscribe: { limit: 10, window: 60 },
   aiChat: { limit: 15, window: 60 },
+  // A month of sheets on the bigger model. It is a once-a-month job done a few
+  // times while the dates get adjusted, never in a burst.
+  aiReport: { limit: 6, window: 300 },
   search: { limit: 60, window: 60 },
   mutation: { limit: 60, window: 60 },
   // The diary autosaves while you type, so it needs more headroom than a

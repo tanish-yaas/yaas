@@ -13,6 +13,7 @@ import {
   Bell,
   Settings,
   Users,
+  ClipboardList,
   Loader2,
 } from "lucide-react";
 import { runSearch } from "@/server/actions/search";
@@ -26,6 +27,7 @@ const NAV = [
   { id: "n3", label: "Calendar", href: "/calendar", icon: <Calendar size={14} />, kw: "events schedule" },
   { id: "n4", label: "Assistant", href: "/assistant", icon: <Sparkles size={14} />, kw: "ai chat ask" },
   { id: "n5", label: "Notifications", href: "/notifications", icon: <Bell size={14} />, kw: "alerts activity" },
+  { id: "n8", label: "Deliverables", href: "/deliverables", icon: <ClipboardList size={14} />, kw: "report monthly form videos sheets" },
   { id: "n6", label: "Members", href: "/admin/members", icon: <Users size={14} />, kw: "team people" },
   { id: "n7", label: "Settings", href: "/settings", icon: <Settings size={14} />, kw: "profile reminders" },
 ];
