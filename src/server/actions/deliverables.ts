@@ -2,11 +2,8 @@
 
 import { requirePermission, checkRate } from "@/server/rbac/guard";
 import { LIMITS } from "@/lib/rate-limit";
-import {
-  extractDeliverables,
-  formatReport,
-  type FormattedReport,
-} from "@/server/services/deliverables";
+import { extractDeliverables } from "@/server/services/deliverables";
+import type { DeliverableRow, Period } from "@/lib/deliverables";
 
 const MAX_FILES = 12;
 const MAX_BYTES = 8 * 1024 * 1024;
@@ -17,7 +14,11 @@ const DATE = /^\d{4}-\d{2}-\d{2}$/;
 export type DeliverablesResult =
   | {
       ok: true;
-      report: FormattedReport;
+      /** Rows, not finished text: the browser formats them, so marking every
+          row SF or LF is instant and costs no second model call. */
+      worked: DeliverableRow[];
+      upcoming: DeliverableRow[];
+      periods: { worked: Period; upcoming: Period };
       notes: string[];
       sources: string[];
       truncated: boolean;
@@ -94,7 +95,9 @@ export async function generateDeliverables(
 
   return {
     ok: true,
-    report: formatReport(extracted.report, worked, upcoming),
+    worked: extracted.report.worked,
+    upcoming: extracted.report.upcoming,
+    periods: { worked, upcoming },
     notes: extracted.report.notes,
     sources: extracted.report.sources,
     truncated: extracted.report.truncated,

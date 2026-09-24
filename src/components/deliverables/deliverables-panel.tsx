@@ -1,11 +1,12 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useMemo, useRef, useState, useTransition } from "react";
 import {
   Check,
   Copy,
   FileSpreadsheet,
   Loader2,
+  RotateCcw,
   Sparkles,
   Upload,
   X,
@@ -15,6 +16,12 @@ import {
   type DeliverablesResult,
 } from "@/server/actions/deliverables";
 import { useToast } from "@/components/ui/toast";
+import {
+  applyOverride,
+  formatReport,
+  KIND_OVERRIDES,
+  type KindOverride,
+} from "@/lib/deliverables";
 
 const field =
   "w-full rounded-lg border border-border bg-secondary/60 px-3 py-2 text-[13px] outline-none transition-colors focus:border-brand-violet";
@@ -46,17 +53,25 @@ function periodsFor(month: string) {
 
 function Answer({
   question,
-  body,
+  value,
+  edited,
+  onChange,
+  onReset,
 }: {
   question: string;
-  body: string;
+  value: string;
+  /** True once it has been typed in, which is what puts Reset on screen. */
+  edited: boolean;
+  onChange: (next: string) => void;
+  onReset: () => void;
 }) {
   const [copied, setCopied] = useState(false);
   const { push } = useToast();
 
   async function copy() {
     try {
-      await navigator.clipboard.writeText(body);
+      // Whatever is in the box, not what was generated — the edit is the point.
+      await navigator.clipboard.writeText(value);
       setCopied(true);
       setTimeout(() => setCopied(false), 1800);
     } catch {
@@ -69,21 +84,32 @@ function Answer({
       <div className="flex items-start justify-between gap-3 border-b border-[color-mix(in_oklab,white_7%,transparent)] px-4 py-2.5">
         <h2 className="text-[11px] uppercase tracking-[0.12em] text-faint">
           {question}
+          {edited && <span className="ml-2 normal-case tracking-normal">· edited</span>}
         </h2>
-        <button
-          type="button"
-          onClick={copy}
-          className="pill pill-sm shrink-0"
-        >
-          {copied ? <Check size={12} /> : <Copy size={12} />}
-          {copied ? "Copied" : "Copy"}
-        </button>
+        <span className="flex shrink-0 items-center gap-2">
+          {edited && (
+            <button type="button" onClick={onReset} className="pill pill-sm">
+              <RotateCcw size={11} />
+              Reset
+            </button>
+          )}
+          <button type="button" onClick={copy} className="pill pill-sm">
+            {copied ? <Check size={12} /> : <Copy size={12} />}
+            {copied ? "Copied" : "Copy"}
+          </button>
+        </span>
       </div>
-      {/* Pre, not a paragraph: this is going into a form exactly as it reads,
-          line breaks and all. */}
-      <pre className="overflow-x-auto px-4 py-4 font-sans text-[13px] leading-relaxed whitespace-pre-wrap">
-        {body}
-      </pre>
+
+      {/* Editable, because a sheet is never quite right: a name to fix, a line
+          to drop. What is copied is what is in this box. */}
+      <textarea
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        aria-label={question}
+        spellCheck={false}
+        rows={Math.min(26, value.split("\n").length + 1)}
+        className="w-full resize-y bg-transparent px-4 py-4 text-[13px] leading-relaxed outline-none"
+      />
     </section>
   );
 }
@@ -99,10 +125,37 @@ export function DeliverablesPanel({
   const [dates, setDates] = useState(() => periodsFor(defaultMonth));
   const [files, setFiles] = useState<File[]>([]);
   const [result, setResult] = useState<DeliverablesResult | null>(null);
+  const [override, setOverride] = useState<KindOverride>("auto");
+  // null means "follow the generated text"; a string is a hand edit.
+  const [draftOne, setDraftOne] = useState<string | null>(null);
+  const [draftTwo, setDraftTwo] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
   const [pending, startTransition] = useTransition();
   const inputRef = useRef<HTMLInputElement>(null);
   const { push } = useToast();
+
+  // Re-formatted here rather than re-read: the rows came back from the model
+  // once, and marking them all SF is a rewrite of the same rows.
+  const formatted = useMemo(() => {
+    if (!result?.ok) return null;
+    return formatReport(
+      {
+        worked: applyOverride(result.worked, override),
+        upcoming: applyOverride(result.upcoming, override),
+      },
+      result.periods.worked,
+      result.periods.upcoming
+    );
+  }, [result, override]);
+
+  function pickFormat(next: KindOverride) {
+    if (draftOne !== null || draftTwo !== null) {
+      push("Rewrote both answers — your edits were replaced");
+    }
+    setOverride(next);
+    setDraftOne(null);
+    setDraftTwo(null);
+  }
 
   function pickMonth(next: string) {
     setMonth(next);
@@ -133,6 +186,8 @@ export function DeliverablesPanel({
 
       const outcome = await generateDeliverables(formData);
       setResult(outcome);
+      setDraftOne(null);
+      setDraftTwo(null);
       if (!outcome.ok) push(outcome.error, "error");
     });
   }
@@ -294,6 +349,29 @@ export function DeliverablesPanel({
             </ul>
           )}
 
+          <div className="mt-4">
+            <p className="mb-1.5 text-[11px] text-faint">
+              Mark every video as
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {KIND_OVERRIDES.map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => pickFormat(option.value)}
+                  data-on={override === option.value}
+                  className="pill pill-sm"
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+            <p className="mt-1.5 text-[11px] leading-relaxed text-faint">
+              Nearly every month is all short form. Setting this rewrites both
+              answers straight away — it does not read the sheets again.
+            </p>
+          </div>
+
           <button
             type="button"
             onClick={run}
@@ -315,16 +393,16 @@ export function DeliverablesPanel({
         </div>
       </section>
 
-      {result?.ok && (
+      {result?.ok && formatted && (
         <>
           <div className="flex flex-wrap items-center gap-2">
             {[
-              `${result.report.counts.total} deliverables`,
-              `${result.report.counts.longForm} LF`,
-              `${result.report.counts.shortForm} SF`,
-              `${result.report.counts.live} live`,
-              `${result.report.counts.wip} WIP`,
-              `${result.report.counts.ips} IPs`,
+              `${formatted.counts.total} deliverables`,
+              `${formatted.counts.longForm} LF`,
+              `${formatted.counts.shortForm} SF`,
+              `${formatted.counts.live} live`,
+              `${formatted.counts.wip} WIP`,
+              `${formatted.counts.ips} IPs`,
             ].map((chip) => (
               <span
                 key={chip}
@@ -337,11 +415,17 @@ export function DeliverablesPanel({
 
           <Answer
             question="Deliverables worked on in this period"
-            body={result.report.answerOne}
+            value={draftOne ?? formatted.answerOne}
+            edited={draftOne !== null}
+            onChange={setDraftOne}
+            onReset={() => setDraftOne(null)}
           />
           <Answer
             question="Deliverables planned for the next period"
-            body={result.report.answerTwo}
+            value={draftTwo ?? formatted.answerTwo}
+            edited={draftTwo !== null}
+            onChange={setDraftTwo}
+            onReset={() => setDraftTwo(null)}
           />
 
           {(result.notes.length > 0 || result.truncated) && (

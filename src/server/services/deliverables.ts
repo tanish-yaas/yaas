@@ -5,6 +5,7 @@ import { google } from "@ai-sdk/google";
 import { AI_CONFIG } from "@/config/ai";
 import { isTransientModelError } from "@/lib/ai/errors";
 import { withModelFallback } from "@/lib/ai/model-health";
+import type { DeliverableRow, Period } from "@/lib/deliverables";
 
 /**
  * The monthly deliverables report.
@@ -38,8 +39,6 @@ const reportSchema = z.object({
     .describe("Anything skipped or uncertain, one short line each"),
 });
 
-export type DeliverableRow = z.infer<typeof rowSchema>;
-
 export type DeliverablesReport = {
   worked: DeliverableRow[];
   upcoming: DeliverableRow[];
@@ -49,22 +48,8 @@ export type DeliverablesReport = {
   truncated: boolean;
 };
 
-export type Period = { from: string; to: string };
-
 const MAX_CHARS = 120_000;
 const MAX_ROWS_PER_SHEET = 2000;
-
-/** 2026-09-21 → 21/09/26, the form's format. Strings only: no Date, no zone. */
-export function formatDay(iso: string): string {
-  const [y, m, d] = iso.split("-");
-  return `${d}/${m}/${y.slice(2)}`;
-}
-
-/** 2026-09-21 → 21/09/2026, for the sentence above the list. */
-function formatLongDay(iso: string): string {
-  const [y, m, d] = iso.split("-");
-  return `${d}/${m}/${y}`;
-}
 
 function cellText(value: ExcelJS.CellValue): string {
   if (value === null || value === undefined) return "";
@@ -213,79 +198,4 @@ export async function extractDeliverables(params: {
       error: "Couldn't read those sheets. Check the file and try again.",
     };
   }
-}
-
-function group(rows: DeliverableRow[]) {
-  const byIp = new Map<string, DeliverableRow[]>();
-  for (const row of rows) {
-    const list = byIp.get(row.ip) ?? [];
-    list.push(row);
-    byIp.set(row.ip, list);
-  }
-  for (const list of byIp.values()) {
-    list.sort((a, b) => a.start.localeCompare(b.start) || a.videoName.localeCompare(b.videoName));
-  }
-  return byIp;
-}
-
-/** One line, exactly as the form wants it. */
-function line(row: DeliverableRow) {
-  return `IP Name- ${row.ip} , Video Name- ${row.videoName}, ${row.kind}, ${formatDay(row.start)} to ${formatDay(row.end)}`;
-}
-
-function blocks(rows: DeliverableRow[]) {
-  return [...group(rows).entries()]
-    .map(([ip, list]) => `${ip}\n\n${list.map(line).join("\n")}`)
-    .join("\n\n");
-}
-
-export type FormattedReport = {
-  answerOne: string;
-  answerTwo: string;
-  counts: {
-    total: number;
-    longForm: number;
-    shortForm: number;
-    live: number;
-    wip: number;
-    upcoming: number;
-    ips: number;
-  };
-};
-
-/**
- * The two answers, built here rather than by the model: counts that must add
- * up, and a format a form is going to be pasted into.
- */
-export function formatReport(
-  report: DeliverablesReport,
-  worked: Period,
-  upcoming: Period
-): FormattedReport {
-  const counts = {
-    total: report.worked.length,
-    longForm: report.worked.filter((r) => r.kind === "LF").length,
-    shortForm: report.worked.filter((r) => r.kind === "SF").length,
-    live: report.worked.filter((r) => r.status === "LIVE").length,
-    wip: report.worked.filter((r) => r.status === "WIP").length,
-    upcoming: report.upcoming.length,
-    ips: group(report.worked).size,
-  };
-
-  const summary =
-    `${formatLongDay(worked.from)} to ${formatLongDay(worked.to)} — ${counts.total} ` +
-    `${counts.total === 1 ? "deliverable" : "deliverables"}: ${counts.longForm} long form, ` +
-    `${counts.shortForm} short form. ${counts.live} went live, ${counts.wip} still work in progress.`;
-
-  const answerOne =
-    counts.total === 0
-      ? "No deliverables found in that period."
-      : `${summary}\n\n${blocks(report.worked)}`;
-
-  const answerTwo =
-    report.upcoming.length === 0
-      ? `Nothing scheduled in the sheets for ${formatLongDay(upcoming.from)} to ${formatLongDay(upcoming.to)}.`
-      : `${formatLongDay(upcoming.from)} to ${formatLongDay(upcoming.to)} — ${report.upcoming.length} planned.\n\n${blocks(report.upcoming)}`;
-
-  return { answerOne, answerTwo, counts };
 }
