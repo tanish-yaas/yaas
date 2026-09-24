@@ -54,8 +54,8 @@ export type DeliverablesReport = {
   worked: DeliverableRow[];
   upcoming: DeliverableRow[];
   notes: string[];
-  /** IP names the upload turned out to hold. */
-  sources: string[];
+  /** Each IP the upload turned out to hold, and how many files fed it. */
+  sources: { ip: string; files: number }[];
   truncated: boolean;
 };
 
@@ -242,6 +242,15 @@ export async function extractDeliverables(params: {
     );
 
     const ipNames = new Set(filtered.map((s) => s.ip));
+
+    // Two files for one IP is the ordinary case: a sheet and its "(old)"
+    // companion. Counted so the page can say 6 files became 4 IPs rather than
+    // looking like it lost two.
+    const fileCounts = new Map<string, number>();
+    for (const sheet of sheets) {
+      if (!ipNames.has(sheet.ip)) continue;
+      fileCounts.set(sheet.ip, (fileCounts.get(sheet.ip) ?? 0) + 1);
+    }
     const notes = [...result.object.notes];
     const rows: DeliverableRow[] = [];
 
@@ -287,7 +296,10 @@ export async function extractDeliverables(params: {
         worked,
         upcoming,
         notes,
-        sources: [...ipNames],
+        sources: [...ipNames].map((ip) => ({
+          ip,
+          files: fileCounts.get(ip) ?? 1,
+        })),
         truncated,
       },
     };

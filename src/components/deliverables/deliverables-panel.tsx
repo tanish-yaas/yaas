@@ -450,10 +450,11 @@ export function DeliverablesPanel({
           )}
 
           <p className="px-1 text-[11px] leading-relaxed text-faint">
-            Read from {result.sources.length}{" "}
-            {result.sources.length === 1 ? "sheet" : "sheets"}:{" "}
-            {result.sources.join(", ")}. Check the lines against the sheet
-            before sending. This is a model reading a spreadsheet.
+            {`Read ${result.fileCount} ${result.fileCount === 1 ? "file" : "files"} as ${result.sources.length} ${result.sources.length === 1 ? "IP" : "IPs"}: `}
+            {result.sources
+              .map((s) => (s.files > 1 ? `${s.ip} (${s.files} files)` : s.ip))
+              .join(", ")}
+            {". Check the lines against the sheet before sending. This is a model reading a spreadsheet."}
           </p>
         </>
       )}

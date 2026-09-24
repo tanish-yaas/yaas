@@ -20,7 +20,9 @@ export type DeliverablesResult =
       upcoming: DeliverableRow[];
       periods: { worked: Period; upcoming: Period };
       notes: string[];
-      sources: string[];
+      sources: { ip: string; files: number }[];
+      /** How many files were uploaded, which is not the number of IPs. */
+      fileCount: number;
       truncated: boolean;
     }
   | { ok: false; error: string };
@@ -100,6 +102,7 @@ export async function generateDeliverables(
     periods: { worked, upcoming },
     notes: extracted.report.notes,
     sources: extracted.report.sources,
+    fileCount: uploads.length,
     truncated: extracted.report.truncated,
   };
 }
