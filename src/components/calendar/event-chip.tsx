@@ -54,7 +54,7 @@ export function EventChip({
       title={
         event.isOwnCalendar
           ? event.title
-          : `${event.title} — ${event.ownerName}'s calendar`
+          : `${event.title} · ${event.ownerName}'s calendar`
       }
       className={`flex w-full items-center gap-1 truncate rounded-full border px-1.5 py-0.5 text-left text-[10px] font-medium leading-tight transition-[filter] hover:brightness-125 ${spanShape(
         continuesBefore,
@@ -105,7 +105,7 @@ export function TaskChip({
       }}
       title={
         continuesAfter
-          ? `${task.row.title} — due ${task.row.dueAtLabel ?? ""}`.trim()
+          ? `${task.row.title} · due ${task.row.dueAtLabel ?? ""}`.trim()
           : task.row.title
       }
       className={`flex w-full items-center gap-1 truncate rounded-full border px-1.5 py-0.5 text-left text-[10px] font-medium leading-tight transition-[filter] hover:brightness-125 ${

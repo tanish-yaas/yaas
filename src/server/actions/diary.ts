@@ -85,7 +85,7 @@ export async function saveDiaryPage(
   if (!rate.allowed) {
     return {
       ok: false as const,
-      error: `Too many saves — try again in ${rate.retryAfterSeconds}s.`,
+      error: `Too many saves. Try again in ${rate.retryAfterSeconds}s.`,
     };
   }
 
@@ -142,7 +142,7 @@ export async function pushDiaryPoint(rawDayKey: string, pointId: string) {
   if (!rate.allowed) {
     return {
       ok: false as const,
-      error: `Slow down a moment — try again in ${rate.retryAfterSeconds}s.`,
+      error: `Slow down a moment. Try again in ${rate.retryAfterSeconds}s.`,
     };
   }
 
@@ -209,7 +209,7 @@ export async function pushDiaryPoint(rawDayKey: string, pointId: string) {
   if (!applied.ok || !applied.taskId) {
     return {
       ok: false as const,
-      error: applied.error ?? "That didn't save — try again",
+      error: applied.error ?? "That didn't save. Try again",
     };
   }
 

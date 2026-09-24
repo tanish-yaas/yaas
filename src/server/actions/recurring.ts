@@ -60,7 +60,7 @@ export async function createRecurringTask(input: RecurringInput) {
   if (!nextRunAt) {
     return {
       ok: false as const,
-      error: "That schedule never fires — widen the date range",
+      error: "That schedule never fires. Widen the date range",
     };
   }
 

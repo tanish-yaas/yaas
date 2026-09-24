@@ -75,7 +75,7 @@ function Answer({
       setCopied(true);
       setTimeout(() => setCopied(false), 1800);
     } catch {
-      push("Couldn't copy — select the text and copy it by hand", "error");
+      push("Couldn't copy. Select the text and copy it by hand", "error");
     }
   }
 
@@ -150,7 +150,7 @@ export function DeliverablesPanel({
 
   function pickFormat(next: KindOverride) {
     if (draftOne !== null || draftTwo !== null) {
-      push("Rewrote both answers — your edits were replaced");
+      push("Rewrote both answers, so your edits were replaced");
     }
     setOverride(next);
     setDraftOne(null);
@@ -368,7 +368,7 @@ export function DeliverablesPanel({
             </div>
             <p className="mt-1.5 text-[11px] leading-relaxed text-faint">
               Nearly every month is all short form. Setting this rewrites both
-              answers straight away — it does not read the sheets again.
+              answers straight away. It does not read the sheets again.
             </p>
           </div>
 
@@ -453,7 +453,7 @@ export function DeliverablesPanel({
             Read from {result.sources.length}{" "}
             {result.sources.length === 1 ? "sheet" : "sheets"}:{" "}
             {result.sources.join(", ")}. Check the lines against the sheet
-            before sending — this is a model reading a spreadsheet.
+            before sending. This is a model reading a spreadsheet.
           </p>
         </>
       )}

@@ -54,7 +54,7 @@ function weekdayOfKey(key: string): number {
 
 /**
  * Every relative date the model might need, precomputed. It only has to look
- * one up — asking it to do calendar arithmetic is where most bad dates came
+ * one up. asking it to do calendar arithmetic is where most bad dates came
  * from. Day-key maths rather than millisecond offsets, so DST-free IST days
  * stay exact.
  */
@@ -109,12 +109,12 @@ Extract only what the input actually says. Do not embellish.
 CURRENT DATE AND TIME
 It is ${timeNow} on ${WEEKDAYS[todayIndex]}, ${todayKey}, India Standard Time (UTC${OFFSET}).
 
-DATE REFERENCE — look the answer up here, never calculate your own:
+DATE REFERENCE. Look the answer up here, never calculate your own:
 ${buildDateAnchors(todayKey)}
 
 RULES FOR dueAt
 1. If a date OR a time is mentioned in any form, you MUST return a dueAt. Never return null when the user gave any timing hint.
-2. Format: YYYY-MM-DDTHH:mm:00${OFFSET} — always include the ${OFFSET} offset.
+2. Format: YYYY-MM-DDTHH:mm:00${OFFSET}. Always include the ${OFFSET} offset.
 3. A time with no date: use today if that time is still ahead of ${timeNow}, otherwise tomorrow.
 4. A date with no time: use 17:00.
 5. "morning" = 09:00, "afternoon" = 14:00, "evening" = 18:00, "EOD" / "end of day" = 18:00, "tonight" = 20:00, "first thing" = 09:00, "lunch" = 13:00.
@@ -122,7 +122,7 @@ RULES FOR dueAt
 7. Only return null for dueAt when there is genuinely no timing language at all.
 
 RULES FOR title
-Short and imperative — "Send the pitch deck", not "I need to send the pitch deck tomorrow".
+Short and imperative: "Send the pitch deck", not "I need to send the pitch deck tomorrow".
 Strip the timing, the assignee and the priority out of the title; they have their own fields.
 
 PRIORITY
@@ -131,13 +131,13 @@ URGENT only for stated emergencies or same-day hard deadlines. HIGH when explici
 PEOPLE
 ${
   memberNames.length > 0
-    ? `Workspace members: ${memberNames.join(", ")}. Match mentioned names to these exactly as spelled above, including when the input misspells or shortens them. A name that clearly is not one of these goes in the description instead — never invent a member.`
+    ? `Workspace members: ${memberNames.join(", ")}. Match mentioned names to these exactly as spelled above, including when the input misspells or shortens them. A name that clearly is not one of these goes in the description instead. Never invent a member.`
     : "No other members yet. Leave assigneeNames empty."
 }
 If the input only describes the speaker's own work, leave assigneeNames empty.
 
 LABELS
-${labels.length > 0 ? `Existing labels: ${labels.join(", ")}. Reuse one of these before inventing a new one. Match on meaning, not just wording.` : "No labels yet — propose at most one, only if the topic is obvious."}
+${labels.length > 0 ? `Existing labels: ${labels.join(", ")}. Reuse one of these before inventing a new one. Match on meaning, not just wording.` : "No labels yet. propose at most one, only if the topic is obvious."}
 
 WORKED EXAMPLES
 Input: "call mukesh today at 5 pm about the renewal"
@@ -153,7 +153,7 @@ Input: "review the pitch sometime"
 Input: "server is down, fix it now"
 → title "Fix the server outage", dueAt ${todayKey}T${timeNow}:00${OFFSET}, priority URGENT, riskLevel HIGH
 
-Input: "plan offsite — book venue, sort catering, send invites"
+Input: "plan offsite: book venue, sort catering, send invites"
 → title "Plan the offsite", subtasks ["Book venue", "Sort catering", "Send invites"], dueAt null
 
 CONFIDENCE
@@ -258,7 +258,7 @@ export async function parseTaskInput(params: ParseParams): Promise<ParseResult> 
     return {
       ok: false,
       error: isTransientModelError(err)
-        ? "The model is busy right now — try again in a moment, or add it manually below."
+        ? "The model is busy right now. Try again in a moment, or add it manually below."
         : "Couldn't read that. Try rephrasing, or add it manually.",
     };
   }

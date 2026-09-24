@@ -67,7 +67,7 @@ export function InviteCode({
     } catch {
       // Refused in some browsers and over plain http. Saying so beats a
       // button that silently does nothing.
-      push("Couldn't copy — select the code and copy it by hand", "error");
+      push("Couldn't copy. Select the code and copy it by hand", "error");
     }
   }
 
@@ -92,7 +92,7 @@ export function InviteCode({
     startTransition(async () => {
       const result = await resetWorkspaceCode(invite.id);
       if (!result.ok) push(result.error, "error");
-      else push("New code ready — the old one no longer works");
+      else push("New code ready. The old one no longer works");
     });
   }
 
@@ -103,10 +103,9 @@ export function InviteCode({
         Invite code
       </p>
       <p className="mb-3 mt-1.5 text-[12px] leading-relaxed text-faint">
-        Anyone with this code joins{" "}
-        <span className="text-foreground">{workspaceName}</span> as a Member
-        straight away — there&apos;s no approval step. Send it to people
-        directly rather than posting it somewhere public.
+        {"Anyone with this code joins "}
+        <span className="text-foreground">{workspaceName}</span>
+        {" as a Member straight away, with no approval step. Send it to people directly rather than posting it somewhere public."}
       </p>
       {invite ? (
         <div className={pending ? "opacity-60 transition-opacity" : ""}>

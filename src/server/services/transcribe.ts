@@ -84,7 +84,7 @@ export async function transcribeAudio(
     const text = raw.trim();
 
     if (!text || text === "NO_SPEECH") {
-      return { ok: false, error: "Didn't catch that — try recording again" };
+      return { ok: false, error: "Didn't catch that. Try recording again" };
     }
 
     // The model is told to return bare text, but a stray wrapping quote is the
@@ -94,7 +94,7 @@ export async function transcribeAudio(
     return { ok: true, text: unwrapped.slice(0, AI_CONFIG.maxInputChars) };
   } catch (err) {
     if (isTransientModelError(err)) {
-      return { ok: false, error: "Speech-to-text is busy — try again shortly" };
+      return { ok: false, error: "Speech-to-text is busy. Try again shortly" };
     }
     return { ok: false, error: "Couldn't read that recording" };
   }

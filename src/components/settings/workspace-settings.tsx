@@ -127,7 +127,7 @@ export function WorkspaceSettings({
               Let people who know the handle{" "}
               <span className="text-foreground">{handle}</span> ask to join.
               Requests wait for an admin on the Members page. With this off, an
-              invite code is the only way in — and the handle gives nothing
+              invite code is the only way in, and the handle gives nothing
               away.
             </span>
           </label>

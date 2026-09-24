@@ -287,7 +287,7 @@ export function WorkspaceSwitcher({
         onClick={() => setOpen((v) => !v)}
         aria-haspopup="menu"
         aria-expanded={open}
-        aria-label={`${current.name} — switch workspace`}
+        aria-label={`${current.name}, switch workspace`}
         title={`${current.name} · switch workspace`}
         data-open={open}
         className={`group/switcher flex min-w-0 items-center gap-2 rounded-lg p-1 text-left transition-colors hover:bg-[var(--card-hover)] data-[open=true]:bg-[var(--card-hover)] ${className}`}

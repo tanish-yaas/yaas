@@ -48,7 +48,7 @@ export function AppearanceSettings({ value }: { value: UiScale }) {
       title="Appearance"
       icon={<Type size={12} />}
       dimmed={pending}
-      description="Scales the whole interface, not just the text — spacing, pills and card heights move with it."
+      description="Scales the whole interface, not just the text. Spacing, pills and card heights move with it."
     >
       <div className="flex flex-col gap-2">
         <span className="text-[11px] uppercase tracking-[0.12em] text-faint">

@@ -190,7 +190,7 @@ export async function addComment(
         userId: a.userId,
         type: "TASK_COMMENT" as const,
         title: "New comment",
-        body: `${body.slice(0, 120)} — on "${task.title}"`,
+        body: `${body.slice(0, 120)} (on "${task.title}")`,
         taskId,
       })),
     });
@@ -333,7 +333,7 @@ export async function uploadTaskAttachment(formData: FormData) {
   if (!isStorageConfigured()) {
     return {
       ok: false as const,
-      error: "File storage isn't configured — see the setup note in Settings",
+      error: "File storage isn't configured. See the setup note in Settings",
     };
   }
 

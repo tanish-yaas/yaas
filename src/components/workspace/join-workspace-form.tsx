@@ -52,7 +52,7 @@ export function JoinWorkspaceForm({ initialCode }: { initialCode: string }) {
         />
         <p className="text-[11px] leading-relaxed text-faint">
           {looksLikeCode
-            ? "That's a code — it'll take you straight in."
+            ? "That's a code, so it'll take you straight in."
             : "A code lets you in immediately. A handle sends a request to that workspace's admins."}
         </p>
       </div>

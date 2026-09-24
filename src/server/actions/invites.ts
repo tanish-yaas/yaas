@@ -176,7 +176,7 @@ export async function resetWorkspaceCode(inviteId: string) {
   if (!current) {
     return {
       ok: false as const,
-      error: "That code has already changed — refresh the page",
+      error: "That code has already changed. Refresh the page",
     };
   }
 

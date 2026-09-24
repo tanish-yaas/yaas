@@ -78,7 +78,7 @@ export async function addDependency(
   if (await wouldCycle(orgId, dependent, blocker)) {
     return {
       ok: false as const,
-      error: `That would create a loop — "${other.title}" already waits on this task, directly or through another.`,
+      error: `That would create a loop. "${other.title}" already waits on this task, directly or through another.`,
     };
   }
 

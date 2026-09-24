@@ -53,7 +53,7 @@ function CopyButton({ code, joinUrl }: { code: string; joinUrl: string }) {
     } catch {
       // Clipboard access is refused in some browsers and over plain http.
       // Saying so beats a button that silently does nothing.
-      push("Couldn't copy — select the code and copy it by hand", "error");
+      push("Couldn't copy. Select the code and copy it by hand", "error");
     }
   }
 

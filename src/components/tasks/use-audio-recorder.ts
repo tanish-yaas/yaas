@@ -56,13 +56,13 @@ function describeMicError(err: unknown, alreadyDenied: boolean): string {
   const name = err instanceof DOMException ? err.name : "";
 
   if (name === "NotFoundError" || name === "OverconstrainedError") {
-    return "No microphone found — plug one in and try again";
+    return "No microphone found. Plug one in and try again";
   }
 
   // The device exists but something else holds it, or the OS refuses. On
   // Windows this is also what a disabled system-wide mic permission looks like.
   if (name === "NotReadableError" || name === "AbortError") {
-    return "Your microphone is busy in another app — close it and try again";
+    return "Your microphone is busy in another app. Close it and try again";
   }
 
   if (name === "NotAllowedError" || name === "SecurityError") {
@@ -151,7 +151,7 @@ export function useAudioRecorder({
     // either missing or rejects, and no amount of clicking Allow will help.
     // Worth naming, because the browser gives no clue that this is the reason.
     if (typeof window !== "undefined" && !window.isSecureContext) {
-      setError("Recording needs https — open Nova on localhost or the live site");
+      setError("Recording needs https. Open Nova on localhost or the live site");
       return;
     }
 

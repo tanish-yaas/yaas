@@ -46,7 +46,7 @@ export function ProductivityWidget({ trend }: { trend: ScoreTrend }) {
 
       {trend.latest === null ? (
         <p className="text-xs text-muted-foreground/70">
-          No snapshots yet. Nova records one each night — your score and trend
+          No snapshots yet. Nova records one each night. Your score and trend
           appear here from tomorrow.
         </p>
       ) : (
@@ -72,7 +72,7 @@ export function ProductivityWidget({ trend }: { trend: ScoreTrend }) {
               <tone.Icon size={13} />
               <span className="tabular-nums">
                 {change === null
-                  ? "—"
+                  ? "n/a"
                   : `${change > 0 ? "+" : ""}${change} pts`}
               </span>
             </div>
@@ -106,7 +106,7 @@ export function ProductivityWidget({ trend }: { trend: ScoreTrend }) {
           )}
 
           <p className="mt-2 text-[10px] text-muted-foreground/70">
-            Last 14 days · avg {trend.average ?? "—"}
+            Last 14 days · avg {trend.average ?? "n/a"}
             {trend.previousAverage !== null &&
               ` vs ${trend.previousAverage} the week before`}
           </p>

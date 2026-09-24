@@ -328,7 +328,7 @@ export function TaskDetailSheet({
                     <div className="mt-5 flex items-center gap-2 rounded-lg border border-[#4ADE80]/30 bg-[#4ADE80]/10 px-3 py-2">
                       <Check size={13} className="shrink-0 text-[#4ADE80]" />
                       <p className="text-xs text-[#4ADE80]">
-                        Every blocker is done — this is ready to start.
+                        Every blocker is done, so this is ready to start.
                       </p>
                     </div>
                   )}
@@ -758,7 +758,7 @@ function Fields({
 
         {detail.assignees.length === 0 && (
           <p className="mt-1.5 text-[11px] text-faint">
-            Nobody is on this — it belongs to no one&apos;s board.
+            Nobody is on this, so it belongs to no one&apos;s board.
           </p>
         )}
       </div>
@@ -1141,7 +1141,7 @@ function AttachmentItem({
             onError={() => {
               setSrc(null);
               setPlaying(false);
-              onError("That clip's link expired — try again");
+              onError("That clip's link expired. Try again");
             }}
             className="mt-1.5 h-8 w-full"
           />

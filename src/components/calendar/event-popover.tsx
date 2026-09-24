@@ -216,7 +216,7 @@ export function EventPopover({
           <input
             value={location}
             disabled={readOnly || saving}
-            placeholder={readOnly ? "—" : "Add a location"}
+            placeholder={readOnly ? "No location" : "Add a location"}
             onChange={(e) => setLocation(e.target.value)}
             onBlur={() => {
               if (location === event.location) return;

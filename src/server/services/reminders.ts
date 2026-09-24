@@ -120,8 +120,8 @@ type DigestKind = "MORNING_DIGEST" | "EVENING_REVIEW" | "WEEKLY_REVIEW";
 
 /** Only the sharp end gets called out — MEDIUM and LOW would be noise. */
 const PRIORITY_TAG: Record<string, string> = {
-  URGENT: " — urgent",
-  HIGH: " — high",
+  URGENT: " (urgent)",
+  HIGH: " (high)",
 };
 
 type DigestTask = {
@@ -355,7 +355,7 @@ async function buildDigest(
           ? `up ${trend.change} on last week`
           : `down ${Math.abs(trend.change)} on last week`;
 
-    lines.push(`Productivity score: ${trend.average}/100 — ${direction}`);
+    lines.push(`Productivity score: ${trend.average}/100, ${direction}`);
   }
 
   lines.push(
@@ -551,7 +551,7 @@ async function sendOne(
               notificationId: notification.id,
               channel: "WHATSAPP",
               status: "CANCELLED",
-              error: "Outside 24h service window — template required",
+              error: "Outside 24h service window. Template required",
             },
           });
         }

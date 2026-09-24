@@ -119,13 +119,13 @@ export function DangerZone({
           `${plural(workspace.fileCount, "file", "files")} and voice notes attached to tasks`,
         "Every diary page, label, team, reminder and suggestion in it",
         workspace.otherMemberCount > 0 &&
-          `${plural(workspace.otherMemberCount, "other member loses", "other members lose")} access — their other workspaces aren't touched`,
+          `${plural(workspace.otherMemberCount, "other member loses", "other members lose")} access. Their other workspaces aren't touched`,
       ].filter(Boolean)
     : [];
 
   const accountConsequences = [
     account.soloOwned.length > 0 &&
-      `${names(account.soloOwned)} ${account.soloOwned.length > 1 ? "are" : "is"} deleted with everything in ${account.soloOwned.length > 1 ? "them" : "it"} — you are the only member`,
+      `${names(account.soloOwned)} ${account.soloOwned.length > 1 ? "are" : "is"} deleted with everything in ${account.soloOwned.length > 1 ? "them" : "it"}, where you are the only member`,
     account.memberOf.length > 0 &&
       `You leave ${names(account.memberOf)}. The tasks, events and recurring items you made there stay with the workspace; your comments are removed`,
     "Your profile, diary pages, reminders, notifications and assistant history are deleted",
@@ -150,7 +150,7 @@ export function DangerZone({
       {workspace && (
         <Row
           title="Delete this workspace"
-          description={`Permanently removes ${workspace.name} — every task, event, file and diary page in it, and every member's access. There is no undo.`}
+          description={`Permanently removes ${workspace.name}, with every task, event, file and diary page in it, and every member's access. There is no undo.`}
           action={
             <DangerButton
               icon={<Trash2 size={13} />}
@@ -181,9 +181,11 @@ export function DangerZone({
                     </Link>
                   </span>
                 ))}
-                , with other people in {blockedPlural ? "them" : "it"}. Delete{" "}
-                {blockedPlural ? "them" : "it"} first — each workspace&apos;s
-                own danger zone does that — and then this account can go.
+                {", with other people in "}
+                {blockedPlural ? "them" : "it"}
+                {". Delete "}
+                {blockedPlural ? "them" : "it"}
+                {" first, using that workspace's own danger zone, and then this account can go."}
               </>
             ) : (
               "Permanently removes your account and everything personal in it. There is no undo."

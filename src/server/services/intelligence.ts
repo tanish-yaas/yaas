@@ -175,7 +175,7 @@ export async function runIntelligence(organizationId: string) {
         userId,
         taskId: task.id,
         type: "ROADBLOCK_RESOLUTION",
-        reason: `"${task.title}" has been blocked for ${days} days${task.roadblock ? ` — ${task.roadblock}` : ""}. Worth chasing.`,
+        reason: `"${task.title}" has been blocked for ${days} days${task.roadblock ? `. ${task.roadblock}` : ""}. Worth chasing.`,
         payload: {
           taskId: task.id,
           apply: { action: "set_status", status: "TODO" },

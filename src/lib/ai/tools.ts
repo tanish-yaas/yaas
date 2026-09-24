@@ -206,7 +206,7 @@ export function buildTools(ctx: ChatContext) {
 
     proposeCreateTask: tool({
       description:
-        "Propose creating a task. This does NOT create it — the user must confirm. Call listMembers first if assigning to someone.",
+        "Propose creating a task. This does NOT create it. The user must confirm. Call listMembers first if assigning to someone.",
       inputSchema: z.object({
         title: z.string(),
         description: z.string().describe("Empty string if none"),
@@ -223,7 +223,7 @@ export function buildTools(ctx: ChatContext) {
 
     proposeUpdateTasks: tool({
       description:
-        "Propose changing status, priority or due date on tasks. Does NOT apply — the user confirms. Use searchTasks first to get the IDs.",
+        "Propose changing status, priority or due date on tasks. Does NOT apply. The user confirms. Use searchTasks first to get the IDs.",
       inputSchema: z.object({
         taskIds: z.array(z.string()).describe("IDs from searchTasks"),
         status: z

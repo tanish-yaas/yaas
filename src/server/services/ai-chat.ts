@@ -25,7 +25,7 @@ function systemPrompt(ctx: ChatContext, nowLabel: string): string {
     "events. Never guess at counts or dates.",
     "",
     "To create or change anything, call a propose tool. Never claim something",
-    "has been done — proposals require the user to confirm, and you do not",
+    "has been done. Proposals require the user to confirm, and you do not",
     "see that confirmation. Say what you have proposed, not what you did.",
     "",
     "Be brief. Two or three sentences unless asked for detail. Format lists",
@@ -81,7 +81,7 @@ export async function runChat(params: {
     return {
       ok: true,
       reply: {
-        text: result.text || "Done — see the proposal below.",
+        text: result.text || "Done. See the proposal below.",
         proposals,
       },
     };

@@ -20,7 +20,7 @@ export default async function CreateWorkspacePage({
     <WelcomeFrame
       eyebrow="Create"
       title="Name your workspace"
-      blurb="Usually the team or the company. You can change it later — the handle too."
+      blurb="Usually the team or the company. You can change it later, and the handle too."
       back={{ href: "/welcome", label: "Back" }}
       footer="You'll be the admin: you approve who joins and what they can do."
     >

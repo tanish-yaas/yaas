@@ -22,7 +22,7 @@ export async function parseTask(rawInput: string) {
   if (!rate.allowed) {
     return {
       ok: false as const,
-      error: `Slow down a moment — try again in ${rate.retryAfterSeconds}s.`,
+      error: `Slow down a moment. Try again in ${rate.retryAfterSeconds}s.`,
     };
   }
 
@@ -68,7 +68,7 @@ export async function transcribeToTask(formData: FormData) {
   if (!rate.allowed) {
     return {
       ok: false as const,
-      error: `Slow down a moment — try again in ${rate.retryAfterSeconds}s.`,
+      error: `Slow down a moment. Try again in ${rate.retryAfterSeconds}s.`,
     };
   }
 

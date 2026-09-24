@@ -52,7 +52,7 @@ export async function generateDeliverables(
   if (!rate.allowed) {
     return {
       ok: false,
-      error: `That's a few runs in a row — try again in ${rate.retryAfterSeconds}s.`,
+      error: `That's a few runs in a row. Try again in ${rate.retryAfterSeconds}s.`,
     };
   }
 

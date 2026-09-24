@@ -27,7 +27,7 @@ export async function sendChatMessage(
   if (!rate.allowed) {
     return {
       ok: false as const,
-      error: `Too many messages — try again in ${rate.retryAfterSeconds}s.`,
+      error: `Too many messages. Try again in ${rate.retryAfterSeconds}s.`,
     };
   }
 
