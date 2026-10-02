@@ -255,6 +255,7 @@ export async function requestToJoin(
           type: "MEMBER_JOIN_REQUEST" as const,
           title: "Someone wants to join",
           body: `${who} asked to join ${org.name}.`,
+          data: { actorId: userId },
         })),
       });
     }

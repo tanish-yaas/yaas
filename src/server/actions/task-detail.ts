@@ -191,8 +191,11 @@ export async function addComment(
         userId: a.userId,
         type: "TASK_COMMENT" as const,
         title: "New comment",
-        body: `${body.slice(0, 120)} (on "${task.title}")`,
+        // The comment alone: the task and the author ride along as taskId
+        // and data, and the screen puts the sentence together.
+        body: body.slice(0, 280),
         taskId,
+        data: { actorId: userId },
       })),
     });
   }
@@ -313,6 +316,7 @@ export async function setTaskAssignees(taskId: string, userIds: string[]) {
           title: "New task assigned",
           body: task.title,
           taskId,
+          data: { actorId: userId },
         })),
       });
     }

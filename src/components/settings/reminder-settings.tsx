@@ -148,6 +148,7 @@ export function ReminderSettings({
 
   return (
     <SettingsPanel
+      id="reminders"
       title="Reminders"
       description="Delivered in India Standard Time. Slack works for anyone in the workspace with no setup."
     >

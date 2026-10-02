@@ -139,6 +139,7 @@ export async function createTask(formData: FormData) {
           title: "New task assigned",
           body: task.title,
           taskId: task.id,
+          data: { actorId: userId },
         })),
       });
     }

@@ -262,6 +262,7 @@ export async function applyParsedTask(
           title: "New task assigned",
           body: title,
           taskId: task.id,
+          data: { actorId: userId },
         })),
       });
     }

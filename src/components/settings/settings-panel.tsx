@@ -1,5 +1,6 @@
 /** Casing shared by every settings section: panel, header bar, padded body. */
 export function SettingsPanel({
+  id,
   title,
   icon,
   description,
@@ -7,6 +8,8 @@ export function SettingsPanel({
   dimmed = false,
   children,
 }: {
+  /** For linking straight to a section: /settings#reminders. */
+  id?: string;
   title: string;
   icon?: React.ReactNode;
   description?: React.ReactNode;
@@ -16,7 +19,8 @@ export function SettingsPanel({
 }) {
   return (
     <section
-      className={`panel overflow-hidden transition-opacity ${
+      id={id}
+      className={`panel scroll-mt-6 overflow-hidden transition-opacity ${
         dimmed ? "opacity-70" : ""
       }`}
     >

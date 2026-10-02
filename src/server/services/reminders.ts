@@ -472,6 +472,8 @@ async function sendOne(
           type: "DIGEST",
           title: digest.title,
           body: digest.body,
+          // Which digest, so the app can label it without reading the text.
+          data: { digest: schedule.type },
         },
       });
 

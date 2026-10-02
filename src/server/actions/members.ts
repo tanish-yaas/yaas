@@ -43,6 +43,7 @@ export async function approveMember(formData: FormData) {
         // Named, not "the workspace": this notification can arrive while the
         // reader is sitting in a different one.
         body: `An admin approved your access to ${member.organization.name}.`,
+        data: { actorId: ctx.session.user.id },
       },
     });
 

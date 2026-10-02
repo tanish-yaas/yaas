@@ -11,7 +11,6 @@ import {
 import { Avatar } from "@/components/ui/avatar";
 import { DiaryTrigger } from "@/components/diary/diary-dock";
 import { wsPath } from "@/server/workspace/paths";
-import type { NotificationRow } from "@/server/services/notifications";
 
 /** Server-rendered, like every other date in the app — the browser is not on
     IST and would greet by its own clock. */
@@ -35,7 +34,6 @@ export function Topbar({
   avatarUrl,
   userId,
   unreadCount,
-  notifications,
   suggestions,
   todayKey,
   workspaceSlug,
@@ -46,7 +44,6 @@ export function Topbar({
   avatarUrl?: string | null;
   userId: string;
   unreadCount: number;
-  notifications: NotificationRow[];
   suggestions: SuggestionHintRow[];
   /** Today in IST — the page the diary opens on. */
   todayKey: string;
@@ -87,10 +84,7 @@ export function Topbar({
             day's notes belong to the day, not to a page. */}
         <DiaryTrigger todayKey={todayKey} />
 
-        <NotificationBell
-          unreadCount={unreadCount}
-          notifications={notifications}
-        />
+        <NotificationBell unreadCount={unreadCount} />
 
         <Link
           href={wsPath(workspaceSlug, `/people/${userId}`)}
