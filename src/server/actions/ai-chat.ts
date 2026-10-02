@@ -4,7 +4,11 @@ import { prisma } from "@/lib/prisma";
 import { requirePermission, checkRate, revalidateWorkspace } from "@/server/rbac/guard";
 import { LIMITS } from "@/lib/rate-limit";
 import { runChat, type ChatTurn } from "@/server/services/ai-chat";
-import { computePriorityScore, canMutateTask } from "@/server/services/tasks";
+import {
+  computePriorityScore,
+  canMutateTask,
+  defaultStartAt,
+} from "@/server/services/tasks";
 import { AI_CONFIG } from "@/config/ai";
 import type { Proposal } from "@/lib/ai/tools";
 
@@ -132,6 +136,7 @@ export async function applyProposal(proposal: Proposal) {
           description: proposal.description.trim() || null,
           priority: proposal.priority as "LOW" | "MEDIUM" | "HIGH" | "URGENT",
           priorityScore: computePriorityScore(proposal.priority, validDue),
+          startAt: defaultStartAt(validDue),
           dueAt: validDue,
           status: "TODO",
           source: "AI_PARSED",

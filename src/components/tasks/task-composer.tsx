@@ -14,6 +14,7 @@ import {
 
 import { DateTimeField } from "@/components/ui/datetime-field";
 import { APP_CONFIG } from "@/config/app";
+import { toLocalInput } from "@/lib/dates";
 
 type Member = { userId: string; name: string };
 
@@ -130,10 +131,16 @@ export function TaskComposer({
           </div>
 
           {/* Start is what makes a task a bar on the calendar rather than a
-              single day. Optional: without it the task is a deadline. */}
+              single day. It opens filled in with now, the moment the task is
+              being made, and can be moved. This section mounts on expand and
+              unmounts after each add, so "now" is read fresh every time. */}
           <div className="flex flex-col gap-1.5">
             <label className="text-xs text-muted-foreground">Start</label>
-            <DateTimeField name="startAt" defaultHour={9} />
+            <DateTimeField
+              name="startAt"
+              defaultHour={9}
+              defaultValue={toLocalInput(new Date())}
+            />
           </div>
 
           <div className="flex flex-col gap-1.5">

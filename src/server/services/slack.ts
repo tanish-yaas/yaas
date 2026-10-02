@@ -6,7 +6,7 @@ import { inboundWorkspaceFor } from "@/server/workspace/provision";
 import { postSlackMessage, getSlackUserEmail } from "@/lib/slack/provider";
 import { parseTaskInput } from "@/server/services/ai-parser";
 import { runChat } from "@/server/services/ai-chat";
-import { computePriorityScore } from "@/server/services/tasks";
+import { computePriorityScore, defaultStartAt } from "@/server/services/tasks";
 import { SLACK_HELP } from "@/config/slack";
 import { APP_CONFIG } from "@/config/app";
 import { AI_CONFIG } from "@/config/ai";
@@ -227,6 +227,7 @@ async function capture(message: InboundSlackMessage, sender: Sender) {
         description: p.description || null,
         priority: p.priority,
         priorityScore: computePriorityScore(p.priority, validDue),
+        startAt: defaultStartAt(validDue),
         dueAt: validDue,
         estimatedMinutes: p.estimatedMinutes ?? null,
         status: "TODO",

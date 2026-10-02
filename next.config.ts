@@ -3,6 +3,17 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   poweredByHeader: false,
 
+  // PDFKit reads its font metrics off disk relative to its own files, which a
+  // bundler would move. Left as a plain node_modules require instead.
+  serverExternalPackages: ["pdfkit"],
+
+  // The report PDF embeds Geist from src/server/reports/fonts, read with fs at
+  // request time. Nothing imports those files, so the tracer has to be told to
+  // ship them with the export route or it 500s on Vercel and works locally.
+  outputFileTracingIncludes: {
+    "/w/*/reports/export": ["./src/server/reports/fonts/*.ttf"],
+  },
+
   experimental: {
     // Attachments post through a server action; the default cap is 1 MB.
     serverActions: { bodySizeLimit: "12mb" },

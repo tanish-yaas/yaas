@@ -1,7 +1,7 @@
 import { RRule } from "rrule";
 import { prisma } from "@/lib/prisma";
 import { IST_OFFSET_MS } from "@/lib/dates";
-import { computePriorityScore } from "@/server/services/tasks";
+import { computePriorityScore, defaultStartAt } from "@/server/services/tasks";
 import { APP_CONFIG } from "@/config/app";
 
 export type RecurrenceInput =
@@ -227,6 +227,7 @@ export async function processRecurringTasks(limit = 50, lookaheadMs = 0) {
           description: recurring.description ?? template.description ?? null,
           priority,
           priorityScore: computePriorityScore(priority, dueAt),
+          startAt: defaultStartAt(dueAt),
           dueAt,
           estimatedMinutes: template.estimatedMinutes ?? null,
           status: "TODO",

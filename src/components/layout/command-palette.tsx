@@ -14,6 +14,7 @@ import {
   Settings,
   Users,
   ClipboardList,
+  FileChartColumn,
   Loader2,
 } from "lucide-react";
 import { runSearch } from "@/server/actions/search";
@@ -25,6 +26,7 @@ const NAV = [
   { id: "n1", label: "Dashboard", href: "/", icon: <LayoutDashboard size={14} />, kw: "home overview" },
   { id: "n2", label: "Tasks", href: "/tasks", icon: <CheckSquare size={14} />, kw: "todo work" },
   { id: "n3", label: "Calendar", href: "/calendar", icon: <Calendar size={14} />, kw: "events schedule" },
+  { id: "n9", label: "Reports", href: "/reports", icon: <FileChartColumn size={14} />, kw: "report daily log work sheet timesheet export pdf excel who did what" },
   { id: "n4", label: "Assistant", href: "/assistant", icon: <Sparkles size={14} />, kw: "ai chat ask" },
   { id: "n5", label: "Notifications", href: "/notifications", icon: <Bell size={14} />, kw: "alerts activity" },
   { id: "n8", label: "Deliverables", href: "/deliverables", icon: <ClipboardList size={14} />, kw: "report monthly form videos sheets" },

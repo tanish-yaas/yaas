@@ -3,7 +3,11 @@
 import { prisma } from "@/lib/prisma";
 import { requirePermission, revalidateWorkspace } from "@/server/rbac/guard";
 import { createTaskSchema, statusSchema } from "@/lib/validators/task";
-import { computePriorityScore, canMutateTask } from "@/server/services/tasks";
+import {
+  computePriorityScore,
+  canMutateTask,
+  defaultStartAt,
+} from "@/server/services/tasks";
 import { fromLocalInput } from "@/lib/dates";
 
 function refresh() {
@@ -32,9 +36,11 @@ export async function createTask(formData: FormData) {
   const d = parsed.data;
   const dueAt = fromLocalInput(d.dueAt);
   // A start after its own deadline is not a stretch of work, so it is dropped
-  // rather than stored as a bar running backwards across the calendar.
+  // rather than stored as a bar running backwards across the calendar, and the
+  // task starts when it was made instead, like one given no start at all.
   const rawStart = fromLocalInput(d.startAt);
-  const startAt = rawStart && dueAt && rawStart > dueAt ? null : rawStart;
+  const startAt =
+    rawStart && !(dueAt && rawStart > dueAt) ? rawStart : defaultStartAt(dueAt);
 
   const assigneeIds = d.assigneeIds.length > 0 ? d.assigneeIds : [userId];
 
@@ -190,7 +196,15 @@ export async function updateTask(
         estimatedMinutes:
           estimate !== null && Number.isFinite(estimate) ? estimate : null,
         priorityScore: computePriorityScore(input.priority, dueAt),
-        completedAt: parsedStatus.data === "DONE" ? new Date() : null,
+        // Only a change of status moves completedAt. The detail sheet saves
+        // every field on every edit, so renaming a task done last week used to
+        // re-stamp it as done today, and the report credited it to today.
+        completedAt:
+          parsedStatus.data !== "DONE"
+            ? null
+            : task.status === "DONE"
+              ? (task.completedAt ?? new Date())
+              : new Date(),
       },
     });
 

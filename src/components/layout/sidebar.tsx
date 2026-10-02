@@ -5,6 +5,7 @@ import {
   CheckSquare,
   Calendar,
   ClipboardList,
+  FileChartColumn,
   Users,
   Sparkles,
   Bell,
@@ -25,6 +26,7 @@ export function Sidebar({
   pendingCount,
   todayKey,
   canPush,
+  canReport,
   onToggle,
 }: {
   /** Prefix for every link below. The workspace is in the URL, not in state. */
@@ -38,6 +40,8 @@ export function Sidebar({
   /** Whether this member may run the parser behind the pin's push buttons.
       Also what puts Deliverables in the nav — it is one model call. */
   canPush: boolean;
+  /** report.view_own, which every built-in role has. */
+  canReport: boolean;
   onToggle: () => void;
 }) {
   return (
@@ -64,6 +68,11 @@ export function Sidebar({
         <NavLink href={wsPath(workspaceSlug, "/calendar")} label="Calendar">
           <Calendar size={15} />
         </NavLink>
+        {canReport && (
+          <NavLink href={wsPath(workspaceSlug, "/reports")} label="Reports">
+            <FileChartColumn size={15} />
+          </NavLink>
+        )}
         <NavLink href={wsPath(workspaceSlug, "/assistant")} label="Assistant">
           <Sparkles size={15} />
         </NavLink>

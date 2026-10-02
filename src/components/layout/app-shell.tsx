@@ -19,6 +19,7 @@ export function AppShell({
   pendingCount,
   todayKey,
   canPush,
+  canReport,
   topbar,
   children,
 }: {
@@ -30,6 +31,7 @@ export function AppShell({
   todayKey: string;
   /** Whether this member may run the parser behind the diary's push buttons. */
   canPush: boolean;
+  canReport: boolean;
   topbar: React.ReactNode;
   children: React.ReactNode;
 }) {
@@ -66,6 +68,7 @@ export function AppShell({
             pendingCount={pendingCount}
             todayKey={todayKey}
             canPush={canPush}
+            canReport={canReport}
             onToggle={toggle}
           />
         )}

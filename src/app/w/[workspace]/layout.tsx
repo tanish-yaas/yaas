@@ -124,6 +124,7 @@ export default async function WorkspaceLayout({
       pendingCount={pendingCount}
       todayKey={istTodayKey()}
       canPush={ctx.permissions.has("ai.use")}
+      canReport={ctx.permissions.has("report.view_own")}
       topbar={
         <Suspense fallback={<TopbarFallback />}>
           <TopbarData

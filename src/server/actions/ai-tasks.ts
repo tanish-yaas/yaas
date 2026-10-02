@@ -5,7 +5,7 @@ import { requirePermission, checkRate, revalidateWorkspace } from "@/server/rbac
 import { LIMITS } from "@/lib/rate-limit";
 import { parseTaskInput } from "@/server/services/ai-parser";
 import { transcribeAudio } from "@/server/services/transcribe";
-import { computePriorityScore } from "@/server/services/tasks";
+import { computePriorityScore, defaultStartAt } from "@/server/services/tasks";
 import { fromLocalInput } from "@/lib/dates";
 import type { ParsedTask } from "@/lib/ai/schemas";
 
@@ -120,6 +120,8 @@ export async function applyParsedTask(
     title: string;
     description: string;
     priority: string;
+    /** Left out or empty, the task starts when it is created. */
+    startAt?: string;
     dueAt: string;
     estimatedMinutes: string;
     assigneeIds: string[];
@@ -140,6 +142,11 @@ export async function applyParsedTask(
   if (!record) return { error: "That draft expired" };
 
   const dueAt = fromLocalInput(edited.dueAt);
+  // Same rule as the manual composer: a start after the deadline is dropped,
+  // and a dropped or missing start means the moment the task was made.
+  const rawStart = fromLocalInput(edited.startAt);
+  const startAt =
+    rawStart && !(dueAt && rawStart > dueAt) ? rawStart : defaultStartAt(dueAt);
 
   const estimateRaw = edited.estimatedMinutes
     ? Number(edited.estimatedMinutes)
@@ -179,6 +186,7 @@ export async function applyParsedTask(
         description: edited.description.trim() || null,
         priority: edited.priority as "LOW" | "MEDIUM" | "HIGH" | "URGENT",
         priorityScore: computePriorityScore(edited.priority, dueAt),
+        startAt,
         dueAt,
         estimatedMinutes: estimate,
         status: "TODO",
@@ -219,6 +227,7 @@ export async function applyParsedTask(
           createdById: userId,
           parentTaskId: task.id,
           title: sub,
+          startAt: new Date(),
           status: "TODO" as const,
           priority: "MEDIUM" as const,
           position: i,

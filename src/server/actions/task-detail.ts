@@ -79,6 +79,7 @@ export async function addSubtask(parentTaskId: string, rawTitle: string) {
       parentTaskId,
       teamId: parent.teamId,
       title,
+      startAt: new Date(),
       status: "TODO",
       priority: parent.priority,
       position: siblings,

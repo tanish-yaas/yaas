@@ -50,6 +50,7 @@ export function SmartComposer({
   const [description, setDescription] = useState("");
   const [priority, setPriority] = useState("MEDIUM");
   const [dueAt, setDueAt] = useState("");
+  const [startAt, setStartAt] = useState("");
   const [estimate, setEstimate] = useState("");
   const [assignees, setAssignees] = useState<string[]>([]);
   const [subtasks, setSubtasks] = useState<string[]>([]);
@@ -71,6 +72,8 @@ export function SmartComposer({
     setDescription(p.description ?? "");
     setPriority(p.priority);
     setDueAt(p.dueAt ? toLocalInput(new Date(p.dueAt)) : "");
+    // The task starts when it is made, which is now. Shown so it can be moved.
+    setStartAt(toLocalInput(new Date()));
     setEstimate(p.estimatedMinutes ? String(p.estimatedMinutes) : "");
     setSubtasks(p.subtasks);
 
@@ -180,6 +183,7 @@ export function SmartComposer({
         title,
         description,
         priority,
+        startAt,
         dueAt,
         estimatedMinutes: estimate,
         assigneeIds: assignees,
@@ -333,6 +337,11 @@ export function SmartComposer({
             <option value="HIGH">High</option>
             <option value="URGENT">Urgent</option>
           </select>
+        </div>
+
+        <div>
+          <label className="mb-1.5 block text-[11px] text-faint">Start</label>
+          <DateTimeField value={startAt} onChange={setStartAt} defaultHour={9} />
         </div>
 
         <div>

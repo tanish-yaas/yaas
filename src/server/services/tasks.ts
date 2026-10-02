@@ -25,6 +25,19 @@ export function computePriorityScore(
   return Math.round(score * 10) / 10;
 }
 
+/**
+ * When a task starts if nobody said: the moment it was made, never later than
+ * its own deadline. A task logged after the fact is then a point on the day it
+ * was due rather than a bar running backwards.
+ *
+ * This is the rule the calendar already drew a start-less task by, so storing
+ * it moves no bar. What it adds is a start date you can see and edit on the
+ * task, and one the reports can count from.
+ */
+export function defaultStartAt(dueAt: Date | null, now = new Date()): Date {
+  return dueAt && dueAt < now ? dueAt : now;
+}
+
 export async function buildTaskScope(
   orgId: string,
   userId: string,

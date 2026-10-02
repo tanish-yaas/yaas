@@ -62,4 +62,7 @@ export const LIMITS = {
   // deliberate mutation — a debounced page still lands a few times a minute.
   diarySave: { limit: 180, window: 60 },
   webhook: { limit: 120, window: 60 },
+  // A report export reads a whole range and renders a file. Plenty for
+  // trying a few filters; not enough to scrape the workspace in a loop.
+  reportExport: { limit: 12, window: 60 },
 } as const;

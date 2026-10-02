@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { inboundWorkspaceFor } from "@/server/workspace/provision";
 import { getWhatsAppProvider } from "@/lib/whatsapp/provider";
 import { parseTaskInput } from "@/server/services/ai-parser";
-import { computePriorityScore } from "@/server/services/tasks";
+import { computePriorityScore, defaultStartAt } from "@/server/services/tasks";
 
 export type InboundMessage = {
   waMessageId: string;
@@ -205,6 +205,7 @@ export async function handleInbound(message: InboundMessage) {
         description: p.description || null,
         priority: p.priority,
         priorityScore: computePriorityScore(p.priority, validDue),
+        startAt: defaultStartAt(validDue),
         dueAt: validDue,
         estimatedMinutes: p.estimatedMinutes ?? null,
         status: "TODO",
